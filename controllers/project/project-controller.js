@@ -1,0 +1,1497 @@
+const mongoose = require("mongoose");
+const Project = require("../../models/project/project-model");
+const User = require("../../models/user/user-model");
+const uuidv4 = require("uuid/v4");
+const jwt = require("jsonwebtoken");
+const secret = require("../../config/secret");
+const audit = require("../audit-log/audit-log-controller");
+const AuditLogs = require("../../models/auditlog/audit-log-model");
+const ProjectStatus = require("../../models/project/project-status-model");
+const ProjectStage = require("../../models/project-stages/project-stages-model");
+
+const {
+  CustomTaskField,
+} = require("../../models/project/custom-task-field-model");
+const ProjectTypes = require("../../models/project/project-type-model");
+const { fromPromise } = require("rxjs/observable/fromPromise");
+const { forkJoin } = require("rxjs/observable/forkJoin");
+const { ObjectId } = require("mongodb");
+const { logError, logInfo } = require("../../common/logger");
+const FavoriteProject = require("../../models/project/favorite-project-model");
+const accessConfig = require("../../common/validate-entitlements");
+const access = require("../../check-entitlements");
+const sortData = require("../../common/common");
+const { request } = require("express");
+const Task = require("../../models/task/task-model");
+const errors = {
+  PROJECT_DOESNT_EXIST: "Project does not exist",
+  ADD_PROJECT_ERROR: "Error occurred while adding the project",
+  EDIT_PROJECT_ERROR: "Error occurred while updating the project",
+  DELETE_PROJECT_ERROR: "Error occurred while deleting the project",
+  SEARCH_PARAM_MISSING: "Please input required parameters for search",
+  SERVER_ERROR: "Opps, something went wrong. Please try again.",
+  NOT_AUTHORIZED: "Your are not authorized",
+};
+
+exports.getAuditLog = (req, res) => {
+  // let userRole = req.userInfo.userRole.toLowerCase();
+  // let accessCheck = access.checkEntitlements(userRole);
+  // let userAccess = req.userInfo.userAccess;
+  // viewAuditLog = accessConfig.validateEntitlements(
+  //   userAccess,
+  //   req.body.id,
+  //   "Audit Report",
+  //   "view",
+  //   userRole
+  // );
+  // if (accessCheck === false && !viewAuditLog) {
+  //   res.json({ err: errors.NOT_AUTHORIZED });
+  //   return;
+  // }
+  try {
+    let auditObservable = fromPromise(
+      AuditLogs.find({
+        projectId: req.body.id,
+      })
+    );
+    let projectObservable = fromPromise(
+      Project.findOne({
+        _id: req.body.id,
+      })
+    );
+    let observable = forkJoin(auditObservable, projectObservable);
+    observable.subscribe(
+      (data) => {
+        let projectName = data[1].title;
+        res.json({
+          result: data[0],
+          msg: projectName,
+        });
+      },
+      (err) => {
+        res
+          .status(200)
+          .json({ success: false, msg: `Something went wrong. ${err}` });
+        console.log(err);
+      }
+    );
+  } catch (e) {
+    console.log(e);
+    res
+      .status(500)
+      .json({ success: false, msg: `Something went wrong. ${err}` });
+  }
+};
+
+exports.getAuditLogForProject = async (req, res) => {
+  try {
+    const { projectId, pagination = { page: 1, limit: 10 } } = req.body;
+
+    console.log("audit req body", req.body);
+
+    console.log("Fetching audit log for project ID:", projectId);
+
+    // Step 1: Fetch total count of audit logs for the specified project
+    const totalCount = await AuditLogs.countDocuments({
+      projectId,
+    });
+
+    // Step 2: Implement pagination logic
+    const { page, limit: rawLimit } = pagination;
+    const limit = parseInt(rawLimit, 10);
+    const skip = (page - 1) * limit;
+
+    // Step 3: Fetch audit log entries for the specified project with pagination
+    const auditLogs = await AuditLogs.find(
+      { projectId },
+      {
+        tableName: 1,
+        name: 1,
+        fieldName: 1,
+        oldValue: 1,
+        newValue: 1,
+        updatedBy: 1,
+        updatedOn: 1,
+      }
+    )
+      .sort({ updatedOn: -1 }) // Sort by date, newest first
+      .skip(skip)
+      .limit(limit);
+
+    // Check if audit logs were found
+    if (auditLogs.length === 0) {
+      return res.status(404).json({
+        success: true,
+        data: [],
+        totalCount,
+        page,
+        totalPages: 0,
+      });
+    }
+
+    // Step 4: Fetch project name for the response
+    const project = await Project.findById(projectId, { title: 1 });
+
+    // Step 5: Calculate total pages
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Step 6: Return the result with audit log and project details
+    return res.status(200).json({
+      success: true,
+      data: auditLogs,
+      projectName: project ? project.title : "Unknown Project",
+      totalCount,
+      page,
+      totalPages,
+    });
+  } catch (error) {
+    console.error("Error fetching audit log:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load audit log.",
+      message: error.message,
+    });
+  }
+};
+
+exports.getStatusOptions = (req, res) => {
+  try {
+    ProjectStatus.find({}) //.sort({displayName:1})
+      .then((result) => {
+        sortData.sort(result, "displayName");
+        res.json(result);
+      })
+      .catch((err) => {
+        res.json({
+          err: err,
+        });
+      });
+  } catch (err) {
+    logError("err getStatusOptions", err);
+  }
+};
+
+exports.getProjectByProjectId = (req, res) => {
+  // logInfo(req.body, "getProjectByProjectId req.body");
+  // console.log(req.params)/
+  Project.findById({
+    _id: new mongoose.Types.ObjectId(req.params.projectId),
+  }).then(
+    (result) => {
+      // console.log(result)
+      let messages = result.messages.filter((r) => {
+        return r.isDeleted === false;
+      });
+      let uploadFiles = result.uploadFiles.filter((r) => {
+        return r.isDeleted === false;
+      });
+      let data = {
+        _id: result._id,
+        title: result.title,
+        description: result.description,
+        startdate: result.startdate,
+        enddate: result.enddate,
+        status: result.status,
+        taskStages: result.taskStages,
+        projectStageId: result.projectStageId,
+        group: result.group,
+        userid: result.userid,
+        companyId: result.companyId,
+        userGroups: result.userGroups,
+        sendnotification: result.sendnotification,
+        createdBy: result.createdBy,
+        createdOn: result.createdOn,
+        modifiedBy: result.modifiedBy,
+        modifiedOn: result.modifiedOn,
+        isDeleted: result.isDeleted,
+        projectUsers: result.projectUsers,
+        notifyUsers: result.notifyUsers,
+        miscellaneous: result.miscellaneous,
+        archive: result.archive,
+        customFieldValues: result.customFieldValues,
+        projectTypeId: result.projectTypeId,
+        tag: result.tag
+      };
+      // logInfo("getProjectByProjectId before return response");
+      res.json({
+        data: data,
+        messages: messages,
+        uploadFiles: uploadFiles,
+      });
+    },
+    (err) => {
+      logError("getProjectByProjectId err ", err);
+      res.json(err);
+    }
+  );
+};
+
+//Get Project With Task
+exports.getProjectDataByProjectId = (req, res) => {
+  logInfo(req.body, "getProjectDataByProjectId req.body");
+
+  Project.findById(req.params.projectId)
+    .then((result) => {
+      let data = {
+        _id: result._id,
+        title: result.title,
+        description: result.description,
+        startdate: result.startdate,
+        enddate: result.enddate,
+        status: result.status,
+        projectStageId: result.projectStageId,
+        taskStages: result.taskStages,
+        group: result.group,
+        userid: result.userid,
+        companyId: result.companyId,
+        userGroups: result.userGroups,
+        sendnotification: result.sendnotification,
+        createdBy: result.createdBy,
+        createdOn: result.createdOn,
+        modifiedBy: result.modifiedBy,
+        modifiedOn: result.modifiedOn,
+        isDeleted: result.isDeleted,
+        projectUsers: result.projectUsers,
+        notifyUsers: result.notifyUsers,
+        miscellaneous: result.miscellaneous,
+        archive: result.archive,
+        customFieldValues: result.customFieldValues,
+        projectTypeId: result.projectTypeId,
+      };
+
+      logInfo("getProjectDataByProjectId end");
+      res.json({
+        data: data,
+      });
+    })
+    .catch((err) => {
+      logError("getProjectDataByProjectId err", err);
+      res.json(err);
+    });
+};
+
+// CREATE
+exports.createProject = (req, res) => {
+  // console.log("req.body", req.body);
+
+  logInfo(req.body, "createProject req.body");
+  let userName = req.body.userName;
+
+  let newProject = new Project({
+    _id: req.body._id,
+    title: req.body.title,
+    description: req.body.description,
+    startdate: req.body.startdate,
+    enddate: req.body.enddate,
+    projectStageId: req.body.projectStageId,
+    status: req.body.status,
+    taskStages: req.body.taskStages?.map((taskStageTitle) => taskStageTitle),
+    notifyUsers: req.body.notifyUsers?.map((userId) => userId),
+    projectUsers: req.body.projectUsers?.map((userId) => userId),
+    tag: req.body.tag,
+    userid: req.body.userid,
+    // group:  req.body.group?.map((groupId) =>  groupId),
+    companyId: req.body.companyId,
+    userGroups: req.body.userGroups,
+    sendnotification: req.body.sendnotification,
+    createdBy: req.body.createdBy,
+    createdOn: new Date(),
+    modifiedBy: req.body.modifiedBy,
+    modifiedOn: new Date(),
+    isDeleted: req.body.isDeleted,
+    miscellaneous: req.body.miscellaneous,
+    archive: req.body.archive,
+    customFieldValues: req.body.customFieldValues,
+    projectTypeId: req.body.projectTypeId,
+    group: req.body.group
+  });
+
+  console.log(newProject);
+
+  newProject
+    .save()
+    .then((result) => {
+      // console.log("after saving", result);
+      logInfo(result, "createProject result");
+      let userIdToken = req.body.userName;
+      let fields = [];
+      var res1 = Object.assign({}, result);
+      for (let keys in res1._doc) {
+        if (
+          keys !== "createdBy" &&
+          keys !== "createdOn" &&
+          keys !== "modifiedBy" &&
+          keys !== "modifiedOn" &&
+          keys !== "_id" &&
+          keys !== "tasks"
+        ) {
+          fields.push(keys);
+        }
+      }
+
+      fields.filter((field) => {
+        if (
+          result[field] !== undefined &&
+          result[field] !== null &&
+          result[field].length !== 0 &&
+          result[field] !== ""
+        ) {
+          if (field === "userid") {
+            audit.insertAuditLog(
+              "",
+              result.title,
+              "Project",
+              field,
+              userName,
+              userIdToken,
+              result._id
+            );
+          } else if (field === "projectUsers") {
+            result[field].map((p) => {
+              audit.insertAuditLog(
+                "",
+                result.title,
+                "Project",
+                field,
+                p.name,
+                userIdToken,
+                result._id
+              );
+            });
+          } else if (field === "notifyUsers") {
+            result[field].map((n) => {
+              audit.insertAuditLog(
+                "",
+                result.title,
+                "Project",
+                field,
+                n.name,
+                userIdToken,
+                result._id
+              );
+            });
+          } else if (field === "userGroups") {
+            // console.log("result[field]",result[field]);
+            result[field].map((n) => {
+              audit.insertAuditLog(
+                "",
+                result.title,
+                "Project",
+                field,
+                n.groupName,
+                userIdToken,
+                result._id
+              );
+            });
+            // audit.insertAuditLog('', result.title, 'Project', field, result[field], userIdToken, result._id);
+          } else {
+            audit.insertAuditLog(
+              "",
+              result.title,
+              "Project",
+              field,
+              result[field],
+              userIdToken,
+              result._id
+            );
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        msg: `Successfully added!`,
+      });
+    })
+    .catch((err) => {
+      console.log("CREATE_PROJECT ERROR", err);
+      if (err.errors) {
+        // Show failed if all else fails for some reasons
+        console.log(err);
+        res.json({
+          err: errors.ADD_PROJECT_ERROR,
+        });
+      }
+    });
+};
+
+// Directly export the createProject function
+
+// UPDATE
+exports.updateProject = (req, res) => {
+  // console.log("req.body updated",req.body);
+  logInfo(req.body, "updateProject req.body");
+  try {
+    let userName = req.body.userName;
+
+    //Add all group members to projectUsers if they are not already present
+
+    console.log(req.body.category);
+
+    let updatedProject = {
+      _id: req.body._id,
+      title: req.body.title,
+      description: req.body.description,
+      startdate: req.body.startdate,
+      enddate: req.body.enddate,
+      projectStageId: req.body.projectStageId,
+      status: req.body.status,
+      taskStages: taskStages?.map((taskStageTitle) => taskStageTitle),
+      notifyUsers: notifyUsers?.map((userId) => userId),
+      projectUsers: projectUsers?.map((userId) => userId),
+      userid: req.body.userid,
+      group: group?.map((groupId) => groupId),
+      companyId: req.body.companyId,
+      userGroups: req.body.userGroups,
+      sendnotification: req.body.sendnotification,
+      createdBy: req.body.createdBy,
+      createdOn: new Date(),
+      tag: req.body.tag,
+      modifiedBy: req.body.modifiedBy,
+      modifiedOn: new Date(),
+      isDeleted: req.body.isDeleted,
+      miscellaneous: req.body.miscellaneous,
+      archive: req.body.archive,
+      customFieldValues: req.body.customFieldValues,
+      projectTypeId: req.body.projectTypeId,
+    };
+
+    let projectUpdate = () => {
+      Project.findOneAndUpdate(
+        {
+          _id: updatedProject._id,
+        },
+        updatedProject,
+        {
+          context: "query",
+        }
+      ).then((oldResult) => {
+        Project.findOne({
+          _id: updatedProject._id,
+        })
+          .then((newResult) => {
+            logInfo(newResult, "updateProject newResult");
+            let userIdToken = req.body.userName;
+            let fields = [];
+            var res1 = Object.assign({}, oldResult);
+            for (let keys in res1._doc) {
+              if (
+                keys !== "createdBy" &&
+                keys !== "createdOn" &&
+                keys !== "modifiedBy" &&
+                keys !== "modifiedOn" &&
+                keys !== "_id" &&
+                keys !== "messages" &&
+                keys !== "uploadFiles" &&
+                keys !== "tasks"
+              ) {
+                fields.push(keys);
+              }
+            }
+
+            fields.filter((field) => {
+              if (oldResult[field] !== newResult[field]) {
+                if (
+                  oldResult[field].length !== 0 ||
+                  newResult[field].length !== 0
+                ) {
+                  if (field === "userid") {
+                    User.find({
+                      id: oldResult[field],
+                    }).then((result) => {
+                      let oldOwner = result[0].name;
+                      audit.insertAuditLog(
+                        oldOwner,
+                        newResult.title,
+                        "Project",
+                        field,
+                        userName,
+                        userIdToken,
+                        newResult._id
+                      );
+                    });
+                  } else if (field === "projectUsers") {
+                    let oldProjectUsers = oldResult[field].map((o) => {
+                      return o.name;
+                    });
+                    let newProjectUsers = newResult[field].map((n) => {
+                      return n.name;
+                    });
+                    if (oldProjectUsers.length !== newProjectUsers.length) {
+                      audit.insertAuditLog(
+                        oldProjectUsers.join(","),
+                        newResult.title,
+                        "Project",
+                        field,
+                        newProjectUsers.join(","),
+                        userIdToken,
+                        newResult._id
+                      );
+                    }
+                  } else if (field === "notifyUsers") {
+                    let oldNotifyUsers = oldResult[field].map((o) => {
+                      return o.name;
+                    });
+                    let newNotifyUsers = newResult[field].map((n) => {
+                      return n.name;
+                    });
+                    if (oldNotifyUsers.length !== newNotifyUsers.length) {
+                      audit.insertAuditLog(
+                        oldNotifyUsers.join(","),
+                        newResult.title,
+                        "Project",
+                        field,
+                        newNotifyUsers.join(","),
+                        userIdToken,
+                        newResult._id
+                      );
+                    }
+                  } else if (field === "userGroups") {
+                    let oldUserGroups = oldResult[field].map((o) => {
+                      return o.groupName;
+                    });
+                    let newUserGroups = newResult[field].map((n) => {
+                      return n.groupName;
+                    });
+                    if (oldUserGroups.length !== newUserGroups.length) {
+                      audit.insertAuditLog(
+                        oldUserGroups.join(","),
+                        newResult.title,
+                        "Project",
+                        field,
+                        newUserGroups.join(","),
+                        userIdToken,
+                        newResult._id
+                      );
+                    }
+                  } else {
+                    audit.insertAuditLog(
+                      oldResult[field],
+                      newResult.title,
+                      "Project",
+                      field,
+                      newResult[field],
+                      userIdToken,
+                      newResult._id
+                    );
+                  }
+                }
+              }
+            });
+            res.json({
+              success: true,
+              msg: `Successfully updated!`,
+            });
+          })
+          .catch((err) => {
+            logError(
+              errors.EDIT_PROJECT_ERROR,
+              "updateProject errors.EDIT_PROJECT_ERROR"
+            );
+            res.json({
+              err: errors.EDIT_PROJECT_ERROR,
+            });
+            return;
+          });
+      });
+    };
+
+    if (req.body.status === "completed") {
+      Project.find({
+        _id: req.body.id,
+      }).then((result) => {
+        if (result[0].tasks.length > 0) {
+          let tasks = result[0].tasks.filter((t) => {
+            return t.isDeleted === false;
+          });
+          let taskData =
+            tasks.length > 0 &&
+            tasks.filter((t) => {
+              return t.category !== "completed" || t.status !== "completed";
+            });
+          if (taskData.length > 0) {
+            res.json({
+              success: true,
+              msgErr: `You do not have permission to complete the project until all tasks are completed!`,
+            });
+          } else {
+            projectUpdate();
+          }
+        }
+      });
+    } else {
+      projectUpdate();
+    }
+  } catch (e) {
+    logError(e, "updateProject error");
+  }
+};
+
+exports.updateProjectField = (req, res) => {
+  logInfo("updateProjectField");
+  logInfo(req.body, "req.body in update fields");
+  let updatedProject = new Project({
+    _id: req.body._id,
+    title: req.body.title,
+    description: req.body.description,
+    startdate: req.body.startdate,
+    enddate: req.body.enddate,
+    status: req.body.status,
+    projectStageId: req.body.projectStageId,
+    userid: req.body.userid,
+    group: req.body.group,
+    companyId: req.body.companyId,
+    userGroups: req.body.userGroups,
+    
+    createdBy: req.body.createdBy,
+    createdOn: req.body.createdOn,
+    modifiedBy: req.body.modifiedBy,
+    modifiedOn: req.body.modifiedOn,
+    isDeleted: req.body.isDeleted,
+    taskStages: req.body.taskStages,
+    projectUsers: req.body.projectUsers,
+    notifyUsers: req.body.notifyUsers,
+    miscellaneous: req.body.miscellaneous,
+    sendnotification: req.body.sendnotification,
+    archive: req.body.archive,
+    projectTypeId: req.body.projectTypeId,
+    customFieldValues: req.body.customFieldValues,
+    tag: req.body.tag
+  });
+  Project.findOneAndUpdate(
+    {
+      _id: req.body._id,
+    },
+    updatedProject
+  )
+    .then((oldResult) => {
+      Project.find({
+        _id: req.body._id,
+      }).then((newResult) => {
+        logInfo("updateProjectField");
+        res.json({
+          success: true,
+          msg: "Updated Successfully",
+        });
+      });
+    })
+    .catch((err) => {
+      logError("updateProjectField err", err);
+      // console.log("err",err);
+    });
+};
+
+exports.updateProjectCategory = (req, res) => {
+  let userRole = req.userInfo.userRole.toLowerCase();
+  let accessCheck = access.checkEntitlements(userRole);
+  if (accessCheck === false) {
+    res.json({ err: errors.NOT_AUTHORIZED });
+    return;
+  }
+  logInfo(req.body, "updateProjectCategory req.body");
+  let updatedProject = req.body;
+  Project.findOneAndUpdate(
+    {
+      _id: updatedProject._id,
+    },
+    updatedProject
+  )
+    .then((oldResult) => {
+      Project.findOne({
+        _id: updatedProject._id,
+      }).then((newResult) => {
+        logInfo("updateProjectCategory");
+        res.json({
+          msg: "Updated Successfully",
+        });
+      });
+    })
+    .catch((err) => {
+      logError("updateProjectCategory err", err);
+    });
+};
+
+exports.deleteProject = (req, res) => {
+  logInfo(req.body.id, "deleteProject req.body");
+
+  Project.findOneAndUpdate(
+    {
+      _id: req.body.id,
+    },
+    {
+      $set: {
+        isDeleted: true,
+        customFieldValues: {},
+      },
+    },
+    {
+      new: true,
+    }
+  ).then(async (result) => {
+    let field = "isDeleted";
+
+    await Task.updateMany({
+      projectId: req.body.id
+    }, {
+      isDeleted: true
+    })
+    // let userIdToken = req.userInfo.userName;
+    // audit.insertAuditLog(
+    //   "false",
+    //   result.title,
+    //   "Project",
+    //   field,
+    //   result[field],
+    //   userIdToken,
+    //   result._id
+    // );
+
+    // Delete custom task fields associated with the project
+    CustomTaskField.deleteMany({
+      projectId: req.body.id,
+    }).then(() => {
+      FavoriteProject.deleteOne({
+        projectId: req.body.id,
+      })
+        .then(() => {
+          logInfo("deleteProject FavoriteProject result");
+          res.json({
+            msg: "Project deleted successfully!",
+          });
+        })
+        .catch((err) => {
+          logError("deleteProject FavoriteProject err", err);
+          res.json(err);
+        });
+    });
+  });
+};
+
+// READ (ALL)
+exports.getTasksAndUsers = (req, res) => {
+  let userRole = req.userInfo.userRole.toLowerCase();
+  let accessCheck = access.checkEntitlementsForUserRole(userRole);
+  if (accessCheck === false) {
+    res.json({ err: errors.NOT_AUTHORIZED });
+    return;
+  }
+  logInfo("getTasksAndUsers");
+  logInfo(req.params.projectId, "req.params.projectId");
+  Project.findById(req.params.projectId)
+    .then((result) => {
+      logInfo("result getTasksAndUsers users");
+      logInfo("result getTasksAndUsers tasks");
+      let tasks = [];
+
+      // if(result.length>0){
+      tasks = result.tasks.filter((t) => {
+        return t.isDeleted === false;
+      });
+      let projectUsers =
+        result.projectUsers &&
+        result.projectUsers.filter((u) => {
+          return u.name !== undefined && u.name !== null && u.name !== "";
+        });
+
+      // }
+      res.json({
+        users: projectUsers,
+        tasks: tasks,
+        title: result.title,
+      });
+    })
+    .catch((err) => {
+      logError("getTasksAndUsers err", err);
+      res.json({
+        err: `${err}`,
+      });
+    });
+};
+
+exports.getAllProjectsSummary = (req, res) => {
+  try {
+    let selectedUserId = req.body.userId;
+    let selectedUserRole = req.body.userRole;
+    let selectedProjectId = req.body.projectId;
+    let showArchive = req.body.archive;
+
+    logInfo("getAllProjectsSummary");
+    logInfo(req.userInfo, "getAllProjectsSummary userInfo=");
+
+    let userRole = req.userInfo.userRole.toLowerCase();
+    let userId = req.userInfo.userId;
+
+    if (!userRole) {
+      res.json({
+        err: errors.NOT_AUTHORIZED,
+      });
+      return;
+    }
+    let projects = [];
+    let condition = {};
+    let projectFields = {
+      $project: {
+        _id: 1,
+        title: 1,
+        description: 1,
+        startdate: 1,
+        enddate: 1,
+        userid: 1,
+        status: 1,
+        projectUsers: 1,
+        notifyUsers: 1,
+        uploadFiles: 1,
+        group: 1,
+        miscellaneous: 1,
+        companyId: 1,
+        archive: 1,
+        "tasks.status": 1,
+        "tasks.completed": 1,
+        "tasks.category": 1,
+        "tasks.isDeleted": 1,
+        "tasks.userId": 1,
+        "tasks.endDate": 1,
+      },
+    };
+    let projectCondition = "";
+    let taskFilterCondition = {
+      $match: condition,
+    };
+    let userCondition = {
+      isDeleted: false,
+      // archive: false
+    };
+    if (showArchive === false) {
+      userCondition["archive"] = false;
+    }
+    if (selectedProjectId) {
+      userCondition["_id"] = ObjectId(selectedProjectId);
+    }
+    if (selectedUserId) {
+      if (userRole === "admin" || userRole === "owner") {
+        if (selectedUserRole === "owner" || selectedUserRole === "admin") {
+          userCondition.$and = [
+            {
+              $or: [
+                {
+                  userid: selectedUserId,
+                },
+                {
+                  "projectUsers.userId": selectedUserId,
+                },
+              ],
+            },
+            { $or: [{ miscellaneous: null }, { miscellaneous: false }] },
+          ];
+        } else {
+          userCondition = {
+            isDeleted: false,
+            $or: [{ miscellaneous: null }, { miscellaneous: false }],
+            "projectUsers.userId": selectedUserId,
+          };
+        }
+      } else {
+        res.json({
+          err: errors.NOT_AUTHORIZED,
+        });
+        return;
+      }
+    } else {
+      if (userRole !== "admin") {
+        if (userRole === "owner") {
+          userCondition.$or = [
+            {
+              userid: userId,
+            },
+            {
+              "projectUsers.userId": userId,
+            },
+          ];
+        } else {
+          userCondition = {
+            isDeleted: false,
+            "projectUsers.userId": userId,
+          };
+        }
+      }
+    }
+
+    let projectCond = {
+      $match: userCondition,
+    };
+    logInfo(
+      [projectCond, projectFields],
+      "getAllProjectsSummary filtercondition"
+    );
+    Project.aggregate([projectCond, projectFields]) //.sort({title:1})
+      .then((result) => {
+        let userIds = [];
+
+        let date = dateUtil.DateToString(new Date().toISOString());
+        // let onHoldTaskArray=[], overDueTaskArray=[];
+        let projects = result.map((p) => {
+          p.totalTasks = 0;
+          p.completedTasks = 0;
+          p.inProgressTasks = 0;
+          p.activeTasks = 0;
+          p.overDueTasks = 0;
+          p.onHoldTasks = 0;
+          p.incompleteTasks = 0;
+          onHoldTaskArray = [];
+          overDueTaskArray = [];
+          incompletetaskArray = [];
+          p.totalProjectUser = 0;
+
+          p.projectUsers = p.projectUsers.filter(
+            (p) => p.name !== undefined && p.name !== null
+          );
+
+          p.totalProjectUser = p.projectUsers.length;
+
+          for (let j = 0; j < p.projectUsers.length; j++) {
+            userIds.push(p.projectUsers[j].userId);
+          }
+
+          let attachments = p.uploadFiles.filter((u) => u.isDeleted === false);
+          p.attachments = attachments.length;
+          if (p.tasks && Array.isArray(p.tasks)) {
+            p.tasks = p.tasks.filter((t) => {
+              if (userRole === "user") {
+                return t.isDeleted === false && t.userId === userId;
+              } else {
+                return t.isDeleted === false;
+              }
+            });
+            p.totalTasks = p.tasks.length;
+            for (let i = 0; i < p.tasks.length; i++) {
+              if (
+                p.tasks[i].endDate !== undefined &&
+                p.tasks[i].endDate !== null &&
+                p.tasks[i].endDate !== ""
+              ) {
+                if (
+                  dateUtil.DateToString(p.tasks[i].endDate) < date &&
+                  p.tasks[i].status !== "completed"
+                ) {
+                  overDueTaskArray.push(p.tasks[i]);
+                }
+              }
+              if (p.tasks[i].status === "onHold") {
+                onHoldTaskArray.push(p.tasks[i]);
+              }
+              if (p.tasks[i].status === "inprogress") {
+                incompletetaskArray.push(p.tasks[i]);
+              }
+            }
+            p.overDueTasks = overDueTaskArray.length;
+
+            p.onHoldTasks = onHoldTaskArray.length;
+
+            p.incompleteTasks = incompletetaskArray.length;
+
+            p.tasks.map((t) => {
+              if (t.completed) {
+                p.completedTasks++;
+              } else if (t.category === "inprogress") {
+                p.inProgressTasks++;
+                if (selectedUserId) {
+                  if (t.userId === selectedUserId) p.activeTasks++;
+                }
+              }
+              return t;
+            });
+
+            p.tasks = [];
+          }
+          return p;
+        });
+        let projUsers = [];
+
+        if (userIds.length > 0) {
+          for (let i = 0; i < userIds.length; i++) {
+            if (!projUsers.includes(userIds[i].toString())) {
+              projUsers.push(userIds[i].toString());
+            }
+          }
+        }
+
+        let totalProjectUser = projUsers.length;
+
+        logInfo("getAllProjectsSummary projects");
+        var result1 = sortData.sort(projects, "title");
+        res.json({
+          success: true,
+          data: projects,
+          count: userRole === "user" ? 1 : totalProjectUser,
+        });
+      })
+      .catch((err) => {
+        logError(err, "getAllProjectsSummary err");
+        res.json({
+          err: errors.SERVER_ERROR,
+        });
+      });
+  } catch (e) {
+    logError("e getAllProjectsSummary", e);
+  }
+};
+
+exports.getAllProjectsId = async (req, res) => {
+  try {
+    const projects = await Project.find({ isDeleted: false });
+    return res.json({
+      projects: projects,
+    });
+  } catch (e) {
+    return res.json({
+      message: e.message,
+    });
+  }
+};
+
+exports.getProjectData = (req, res) => {
+  try {
+    Project.find(
+      { isDeleted: false, status: "inprogress" },
+      { _id: 1, title: 1 }
+    ).then((result) => {
+      res.json(result);
+    });
+  } catch (e) {
+    logError("getProjectData", e);
+  }
+};
+
+exports.getProjectDataForCompany = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+
+    if (!companyId) {
+      return res.status(400).json({
+        message: "Company ID is required.",
+      });
+    }
+
+    // Find projects where companyId matches and is not deleted
+    const projects = await Project.find({
+      companyId: companyId,
+      isDeleted: false,
+    });
+
+    // If no projects found, send a response indicating that
+    if (projects.length === 0) {
+      return res.status(404).json({
+        message: "No projects found for the given company.",
+      });
+    }
+
+    return res.json({
+      projects: projects,
+    });
+  } catch (e) {
+    return res.status(500).json({
+      message: e.message,
+    });
+  }
+};
+
+exports.addProjectUsers = (req, res) => {
+  // console.log("req.body", req.body);
+  try {
+    Project.findOneAndUpdate(
+      { _id: req.body.projectId },
+      { $set: { projectUsers: req.body.projectUsers } }
+    )
+      .then((result) => {
+        // console.log("result", result);
+        res.json({ msg: "Successfully added" });
+      })
+      .catch((err) => {
+        // console.log("err addProjectUsers", err);
+        logError("addProjectUsers err", err);
+      });
+  } catch (err) {
+    // console.log("err", err);
+    logError("addProjectUsers err", err);
+  }
+};
+
+// console.log('getUserProject out')
+exports.getUserProject = (req, res) => {
+  try {
+    Project.find(
+      {
+        isDeleted: false,
+        // 'status': { $ne: 'onHold' }
+        archive: false,
+
+        // miscellaneous: false
+      },
+      {
+        _id: 1,
+        title: 1,
+        status: 1,
+        projectUsers: 1,
+      }
+    ).then((result) => {
+      res.json(result);
+    });
+  } catch (e) {
+    // console.log('getUserProject', e)
+    logError("getUserProject", e);
+  }
+};
+
+exports.archiveProject = async (req, res) => {
+  console.log("in archive");
+
+  try {
+    logInfo(req.body, "archiveProject req.body");
+    const projectId = req.body.projectId;
+    const isArchived = (
+      await Project.findOne({
+        _id: projectId,
+      })
+    ).archive;
+
+    if (isArchived) {
+      await Project.findOneAndUpdate(
+        {
+          _id: projectId,
+        },
+        {
+          $set: {
+            archive: false,
+          },
+        }
+      );
+    } else {
+      await Project.findOneAndUpdate(
+        {
+          _id: projectId,
+        },
+        {
+          $set: {
+            archive: true,
+          },
+        }
+      );
+    }
+
+    return res.json({ success: true, message: "toggle archive" });
+  } catch (e) {
+    return res.json({ success: false, message: e });
+  }
+};
+
+// customfields for tasks for specific projects
+
+// POST request handler to add a custom field
+exports.addCustomTaskField = async (req, res) => {
+  try {
+    console.log(req.body);
+    const { key, label, type, projectId, level, isMandatory } = req.body;
+
+    // Check for required fields
+    if (!key || !label || !type || !level) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Check for unique key
+    const existingField = await CustomTaskField.findOne({
+      key,
+      projectId,
+      level,
+    });
+    if (existingField) {
+      return res.status(409).json({ message: "Key already exists" });
+    }
+
+    // Create a new custom field
+    const newField = new CustomTaskField({
+      key,
+      label,
+      type,
+      projectId,
+      level,
+      isMandatory,
+    });
+
+    // Save the custom field
+    await newField.save();
+
+    res
+      .status(201)
+      .json({ message: "Custom field created successfully", data: newField });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getCustomTasksField = async (req, res) => {
+  try {
+    // console.log("in request");
+    const projectId = req.params.projectId;
+
+    const level = req.query.level;
+
+    let condition = projectId == "all" ? {} : { projectId: projectId };
+
+    if (level) {
+      condition.level = level;
+    }
+
+    let customTasksField = await CustomTaskField.find(condition).populate(
+      "projectId"
+    );
+
+    return res.json({
+      customTasksField,
+    });
+  } catch (e) {
+    return res.json({
+      error: e,
+    });
+  }
+};
+
+exports.getCustomTaskField = async (req, res) => {
+  try {
+    // console.log("in request");
+    const customFieldId = req.params.customFieldId;
+
+    const customTaskField = await CustomTaskField.findById(customFieldId);
+    // console.log(customTaskField);
+
+    return res.json({
+      customTaskField,
+    });
+  } catch (e) {
+    return res.json({
+      error: e,
+    });
+  }
+};
+
+exports.updateCustomTaskField = async (req, res) => {
+  try {
+    const { key, label, type, level, isMandatory } = req.body;
+    const customFieldId = req.params.customFieldId;
+
+    // Check for required fields (excluding project ID as it shouldn't be updated)
+    if (!key || !label || !type || !level) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Find the custom field by ID
+    const existingField = await CustomTaskField.findById(
+      customFieldId
+    ).populate("projectId");
+
+    if (!existingField) {
+      return res.status(404).json({ message: "Custom field not found" });
+    }
+
+    // Ensure unique key if it has changed
+    if (existingField.key !== key) {
+      const duplicateField = await CustomTaskField.findOne({ key });
+      if (duplicateField) {
+        return res.status(409).json({ message: "Key already exists" });
+      }
+    }
+
+    // Update the existing field data
+    existingField.key = key;
+    existingField.label = label;
+    existingField.type = type;
+    existingField.level = level;
+    existingField.isMandatory = isMandatory;
+
+    // Save the updated field
+    await existingField.save();
+
+    res.status(200).json({
+      message: "Custom field updated successfully",
+      data: existingField,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.deleteCustomTaskField = async (req, res) => {
+  // console.log("delete.......")
+  try {
+    const customFieldId = req.params.customFieldId;
+    const existingField = await CustomTaskField.findByIdAndDelete(
+      customFieldId
+    );
+    if (!existingField) {
+      return res.status(404).json({ message: "Custom field not found" });
+    }
+
+    res.status(200).json({ message: "Custom field deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Project Type
+
+exports.createProjectType = async (req, res) => {
+  const { type } = req.body;
+
+  try {
+    // Check if the type already exists
+    const existingType = await ProjectTypes.findOne({ type });
+    if (existingType) {
+      return res.status(409).json({ message: "Project type already exists" });
+    }
+
+    // Create new project type
+    const newProjectType = new ProjectTypes({ type });
+    await newProjectType.save();
+
+    res.status(201).json({
+      message: "Project type created successfully",
+      data: newProjectType,
+    });
+  } catch (error) {
+    console.error("Error creating project type:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getProjectTypes = async (req, res) => {
+  try {
+    // console.log("Fetching project types...");
+    const all = req.params.all;
+    // console.log("Parameter 'all':", all);
+
+    const condition = all === "all" ? {} : {}; // Adjust if needed
+    // console.log("Condition for find:", condition);
+
+    const projectTypes = await ProjectTypes.find(condition);
+    // console.log("Project types fetched:", projectTypes);
+
+    res.status(200).json({ projectTypes });
+  } catch (error) {
+    console.error("Error fetching project types:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getProjectsByCompanyId = async (req, res) => {
+  try {
+    // console.log("in getProjectsByCompanyId")
+    // console.log(req.params)
+    const projects = await Project.find({
+      isDeleted: false,
+      companyId: req.params.companyId,
+    });
+    // console.log(projects)
+    return res.json({
+      success: true,
+      projects: projects,
+    });
+  } catch (e) {
+    return res.json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
+
+exports.getProjectsKanbanData = async (req, res) => {
+  try {
+    const { companyId, userId } = req.params;
+    // const page = req.query.page;
+    // let stageId = req.query.stageId;
+
+    const archive = req.query.archive == "true";
+
+    // Fetch all project stages
+    const projectStages = await ProjectStage.find({ companyId }).sort({
+      sequence: "asc",
+    });
+
+   
+    // Fetch paginated projects for each stage separately
+    const stagesWithProjects = await Promise.all(
+      projectStages.map(async (stage) => {
+        let projectWhereCondition = {
+          projectStageId: stage._id,
+          isDeleted: false,
+          companyId,
+          archive,
+        }
+        if(userId !== "ALL"){
+          projectWhereCondition.projectUsers = { $in: [userId] }
+        }
+        let iprojects = await Project.find(
+         projectWhereCondition
+        );
+        
+         let projects = await Promise.all(iprojects.map(async (p)=> {
+          const tasksCount = await Task.countDocuments({projectId: p._id, isDeleted: false})
+
+          const isFavourite = await FavoriteProject.findOne({projectId: p._id, userId: userId})
+          return {...p.toObject() , tasksCount, isFavourite: isFavourite? true : false}
+         }))
+
+   
+        // .skip(skip)
+        // .limit(limit);
+        return { ...stage.toObject(), projects };
+      })
+    );
+
+    const totalCount =  await Project.countDocuments({isDeleted: false, companyId,archive})
+
+    // Calculate total page count for each stage
+    // const pageCounts = await Promise.all(
+    //   projectStages.map(async (stage) => {
+    //     const totalProjects = await Project.countDocuments({ projectStageId: stage._id });
+
+    //     const totalPages = Math.ceil(totalProjects / limit);
+    //     return { stageId: stage._id.toString(), totalPages };
+    //   })
+    // );
+
+    // Convert the array into an object for easier access by stageId
+    // const pageCountsObject = pageCounts.reduce((acc, { stageId, totalPages }) => {
+    //   acc[stageId] = { totalPages };
+    //   return acc;
+    // }, {});
+
+    // console.log("pageCountsObject", pageCountsObject); // Debugging log
+
+    // console.log(projectStages, "projectStages")
+
+    return res.json({ success: true, projectStages: stagesWithProjects , totalCount});
+  } catch (error) {
+    console.log(error);
+    return res.json({
+      message: "error fetching project kanban",
+      success: false,
+    });
+  }
+};
+
+exports.updateStage = async (req, res) => {
+  try {
+    const { projectId, newStageId , status} = req.body;
+
+    await Project.findByIdAndUpdate(
+      { _id: projectId },
+      { projectStageId: newStageId, modifiedOn: new Date(), status: status }
+    );
+
+    return res.json({ success: true });
+  } catch (error) {
+    return res.json({ success: false });
+  }
+};
