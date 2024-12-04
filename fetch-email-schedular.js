@@ -1,8 +1,8 @@
 const schedule = require("node-schedule");
-const config = require("../config");
+const config = require("./config");
 const { fetchEmail } = require("./fetch-email");
 const mongoose = require("mongoose");
-const EmailConfig = require("../models/email-config/email-config-model");
+const EmailConfig = require("./models/email-config/email-config-model");
 
 mongoose
   .connect(process.env.DB, {

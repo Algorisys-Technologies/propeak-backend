@@ -1,8 +1,8 @@
 const schedule = require("node-schedule");
-const rabbitMQ = require("../rabbitmq");
-const { sendEmail } = require("../common/mailer");
-const config = require("../config.js");
-const { logError, logInfo } = require("../common/logger.js");
+const rabbitMQ = require("./rabbitmq/index.js");
+const { sendEmail } = require("./common/mailer.js");
+const config = require("./config.js");
+const { logError, logInfo } = require("./common/logger.js");
 
 try {
   const j = schedule.scheduleJob(config.fetchEmailSchedule, function () {

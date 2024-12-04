@@ -1,11 +1,11 @@
-const rabbitMQ = require("../rabbitmq/index.js");
+const rabbitMQ = require("./rabbitmq/index.js");
 // const fetch = require("node-fetch");
 const express = require("express");
 const fs = require("fs").promises; // Use the promises API of fs
 const schedule = require("node-schedule");
-const config = require("../config.js");
-const { logError, logInfo } = require("../common/logger.js");
-const contactModel = require("../models/contact/contact-model.js");
+const config = require("./config.js");
+const { logError, logInfo } = require("./common/logger.js");
+const contactModel = require("./models/contact/contact-model.js");
 require("dotenv").config();
 
 console.log(process.env.DB)

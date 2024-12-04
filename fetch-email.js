@@ -7,10 +7,10 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-const { FetchEmail } = require("../models/fetch-email/fetch-email-model");
-const Task = require("../models/task/task-model");
+const { FetchEmail } = require("./models/fetch-email/fetch-email-model");
+const Task = require("./models/task/task-model");
 
-const TaskStage = require("../models/task-stages/task-stages-model");
+const TaskStage = require("./models/task-stages/task-stages-model");
 
 
 
