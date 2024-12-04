@@ -11,7 +11,7 @@ mongoose
   .then(() => console.log("Connected to the database.", "DB"));
 
 try {
-  const fetchEmailJob = schedule.scheduleJob(config.fetchEmailSchedule, async function () {
+  const fetchEmailJob = schedule.scheduleJob(config.fetchEmailScheduleEveryHour, async function () {
     console.log("Running fetchEmail...");
     try {
       const emailConfigs = await EmailConfig.find({ isDeleted: false })
