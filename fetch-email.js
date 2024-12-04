@@ -54,7 +54,7 @@ class MailAttachmentFetcher {
 
   onImapError(err) {
     console.error("IMAP error:", err);
-    throw err;
+    // throw err;
   }
 
   onImapEnd() {
@@ -64,7 +64,7 @@ class MailAttachmentFetcher {
   onOpenBox(err) {
     if (err) {
       console.error("Error opening INBOX:", err);
-      throw err;
+      // throw err;
     }
     console.log("INBOX opened successfully.");
 
