@@ -24,6 +24,10 @@ const TaskStageSchema = new mongoose.Schema(
       ref: 'Company', 
       required: true, 
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { versionKey: false }
 );

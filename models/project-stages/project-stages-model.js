@@ -15,10 +15,14 @@ const ProjectStageSchema = new mongoose.Schema({
   show: {
     type: Boolean
   },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+  },
   companyId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company', // Make sure to define the Company model
-    required: true // Ensure that each stage is associated with a company
+    ref: 'Company',
+    required: true 
   }
 }, { versionKey: false });
 

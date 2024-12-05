@@ -67,17 +67,40 @@ exports.create_task_stage = async (req, res) => {
 //       .json({ success: false, error: "Failed to load task stages." });
 //   }
 // };
+// exports.get_task_stages_by_company = async (req, res) => {
+//   try {
+//     const { companyId } = req.body;
+//     if (!companyId) {
+//       return res.status(400).json({ error: "Company ID is required." });
+//     }
+//     const stages = await TaskStage.find({
+//       companyId: new mongoose.Types.ObjectId(companyId), isDeleted:false
+//     });
+//     console.log(stages, "stages");
+
+//     return res.status(200).json({ success: true, stages });
+//   } catch (error) {
+//     console.error("Error fetching task stages:", error);
+//     return res
+//       .status(500)
+//       .json({ success: false, error: "Failed to load task stages." });
+//   }
+// };
 exports.get_task_stages_by_company = async (req, res) => {
   try {
-    const { companyId } = req.body; // Make sure companyId is passed in the request body
+    const { companyId } = req.body;
+
+    // Validate companyId
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required." });
     }
 
-    // Make sure to convert companyId to ObjectId for the query
+    // Find task stages where isDeleted is false
     const stages = await TaskStage.find({
       companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true }, 
     });
+
     console.log(stages, "stages");
 
     return res.status(200).json({ success: true, stages });
@@ -161,23 +184,52 @@ exports.reorder_task_stages = async (req, res) => {
 exports.delete_task_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedStage = await TaskStage.findByIdAndDelete(id);
 
-    if (!deletedStage) {
+    // Find the task stage and update the isDeleted field to true
+    const updatedStage = await TaskStage.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    if (!updatedStage) {
       return res.status(404).json({ message: "Task stage not found" });
     }
+
     return res.json({
       success: true,
-      message: "task stage delete successful.",
+      message: "Task stage marked as deleted successfully.",
+      data: updatedStage,
     });
   } catch (error) {
     return res.json({
       error: error.message,
       success: false,
-      message: "error in delete task stage.",
+      message: "Error in marking task stage as deleted.",
     });
   }
 };
+
+// exports.delete_task_stage = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const deletedStage = await TaskStage.findByIdAndDelete(id);
+
+//     if (!deletedStage) {
+//       return res.status(404).json({ message: "Task stage not found" });
+//     }
+//     return res.json({
+//       success: true,
+//       message: "task stage delete successful.",
+//     });
+//   } catch (error) {
+//     return res.json({
+//       error: error.message,
+//       success: false,
+//       message: "error in delete task stage.",
+//     });
+//   }
+// };
 
 // const mongoose = require("mongoose");
 // const Category = require("../../models/category/category-model");

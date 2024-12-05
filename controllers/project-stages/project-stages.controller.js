@@ -1,10 +1,9 @@
 const mongoose = require("mongoose");
-const ProjectStage = require("../../models/project-stages/project-stages-model.js");
+const ProjectStage = require("../../models/project-stages/project-stages-model");
 
 exports.create_project_stage = async (req, res) => {
   // console.log(res, "response ", req , "  request")
   try {
-    console.log("okyyyyyyyyyyyyy");
     const { sequence, title, displayName, show, companyId } = req.body;
     console.log(title, "title");
     if (!companyId) {
@@ -45,23 +44,30 @@ exports.create_project_stage = async (req, res) => {
 exports.get_project_stages_by_company = async (req, res) => {
   try {
     const { companyId } = req.body;
-    console.log("CompanyId", companyId);
+    console.log("CompanyId:", companyId);
+
+    // Validate companyId
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required." });
     }
-    const stages = await ProjectStage.find({ companyId });
 
-    // console.log("Fetched stages for companyId:", companyId, "Stages:", stages);
+    // Fetch project stages where companyId matches and isDeleted is not true
+    const stages = await ProjectStage.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    });
+
     if (stages.length === 0) {
       return res
         .status(404)
         .json({ error: "No project stages found for this company." });
     }
+
     return res.status(200).json({ success: true, stages });
   } catch (error) {
     console.error(
       "Error fetching project stages for companyId:",
-      req.params.companyId,
+      companyId,
       error
     );
     return res
@@ -69,6 +75,7 @@ exports.get_project_stages_by_company = async (req, res) => {
       .json({ success: false, error: "Failed to load project stages." });
   }
 };
+
 
 // Update a project stage by ID
 exports.update_project_stage = async (req, res) => {
