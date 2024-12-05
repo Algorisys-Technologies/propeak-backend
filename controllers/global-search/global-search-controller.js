@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Task = require("../../models/task/task-model");
 const Project = require("../../models/project/project-model");
 const { logError, logInfo } = require("../../common/logger");
+const Account = require("../../models/account/account-model");
+const Contact = require("../../models/contact/contact-model");
 
 exports.searchByTasksAndProjects = async (req, res) => {
   try {
@@ -41,12 +43,38 @@ exports.searchByTasksAndProjects = async (req, res) => {
     const projects = await Project.find(projectQuery)
       .skip(limit * page)
       .limit(limit);
-    console.log("Projects found:", projects.length, projects);
 
-    // Count total tasks and projects
+    // Build account query
+    const accountQuery = {
+      companyId: companyId,
+      isDeleted: false,
+      tag: { $regex: searchQuery },
+    };
+
+    // Fetch accounts with pagination
+    const accounts = await Account.find(accountQuery)
+      .skip(limit * page)
+      .limit(limit);
+
+    // Build contact query
+    const contactQuery = {
+      companyId: companyId,
+      isDeleted: false,
+      tag: { $regex: searchQuery },
+    };
+
+    // Fetch contacts with pagination
+    const contacts = await Contact.find(contactQuery)
+      .skip(limit * page)
+      .limit(limit);
+
+    // Count total tasks, projects, accounts, and contacts
     const totalTasks = await Task.countDocuments(taskQuery);
     const totalProjects = await Project.countDocuments(projectQuery);
-    const totalResults = totalTasks + totalProjects;
+    const totalAccounts = await Account.countDocuments(accountQuery);
+    const totalContacts = await Contact.countDocuments(contactQuery);
+    const totalResults =
+      totalTasks + totalProjects + totalAccounts + totalContacts;
 
     // Calculate total pages
     const totalPages = Math.ceil(totalResults / limit);
@@ -55,14 +83,18 @@ exports.searchByTasksAndProjects = async (req, res) => {
       success: true,
       tasks,
       projects,
+      accounts,
+      contacts,
       totalPages,
     });
   } catch (error) {
-    console.error("Error in searchByTasksAndProjects", error);
+    console.error("Error in searchByTasksProjectsAccountsContacts", error);
     return res.status(500).json({
       success: false,
       tasks: [],
       projects: [],
+      accounts: [],
+      contacts: [],
       totalPages: 0,
       message: "An error occurred while searching.",
       error: error.message,
@@ -71,7 +103,6 @@ exports.searchByTasksAndProjects = async (req, res) => {
 };
 
 // exports.searchByTasksAndProjects = async (req, res) => {
-//   console.log("Search API called...");
 //   try {
 //     const { companyId, searchText, page } = req.body;
 
@@ -90,11 +121,10 @@ exports.searchByTasksAndProjects = async (req, res) => {
 //       ],
 //     };
 
-//     // Search tasks
+//     // Fetch tasks with pagination
 //     const tasks = await Task.find(taskQuery)
 //       .skip(limit * page)
 //       .limit(limit);
-//     console.log("Tasks found:", tasks.length, tasks);
 
 //     // Build project query
 //     const projectQuery = {
@@ -106,17 +136,19 @@ exports.searchByTasksAndProjects = async (req, res) => {
 //       ],
 //     };
 
-//     // Search projects
+//     // Fetch projects with pagination
 //     const projects = await Project.find(projectQuery)
 //       .skip(limit * page)
 //       .limit(limit);
 //     console.log("Projects found:", projects.length, projects);
 
-//     const totalPages = Math.ceil(
-//       ((await Project.countDocuments(projectQuery)) +
-//         (await Task.countDocuments(taskQuery))) /
-//         20
-//     );
+//     // Count total tasks and projects
+//     const totalTasks = await Task.countDocuments(taskQuery);
+//     const totalProjects = await Project.countDocuments(projectQuery);
+//     const totalResults = totalTasks + totalProjects;
+
+//     // Calculate total pages
+//     const totalPages = Math.ceil(totalResults / limit);
 
 //     return res.status(200).json({
 //       success: true,
