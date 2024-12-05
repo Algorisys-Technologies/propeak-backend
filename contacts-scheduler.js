@@ -38,6 +38,10 @@ try {
             }
           );
 
+          if(!extractResponse.ok){
+            return
+          }
+
           const extractDetails = await extractResponse.json();
 
           if (extractDetails.error) {
