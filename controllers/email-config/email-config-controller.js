@@ -7,6 +7,7 @@ const errors = {
   EDITCONFIGERROR: "Error occurred while updating the email configuration",
   DELETECONFIGERROR: "Error occurred while deleting the email configuration",
 };
+const { fetchEmail } = require("../../fetch-email.js");
 
 exports.getAllEmailConfigs = async (req, res) => {
   try {
@@ -245,3 +246,31 @@ exports.deleteEmailConfig = async (req, res) => {
     res.status(500).json({ success: false, msg: errors.DELETECONFIGERROR });
   }
 };
+
+exports.fetchNowEmailConfig = async (req, res) => {
+  const EmailConfigId = req.body.id;
+  try {
+    const emailConfig = await EmailConfig.findOne({ isDeleted: false, _id: EmailConfigId })
+    let emailAccounts = []
+    emailConfig.authentication.forEach((auth) => {
+      emailAccounts.push({ user: auth.username, password: auth.password, host: emailConfig.smtpSettings.host, port: emailConfig.smtpSettings.port, tls: emailConfig.smtpSettings.tls })
+    })
+
+    const { companyId, projectId } = emailConfig;
+
+    const emails = await fetchEmail(
+      {
+        emailTaskConfig: emailConfig,
+        projectId,
+        taskStageId: emailConfig.taskStageId,
+        companyId,
+        userId: emailConfig.userId,
+        emailAccounts
+      }
+    );
+    return res.json({success: true, message: "Successfully Fetched Emails."})
+  } catch (error) {
+    console.error("Error fetching emails:", error);
+    return res.json({success: false, message: "Error while Fetching Emails."})
+  }
+}
