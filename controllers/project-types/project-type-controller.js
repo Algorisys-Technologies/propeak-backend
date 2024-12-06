@@ -95,15 +95,15 @@ exports.get_project_types_by_company = async (req, res) => {
   }
 };
 
+// Delete a project type (soft delete)
 exports.delete_project_type = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Perform a soft delete by marking isDeleted as true
     const deletedProjectType = await ProjectType.findByIdAndUpdate(
       id,
       { isDeleted: true },
-      { new: true } // Return the updated document
+      { new: true }
     );
 
     if (!deletedProjectType) {
@@ -111,7 +111,7 @@ exports.delete_project_type = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Project type not found." });
     }
-    // Insert audit log for deletion
+
     audit.insertAuditLog(
       "delete",
       deletedProjectType.projectType,
@@ -135,7 +135,7 @@ exports.delete_project_type = async (req, res) => {
   }
 };
 
-// Update a project type by ID
+// Update a project type
 exports.update_project_type = async (req, res) => {
   try {
     const { id } = req.params;
@@ -144,7 +144,7 @@ exports.update_project_type = async (req, res) => {
     const updatedProjectType = await ProjectType.findByIdAndUpdate(
       id,
       { ...updateData, modifiedOn: new Date(), modifiedBy },
-      { new: true } // Return the updated document
+      { new: true }
     );
 
     if (!updatedProjectType) {
@@ -153,7 +153,6 @@ exports.update_project_type = async (req, res) => {
         .json({ success: false, message: "Project type not found." });
     }
 
-    // Insert audit logs for updated fields
     Object.keys(updateData).forEach((field) => {
       audit.insertAuditLog(
         "update",
