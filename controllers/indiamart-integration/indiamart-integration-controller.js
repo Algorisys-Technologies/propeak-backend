@@ -67,12 +67,10 @@ exports.updateIntegrationSettings = async (req, res) => {
 
     // Ensure settings and schedule are provided
     if (!settings || !schedule) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Settings and schedule are required.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Settings and schedule are required.",
+      });
     }
 
     // Find the existing settings and update them
@@ -173,12 +171,20 @@ exports.handleIndiamartWebhook = async (req, res) => {
 
     console.log("companyId", companyId, "inquiryData", inquiryData);
 
+    if (!inquiryData.inquiryId) {
+      const { v4: uuidv4 } = require("uuid");
+      inquiryData.inquiryId = uuidv4(); // Generate a new inquiryId
+      console.log(" inquiryData.inquiryId", inquiryData.inquiryId);
+    }
+
     // Fetch Integration Settings
     const integrationSettings = await IntegrationSetting.findOne({
       companyId,
       integrationProvider: "IndiaMART",
       enabled: true,
     });
+
+    console.log("integrationSettings......", integrationSettings);
 
     if (!integrationSettings) {
       return res
@@ -187,16 +193,18 @@ exports.handleIndiamartWebhook = async (req, res) => {
     }
 
     // Apply Filters (if any)
-    const filters = integrationSettings.settings?.IndiaMART?.filters;
-    if (
-      filters &&
-      (!filters.leadType?.includes(inquiryData.leadType) ||
-        (filters.priority && filters.priority !== inquiryData.priority))
-    ) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Lead does not match filters." });
-    }
+    // const filters = integrationSettings.settings?.IndiaMART?.filters;
+    // if (
+    //   filters &&
+    //   (!filters.leadType?.includes(inquiryData.leadType) ||
+    //     (filters.priority && filters.priority !== inquiryData.priority))
+    // ) {
+    //   return res
+    //     .status(400)
+    //     .json({ success: false, message: "Lead does not match filters." });
+    // }
+
+    // console.log("filters", filters);
 
     // Save Inquiry
     const newInquiry = new IndiamartInquiry({
@@ -206,6 +214,8 @@ exports.handleIndiamartWebhook = async (req, res) => {
     });
 
     await newInquiry.save();
+
+    console.log("newInquiry", newInquiry);
 
     return res.status(201).json({ success: true, inquiry: newInquiry });
   } catch (error) {
