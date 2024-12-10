@@ -1,7 +1,7 @@
 const axios = require("axios");
 const IndiamartInquiry = require("../../models/indiamart-integration/indiamart-inquiry-model");
-const moment = require('moment');
-
+const moment = require("moment");
+const Lead = require("../../models/indiamart-integration/indiamart-lead-model");
 exports.getIndiaMARTLeads = async (req, res) => {
   //   const { auth_key, GLUSR_MOBILE, companyId } = req.body;
   const companyId = "66ebbbc2c5bb38ee351dc0b2";
@@ -79,8 +79,8 @@ exports.getIndiaMARTLeads = async (req, res) => {
 };
 
 exports.getLeads = async (req, res) => {
-  const startTime = moment("2024-12-08T00:00:00").format("DD-MMM-YYYYHH:mm:ss");
-  const endTime = moment("2024-12-08T23:59:59").format("DD-MMM-YYYYHH:mm:ss");
+  const startTime = moment("2024-12-09T00:00:00").format("DD-MMM-YYYYHH:mm:ss");
+  const endTime = moment("2024-12-09T23:59:59").format("DD-MMM-YYYYHH:mm:ss");
 
   const crmKey = "mRywEb5u4HfHTver432Y/1CPp1LEmzY=";
 
@@ -90,33 +90,39 @@ exports.getLeads = async (req, res) => {
       .json({ message: "CRM key is missing. Please provide a valid CRM key." });
   }
 
-  // Prepare the API URL
   const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${crmKey}&start_time=${startTime}&end_time=${endTime}`;
 
   try {
-    // Send a GET request to the IndiaMART API
     const response = await axios.get(url);
-    console.log(response, "response")
-    // Check if the API returned data
-    if (
-      response.data &&
-      response.data.RESPONSE &&
-      response.data.RESPONSE.length > 0
-    ) {
-      return res.status(200).json({ leads: response.data.RESPONSE });
+    console.log("API response:", response.data);
+
+    const leadsData = response.data.RESPONSE;
+
+    if (leadsData && leadsData.length > 0) {
+      console.log(`${leadsData.length} leads received from API.`);
+
+      const insertedLeads = await Lead.insertMany(leadsData);
+      console.log(
+        `${insertedLeads.length} leads successfully inserted into the database.`
+      );
+
+      return res
+        .status(200)
+        .json({
+          message: "Leads fetched and stored successfully.",
+          leads: leadsData,
+        });
     } else {
+      console.log("No leads found for the provided time range.");
       return res
         .status(404)
         .json({ message: "No leads found for the provided time range." });
     }
   } catch (error) {
-    // Handle API errors
-    console.error("Error fetching leads from IndiaMART:", error);
-    return res
-      .status(500)
-      .json({
-        message: "Error fetching data from IndiaMART API.",
-        error: error.message,
-      });
+    console.error("Error occurred:", error.message);
+    return res.status(500).json({
+      message: "Error fetching data from IndiaMART API.",
+      error: error.message,
+    });
   }
 };
