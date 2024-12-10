@@ -2,81 +2,7 @@ const axios = require("axios");
 const IndiamartInquiry = require("../../models/indiamart-integration/indiamart-inquiry-model");
 const moment = require("moment");
 const Lead = require("../../models/indiamart-integration/indiamart-lead-model");
-exports.getIndiaMARTLeads = async (req, res) => {
-  //   const { auth_key, GLUSR_MOBILE, companyId } = req.body;
-  const companyId = "66ebbbc2c5bb38ee351dc0b2";
-  const GLUSR_MOBILE = "9892492782";
-  const auth_key = "mRywEb5u4HfHTver432Y/1CPp1LEmzY=";
-
-  if (!auth_key || !GLUSR_MOBILE || !companyId) {
-    return res.status(400).json({
-      success: false,
-      message: "auth_key, GLUSR_MOBILE, and companyId are required.",
-    });
-  }
-
-  try {
-    // Fetch data from the IndiaMART Pull API
-    const response = await axios.get(
-      //   "https://mapi.indiamart.com/wservce/enquiry/listing/",
-      // "https://seller.indiamart.com/messagecentre",
-
-      "https://seller.indiamart.com/leadmanager/crmapi",
-      {
-        params: {
-          AUTH_KEY: auth_key,
-          GLUSR_MOBILE,
-        },
-      }
-    );
-    console.log(
-      await response.json(),
-      "response...........................from indiamart get"
-    );
-    const { RESPONSE } = response.data;
-
-    if (!RESPONSE || !Array.isArray(RESPONSE)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid response from IndiaMART API.",
-      });
-    }
-
-    const savedLeads = [];
-
-    for (const lead of RESPONSE) {
-      // Check if the lead already exists
-      const existingLead = await IndiamartInquiry.findOne({
-        inquiryId: lead.UNIQUE_QUERY_ID,
-        companyId,
-      });
-
-      if (!existingLead) {
-        const newLead = new IndiamartInquiry({
-          companyId,
-          inquiryId: lead.UNIQUE_QUERY_ID,
-          inquiryDetails: lead,
-        });
-
-        await newLead.save();
-        savedLeads.push(newLead);
-      }
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Leads fetched and saved successfully.",
-      savedLeads,
-    });
-  } catch (error) {
-    console.error("Error fetching IndiaMART leads:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch leads.",
-      error: error.message,
-    });
-  }
-};
+const Task = require("../../models/task/task-model");
 
 exports.getLeads = async (req, res) => {
   const startTime = moment("2024-12-09T00:00:00").format("DD-MMM-YYYYHH:mm:ss");
@@ -97,21 +23,52 @@ exports.getLeads = async (req, res) => {
     console.log("API response:", response.data);
 
     const leadsData = response.data.RESPONSE;
+    const tasks = leadsData.map((lead) => {
+      console.log(lead, "data of lead..........");
+      return {
+        projectId:"673eb6d62e87a01115656930",
+        taskStageId:"671b472f9ccb60f1a05dfca9",
+        companyId:"66ebbbc2c5bb38ee351dc0b2",
+        title: lead.SUBJECT,
+        description: `
+        Address: ${lead.SENDER_ADDRESS}, 
+        City: ${lead.SENDER_CITY}, 
+        State: ${lead.SENDER_STATE}, 
+        Pincode: ${lead.SENDER_PINCODE}, 
+        Country: ${lead.SENDER_COUNTRY_ISO}, 
+        Mobile: ${lead.SENDER_MOBILE_ALT},`,
+        startDate: lead.QUERY_TIME,
+        customFieldValues: {
+          date: moment().format("DD/MM/YY"),
+          name: lead.SENDER_NAME,
+          mobile_number: lead.SENDER_MOBILE,
+          company_name: lead.SENDER_COMPANY,
+        },
+        isDeleted:false,
+        // createdBy: "System",  
+        createdOn: moment().toISOString(),
+      };
+    });
+    console.log(tasks, "tasks is here ");
 
     if (leadsData && leadsData.length > 0) {
       console.log(`${leadsData.length} leads received from API.`);
+
+      const insertedTasks = await Task.insertMany(tasks);
+      console.log(
+        `${insertedTasks.length} tasks successfully inserted into the database.`
+      );
 
       const insertedLeads = await Lead.insertMany(leadsData);
       console.log(
         `${insertedLeads.length} leads successfully inserted into the database.`
       );
 
-      return res
-        .status(200)
-        .json({
-          message: "Leads fetched and stored successfully.",
-          leads: leadsData,
-        });
+      return res.status(200).json({
+        message: "Leads and tasks fetched and stored successfully.",
+        leads: leadsData,
+        tasks: insertedTasks,
+      });
     } else {
       console.log("No leads found for the provided time range.");
       return res
