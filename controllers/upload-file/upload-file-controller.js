@@ -85,7 +85,10 @@ exports.tasksFileUpload = async (req, res) => {
 
   async function getTaskStageIdByTitle(statusTitle, companyId) {
     try {
-      const taskStage = await TaskStage.findOne({ title: statusTitle , companyId: companyId});
+      const taskStage = await TaskStage.findOne({
+        title: statusTitle,
+        companyId: companyId,
+      });
       console.log(taskStage, "taskStage...........");
       return taskStage ? taskStage._id.toString() : null;
     } catch (err) {
@@ -118,7 +121,7 @@ exports.tasksFileUpload = async (req, res) => {
   //         input: path.join(uploadFolder, filename),
   //         output: null,
   //         lowerCaseHeaders: true,
-          
+
   //       },
   //       async function (err, result) {
   //         if (err) {
@@ -296,191 +299,198 @@ exports.tasksFileUpload = async (req, res) => {
     const exceltojson = filename.endsWith(".xlsx") ? xlsxtojson : xlstojson;
 
     try {
-        exceltojson(
-            {
-                input: path.join(uploadFolder, filename),
-                output: null,
-                lowerCaseHeaders: true,
-            },
-            async function (err, result) {
-                if (err) {
-                    console.error("Error parsing file:", err);
-                    return res.json({ error_code: 1, err_desc: err, data: null });
-                }
+      exceltojson(
+        {
+          input: path.join(uploadFolder, filename),
+          output: null,
+          lowerCaseHeaders: true,
+        },
+        async function (err, result) {
+          if (err) {
+            console.error("Error parsing file:", err);
+            return res.json({ error_code: 1, err_desc: err, data: null });
+          }
 
-                let mapArray = {
-                    title: "title",
-                    status: "status",
-                    description: "description",
-                    tag: "tag",
-                    priority: "priority",
-                    selectusers: "userId",
-                    startdate: "startDate",
-                    enddate: "endDate",
-                    storypoint: "storyPoint",
-                    tasktype: "taskType",
-                };
+          let mapArray = {
+            title: "title",
+            status: "status",
+            description: "description",
+            tag: "tag",
+            priority: "priority",
+            selectusers: "userId",
+            startdate: "startDate",
+            enddate: "endDate",
+            storypoint: "storyPoint",
+            tasktype: "taskType",
+          };
 
-                const reqBodyKeys = Object.keys(req.body);
-                reqBodyKeys.forEach((key) => {
-                    const formattedKey = key.toLowerCase().replace(/\s+/g, "");
-                    if (!mapArray[formattedKey]) {
-                        mapArray[formattedKey] = key;
-                    }
-                });
-
-                console.log("Dynamic mapArray:", mapArray);
-
-                let tasks = [];
-                let failedRecords = [];
-                let consecutiveBlankRows = 0;  // Counter for consecutive blank rows
-                const maxBlankRows = 5;  // Max allowed consecutive blank rows before stopping
-
-                for (let index = 0; index < result.length; index++) {
-                    let row = result[index];
-                    let task = {};
-                    let customFieldValues = {};
-                    let hasValidFields = false;
-                    let missingFields = [];
-
-                    // Check if the row is blank (no relevant fields)
-                    if (Object.values(row).every(cell => !cell)) {
-                        consecutiveBlankRows++; // Increment counter if row is blank
-                        if (consecutiveBlankRows >= maxBlankRows) {
-                            console.log("Stopping processing after encountering " + maxBlankRows + " consecutive blank rows.");
-                            break;  // Stop processing further rows if too many blank rows
-                        }
-                        continue;  // Skip processing this row and move to the next one
-                    } else {
-                        consecutiveBlankRows = 0;  // Reset the blank row counter
-                    }
-
-                    // Process row data
-                    for (let field in row) {
-                        let normalizedField = normalizeFieldName(field);
-                        let mappedField = mapArray[normalizedField];
-
-                        if (mappedField) {
-                            task[mappedField] = row[field];
-                            hasValidFields = true;
-                        } else {
-                            customFieldValues[normalizedField] = row[field];
-                        }
-                    }
-
-                    const convertDate = (dateStr) => {
-                        if (dateStr.includes("/")) {
-                            const [day, month, year] = dateStr.split("/").map(Number);
-                            return new Date(year, month - 1, day).toISOString();
-                        } else if (dateStr.includes("-")) {
-                            const [day, month, year] = dateStr.split("-").map(Number);
-                            return new Date(year, month - 1, day).toISOString();
-                        }
-                        return dateStr;
-                    };
-
-                    if (task.startDate) {
-                        task.startDate = convertDate(task.startDate);
-                    }
-                    if (task.endDate) {
-                        task.endDate = task.endDate ? convertDate(task.endDate) : "";
-                    }
-
-                    if (task.userId) {
-                        task.userId = await getUserIdByName(task.userId, companyId);
-                    }
-
-                    if (task.status) {
-                        const taskStageId = await getTaskStageIdByTitle(task.status, companyId);
-                        task.taskStageId = taskStageId;
-                    }
-
-                    if (!hasValidFields) {
-                        console.log(`Row ${index + 1} has no valid fields. Skipping...`);
-                        failedRecords.push({
-                            row: index + 1,
-                            reason: "Missing valid fields",
-                            missingFields: [],
-                        });
-                        continue;
-                    }
-
-                    task.status = task.status || "todo";
-                    task.category = task.category || "todo";
-                    task.completed = false;
-                    task.depId = "";
-                    task.isDeleted = false;
-                    task.createdOn = new Date();
-                    task.modifiedOn = new Date();
-                    task.createdBy = userId;
-                    task.projectId = projectId;
-                    task.companyId = companyId;
-                    task.modifiedBy = userId;
-                    task.sequence = "1";
-                    task.customFieldValues = customFieldValues;
-
-                    if (!task.title) missingFields.push("title");
-                    if (!task.storyPoint) missingFields.push("storyPoint");
-                    if (!task.taskType) missingFields.push("taskType");
-                    if (!task.status) missingFields.push("status");
-
-                    if (missingFields.length === 0) {
-                        tasks.push(task);
-                    } else {
-                        console.log(
-                            `Task at row ${index + 1} missing required fields:`,
-                            task,
-                            "Missing fields:",
-                            missingFields
-                        );
-                        failedRecords.push({
-                            row: index + 1,
-                            reason: "Missing required fields",
-                            missingFields: missingFields,
-                        });
-                    }
-                }
-
-                console.log("Tasks to be added:", tasks);
-
-                if (tasks.length > 0) {
-                    try {
-                        await Task.insertMany(tasks);
-                        console.log("Tasks successfully added:", tasks);
-
-                        let missingFieldsSummary = failedRecords
-                            .map(
-                                (fail) =>
-                                    `Row ${fail.row + 1}: [${fail.missingFields.join(", ")}]`
-                            )
-                            .join("; ");
-
-                        res.json({
-                            msg: `Tasks added successfully for ${tasks.length} records.`,
-                            failureMessage: `Tasks failed for ${failedRecords.length} records. Missing Fields: ${missingFieldsSummary}`,
-                            failedRecords,
-                            success: true,
-                        });
-                    } catch (err) {
-                        console.error("Error saving tasks:", err);
-                        res.json({
-                            msg: "Error saving tasks",
-                            success: false,
-                        });
-                    }
-                } else {
-                    res.json({
-                        error: "Uploaded file is not in correct format",
-                    });
-                }
+          const reqBodyKeys = Object.keys(req.body);
+          reqBodyKeys.forEach((key) => {
+            const formattedKey = key.toLowerCase().replace(/\s+/g, "");
+            if (!mapArray[formattedKey]) {
+              mapArray[formattedKey] = key;
             }
-        );
-    } catch (e) {
-        console.error("parseFile error:", e);
-        res.json({ error_code: 1, err_desc: "Corrupted excel file" });
-    }
-}
+          });
 
+          console.log("Dynamic mapArray:", mapArray);
+
+          let tasks = [];
+          let failedRecords = [];
+          let consecutiveBlankRows = 0; // Counter for consecutive blank rows
+          const maxBlankRows = 5; // Max allowed consecutive blank rows before stopping
+
+          for (let index = 0; index < result.length; index++) {
+            let row = result[index];
+            let task = {};
+            let customFieldValues = {};
+            let hasValidFields = false;
+            let missingFields = [];
+
+            // Check if the row is blank (no relevant fields)
+            if (Object.values(row).every((cell) => !cell)) {
+              consecutiveBlankRows++; // Increment counter if row is blank
+              if (consecutiveBlankRows >= maxBlankRows) {
+                console.log(
+                  "Stopping processing after encountering " +
+                    maxBlankRows +
+                    " consecutive blank rows."
+                );
+                break; // Stop processing further rows if too many blank rows
+              }
+              continue; // Skip processing this row and move to the next one
+            } else {
+              consecutiveBlankRows = 0; // Reset the blank row counter
+            }
+
+            // Process row data
+            for (let field in row) {
+              let normalizedField = normalizeFieldName(field);
+              let mappedField = mapArray[normalizedField];
+
+              if (mappedField) {
+                task[mappedField] = row[field];
+                hasValidFields = true;
+              } else {
+                customFieldValues[normalizedField] = row[field];
+              }
+            }
+
+            const convertDate = (dateStr) => {
+              if (dateStr.includes("/")) {
+                const [day, month, year] = dateStr.split("/").map(Number);
+                return new Date(year, month - 1, day).toISOString();
+              } else if (dateStr.includes("-")) {
+                const [day, month, year] = dateStr.split("-").map(Number);
+                return new Date(year, month - 1, day).toISOString();
+              }
+              return dateStr;
+            };
+
+            if (task.startDate) {
+              task.startDate = convertDate(task.startDate);
+            }
+            if (task.endDate) {
+              task.endDate = task.endDate ? convertDate(task.endDate) : "";
+            }
+
+            if (task.userId) {
+              task.userId = await getUserIdByName(task.userId, companyId);
+            }
+
+            if (task.status) {
+              const taskStageId = await getTaskStageIdByTitle(
+                task.status,
+                companyId
+              );
+              task.taskStageId = taskStageId;
+            }
+
+            if (!hasValidFields) {
+              console.log(`Row ${index + 1} has no valid fields. Skipping...`);
+              failedRecords.push({
+                row: index + 1,
+                reason: "Missing valid fields",
+                missingFields: [],
+              });
+              continue;
+            }
+
+            task.status = task.status || "todo";
+            task.category = task.category || "todo";
+            task.completed = false;
+            task.depId = "";
+            task.isDeleted = false;
+            task.createdOn = new Date();
+            task.modifiedOn = new Date();
+            task.createdBy = userId;
+            task.projectId = projectId;
+            task.companyId = companyId;
+            task.modifiedBy = userId;
+            task.sequence = "1";
+            task.customFieldValues = customFieldValues;
+            task.creation_mode = "MANUAL";
+            task.lead_source = "EXCEL";
+            if (!task.title) missingFields.push("title");
+            if (!task.storyPoint) missingFields.push("storyPoint");
+            if (!task.taskType) missingFields.push("taskType");
+            if (!task.status) missingFields.push("status");
+
+            if (missingFields.length === 0) {
+              tasks.push(task);
+            } else {
+              console.log(
+                `Task at row ${index + 1} missing required fields:`,
+                task,
+                "Missing fields:",
+                missingFields
+              );
+              failedRecords.push({
+                row: index + 1,
+                reason: "Missing required fields",
+                missingFields: missingFields,
+              });
+            }
+          }
+
+          console.log("Tasks to be added:", tasks);
+
+          if (tasks.length > 0) {
+            try {
+              await Task.insertMany(tasks);
+              console.log("Tasks successfully added:", tasks);
+
+              let missingFieldsSummary = failedRecords
+                .map(
+                  (fail) =>
+                    `Row ${fail.row + 1}: [${fail.missingFields.join(", ")}]`
+                )
+                .join("; ");
+
+              res.json({
+                msg: `Tasks added successfully for ${tasks.length} records.`,
+                failureMessage: `Tasks failed for ${failedRecords.length} records. Missing Fields: ${missingFieldsSummary}`,
+                failedRecords,
+                success: true,
+              });
+            } catch (err) {
+              console.error("Error saving tasks:", err);
+              res.json({
+                msg: "Error saving tasks",
+                success: false,
+              });
+            }
+          } else {
+            res.json({
+              error: "Uploaded file is not in correct format",
+            });
+          }
+        }
+      );
+    } catch (e) {
+      console.error("parseFile error:", e);
+      res.json({ error_code: 1, err_desc: "Corrupted excel file" });
+    }
+  }
 };
 exports.uploadTaskFieldsConfig = (req, res) => {
   let userRole = req.userInfo.userRole.toLowerCase();
@@ -518,7 +528,7 @@ exports.uploadTaskFieldsConfig = (req, res) => {
   });
 };
 exports.getUploadFileByProjectId = async (req, res) => {
-  console.log(req.body, "request bodys ?")
+  console.log(req.body, "request bodys ?");
   try {
     const { projectId, taskId, currentPage = 1 } = req.body;
     const limit = 5;
@@ -532,10 +542,12 @@ exports.getUploadFileByProjectId = async (req, res) => {
       });
     }
 
-    const skip = (currentPage) * limit;
+    const skip = currentPage * limit;
 
-    let query = taskId ? { taskId } : { projectId , taskId: null};
-    const uploadFiles = await UploadFile.find(query).skip(limit * currentPage).limit(limit);
+    let query = taskId ? { taskId } : { projectId, taskId: null };
+    const uploadFiles = await UploadFile.find(query)
+      .skip(limit * currentPage)
+      .limit(limit);
     const totalDocuments = await UploadFile.countDocuments(query);
     const totalPages = Math.ceil(totalDocuments / limit);
     return res.json({
