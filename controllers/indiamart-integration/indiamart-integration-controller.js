@@ -74,34 +74,6 @@ exports.getIntegrationSettings = async (req, res) => {
   }
 };
 
-// Update Integration Settings
-// exports.updateIntegrationSettings = async (req, res) => {
-//   try {
-//     const { companyId, provider } = req.params;
-//     const { settings, schedule } = req.body;
-
-//     const updatedSettings = await IntegrationSetting.findOneAndUpdate(
-//       { companyId, integrationProvider: provider },
-//       {
-//         $set: { settings, schedule, modifiedOn: Date.now() },
-//       },
-//       { new: true }
-//     );
-
-//     if (!updatedSettings) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Settings not found." });
-//     }
-
-//     return res.status(200).json({ success: true, settings: updatedSettings });
-//   } catch (error) {
-//     console.error("Error updating integration settings:", error);
-//     return res.status(500).json({ success: false, error: error.message });
-//   }
-// };
-
-// Update Integration Settings
 exports.updateIntegrationSettings = async (req, res) => {
   try {
     const { companyId, provider } = req.params;
@@ -199,7 +171,6 @@ exports.addIntegrationSettings = async (req, res) => {
     console.log("Company ID:", companyId);
     console.log("Provider:", provider);
 
-    // Check if integration already exists
     const existingSettings = await IntegrationSetting.findOne({
       projectId,
       integrationProvider: provider,
@@ -213,7 +184,6 @@ exports.addIntegrationSettings = async (req, res) => {
       });
     }
 
-    // Ensure 'IndiaMART' settings exist in the structure
     if (provider === "IndiaMART") {
       // Initialize the IndiaMART object in settings
       settings["IndiaMART"] = {};
@@ -248,8 +218,6 @@ exports.addIntegrationSettings = async (req, res) => {
 
         if (leadsData && leadsData.length > 0) {
           console.log(`${leadsData.length} leads received from API.`);
-
-          // Add additional fields to leads if necessary
           const leadsToInsert = leadsData.map((lead) => ({
             ...lead,
             projectId,
@@ -258,8 +226,24 @@ exports.addIntegrationSettings = async (req, res) => {
 
           const insertedLeads = await Lead.insertMany(leadsToInsert);
 
-          const tasks = leadsData.map((lead) => {
-            return {
+          const tasks = [];
+          console.log("existing tasks...........");
+          for (const lead of leadsData) {
+            const existingTask = await Task.findOne({
+              projectId,
+              taskStageId,
+              title: lead.SUBJECT,
+              startDate: lead.QUERY_TIME,
+            });
+            console.log(existingTask, "existingTask.........");
+            if (existingTask) {
+              return res.status(400).json({
+                success: false,
+                message: "Leads are already exist. Please update them instead.",
+              });
+            }
+
+            tasks.push({
               projectId: projectId,
               taskStageId: taskStageId,
               companyId: companyId,
@@ -278,22 +262,29 @@ exports.addIntegrationSettings = async (req, res) => {
                 mobile_number: lead.SENDER_MOBILE,
                 company_name: lead.SENDER_COMPANY,
               },
+              creation_mode:"AUTO",
+              lead_source:"INDIAMART",
               isDeleted: false,
-              // createdBy: "System",
               createdOn: moment().toISOString(),
-            };
-          });
-          //console.log(tasks, "tasks is here ");
-          const insertedTasks = await Task.insertMany(tasks);
-          console.log(
-            `${insertedTasks.length} tasks successfully inserted into the database.`
-          );
+            });
+          }
+
+          if (tasks.length > 0) {
+            const insertedTasks = await Task.insertMany(tasks);
+            console.log(
+              `${insertedTasks.length} new tasks successfully inserted into the database.`
+            );
+          } else {
+            console.log(
+              "No new tasks were created; all leads already have tasks."
+            );
+          }
 
           console.log(
             `${insertedLeads.length} leads successfully inserted into the database.`
           );
 
-          settings["IndiaMART"] = { leads: leadsToInsert }; // Optionally store leads in settings
+          settings["IndiaMART"] = { leads: leadsToInsert };
         } else {
           console.log("No leads found for the provided time range.");
         }
@@ -302,7 +293,6 @@ exports.addIntegrationSettings = async (req, res) => {
       }
     }
 
-    // Create new integration settings with updated settings
     const newIntegrationSettings = new IntegrationSetting({
       companyId,
       projectId,
@@ -316,7 +306,6 @@ exports.addIntegrationSettings = async (req, res) => {
       modifiedOn: Date.now(),
     });
 
-    // Save the new integration settings to the database
     await newIntegrationSettings.save();
 
     return res.status(201).json({
@@ -390,6 +379,123 @@ exports.handleIndiamartWebhook = async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
+
+// exports.addIntegrationSettings = async (req, res) => {
+//   try {
+//     const { companyId, provider } = req.params;
+//     const { projectId, crmKey, taskStageId, startDate, endDate } = req.body;
+
+//     console.log("Incoming Request Body:", req.body);
+//     console.log("Company ID:", companyId);
+//     console.log("Provider:", provider);
+//     const existingSettings = await IntegrationSetting.findOne({
+//       companyId,
+//       integrationProvider: provider,
+//     });
+
+//     if (existingSettings) {
+//       return res.status(400).json({
+//         success: false,
+//         message:
+//           "Integration settings already exist. Please update them instead.",
+//       });
+//     }
+//     if (provider === "IndiaMART") {
+//       const settings = {};
+//       if (!crmKey || !startDate || !endDate) {
+//         return res.status(400).json({
+//           message:
+//             "Missing required fields. Please provide crmKey, startDate, and endDate.",
+//         });
+//       }
+
+//       const formattedStartDate = moment(startDate).format(
+//         "DD-MMM-YYYYHH:mm:ss"
+//       );
+//       const formattedEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
+
+//       const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${crmKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
+
+//       try {
+//         const response = await axios.get(url);
+//         console.log("API response:", response.data);
+
+//         const leadsData = response.data.RESPONSE;
+
+//         if (leadsData && leadsData.length > 0) {
+//           console.log(`${leadsData.length} leads received from API.`);
+//           const leadsToInsert = leadsData.map((lead) => ({
+//             ...lead,
+//             projectId,
+//             taskStageId,
+//           }));
+
+//           const insertedLeads = await Lead.insertMany(leadsToInsert);
+
+//           const tasks = leadsData.map((lead) => {
+//             console.log(lead, "data of lead..........");
+//             return {
+//               projectId: projectId,
+//               taskStageId: taskStageId,
+//               companyId: companyId,
+//               title: lead.SUBJECT,
+//               description: `
+//               Address: ${lead.SENDER_ADDRESS},
+//               City: ${lead.SENDER_CITY},
+//               State: ${lead.SENDER_STATE},
+//               Pincode: ${lead.SENDER_PINCODE},
+//               Country: ${lead.SENDER_COUNTRY_ISO},
+//               Mobile: ${lead.SENDER_MOBILE_ALT},`,
+//               startDate: lead.QUERY_TIME,
+//               customFieldValues: {
+//                 date: moment().format("DD/MM/YY"),
+//                 name: lead.SENDER_NAME,
+//                 mobile_number: lead.SENDER_MOBILE,
+//                 company_name: lead.SENDER_COMPANY,
+//               },
+//               isDeleted: false,
+//               // createdBy: "System",
+//               createdOn: moment().toISOString(),
+//             };
+//           });
+//           console.log(tasks, "tasks is here ");
+//           const insertedTasks = await Task.insertMany(tasks);
+//           console.log(
+//             `${insertedTasks.length} tasks successfully inserted into the database.`
+//           );
+
+//           console.log(
+//             `${insertedLeads.length} leads successfully inserted into the database.`
+//           );
+
+//           settings["IndiaMART"] = { leads: leadsToInsert }; // Optionally store leads in settings
+//         } else {
+//           console.log("No leads found for the provided time range.");
+//         }
+//       } catch (error) {
+//         console.error("Error fetching data from IndiaMART API:", error.message);
+//       }
+//     }
+//     const newIntegrationSettings = new IntegrationSetting({
+//       companyId,
+//       integrationProvider: provider,
+//       settings: {},
+//       enabled: true,
+//       createdOn: Date.now(),
+//       modifiedOn: Date.now(),
+//     });
+//     await newIntegrationSettings.save();
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Integration settings added successfully.",
+//       settings: newIntegrationSettings,
+//     });
+//   } catch (error) {
+//     console.error("Error adding integration settings:", error);
+//     return res.status(500).json({ success: false, error: error.message });
+//   }
+// };
 
 // // Fetch Active Integrations for a Company (with optional provider filter)
 // exports.getActiveIntegrations = async (req, res) => {

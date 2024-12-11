@@ -26,9 +26,7 @@ const TaskSchema = new mongoose.Schema(
     completed: {
       type: Boolean,
     },
-    tag: [
-      {type: String},
-    ],
+    tag: [{ type: String }],
     status: {
       type: String,
     },
@@ -100,7 +98,17 @@ const TaskSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "taskStage",
       // required: true,
-    }
+    },
+    creation_mode: {
+      type: String,
+      enum: ["AUTO", "MANUAL"],
+      // required: true,
+    },
+    lead_source: {
+      type: String,
+      enum: ["INDIAMART", "EMAIL", "USER", "EXCEL", "OTHERS"],
+      // required: true,
+    },
   },
 
   { versionKey: false }

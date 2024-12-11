@@ -127,6 +127,8 @@ exports.createTask = (req, res) => {
     tag,
     storyPoint,
     priority,
+    creation_mode:"MANUAL",
+    lead_source:"USER",
     multiUsers: assignedUsers.map((user) => user.id),
     notifyUsers: notifyUsers.map((id) => id),
     customFieldValues,
