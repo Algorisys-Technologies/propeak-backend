@@ -7,6 +7,16 @@ const IntegrationSettingsSchema = new mongoose.Schema(
       ref: "Company",
       required: true,
     },
+    projectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
+      required: true,
+    },
+    taskStageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TaskStage",
+      required: true,
+    },
     integrationProvider: {
       type: String,
       enum: ["IndiaMART", "Salesforce", "Zoho"],
@@ -19,7 +29,7 @@ const IntegrationSettingsSchema = new mongoose.Schema(
     settings: {
       IndiaMART: {
         authKey: { type: String }, // IndiaMART Push API auth key
-        callbackUrl: { type: String }, // Webhook URL for IndiaMART
+        //callbackUrl: { type: String }, // Webhook URL for IndiaMART
         filters: {
           leadType: { type: [String] }, // Filter by lead type ("BUYER" or "SELLER")
           priority: { type: String }, // Priority filter
@@ -50,6 +60,8 @@ const IntegrationSettingsSchema = new mongoose.Schema(
       timeOfDay: { type: String },
       lastRun: { type: Date },
     },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
     createdOn: { type: Date, default: Date.now },
     modifiedOn: { type: Date, default: Date.now },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

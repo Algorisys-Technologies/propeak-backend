@@ -8,26 +8,68 @@ const Task = require("../../models/task/task-model");
 //const bcrypt = require("bcryptjs");
 
 // Fetch Integration Settings for a Company
+// exports.getIntegrationSettings = async (req, res) => {
+//   console.log("IntegrationSettings");
+//   console.log("IntegrationSettings req", req.params, req.body);
+//   try {
+//     const { companyId, provider } = req.params;
+
+//     const settings = await IntegrationSetting.findOne({
+//       companyId,
+//       integrationProvider: provider,
+//     });
+
+//     if (!settings) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Settings not found." });
+//     }
+
+//     return res.status(200).json({ success: true, settings });
+//   } catch (error) {
+//     console.error("Error fetching integration settings:", error);
+//     return res.status(500).json({ success: false, error: error.message });
+//   }
+// };
+
 exports.getIntegrationSettings = async (req, res) => {
-  console.log("IntegrationSettings");
-  console.log("IntegrationSettings req", req.params, req.body);
   try {
     const { companyId, provider } = req.params;
+    const { projectId } = req.body;
 
-    const settings = await IntegrationSetting.findOne({
+    // console.log("Fetching Integration Settings:");
+    // console.log("Company ID:", companyId);
+    // console.log("Provider:", provider);
+    // console.log("Project ID:", projectId);
+
+    // Build the query object
+    const query = {
       companyId,
       integrationProvider: provider,
-    });
+    };
 
-    if (!settings) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Settings not found." });
+    // If projectId is provided, add it to the query
+    if (projectId) {
+      query.projectId = projectId;
     }
 
-    return res.status(200).json({ success: true, settings });
+    // Fetch integration settings from the database
+    const integrationSettings = await IntegrationSetting.find(query);
+
+    if (!integrationSettings || integrationSettings.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No integration settings found for the provided criteria.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Integration settings retrieved successfully.",
+      data: integrationSettings,
+    });
   } catch (error) {
-    console.error("Error fetching integration settings:", error);
+    console.error("Error retrieving integration settings:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -63,115 +105,95 @@ exports.getIntegrationSettings = async (req, res) => {
 exports.updateIntegrationSettings = async (req, res) => {
   try {
     const { companyId, provider } = req.params;
-    const { settings, schedule } = req.body;
+    const { projectId, crmKey, taskStageId, startDate, endDate } = req.body;
 
-    console.log("Updating settings for Company ID:", companyId);
+    console.log("Incoming Request Body for Update:", req.body);
+    console.log("Company ID:", companyId);
     console.log("Provider:", provider);
-    console.log("New Settings:", settings);
-    console.log("New Schedule:", schedule);
 
-    // Ensure settings and schedule are provided
-    if (!settings || !schedule) {
-      return res.status(400).json({
+    // Find existing settings
+    const existingSettings = await IntegrationSetting.findOne({
+      projectId,
+      integrationProvider: provider,
+    });
+
+    if (!existingSettings) {
+      return res.status(404).json({
         success: false,
-        message: "Settings and schedule are required.",
+        message: "Integration settings not found. Please add them first.",
       });
     }
 
-    // Find the existing settings and update them
-    const updatedSettings = await IntegrationSetting.findOneAndUpdate(
-      { companyId, integrationProvider: provider },
-      {
-        $set: { settings, schedule, modifiedOn: Date.now() },
-      },
-      { new: true } // Returns the updated document
-    );
+    // Update settings object
+    if (provider === "IndiaMART") {
+      if (crmKey) {
+        existingSettings.settings["IndiaMART"].authKey = crmKey;
+      }
+      if (startDate && endDate) {
+        const formattedStartDate = moment(startDate).format(
+          "DD-MMM-YYYYHH:mm:ss"
+        );
+        const formattedEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
 
-    // If no matching settings are found
-    if (!updatedSettings) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Settings not found." });
+        const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${crmKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
+
+        try {
+          const response = await axios.get(url);
+          console.log("API response for update:", response.data);
+
+          const leadsData = response.data.RESPONSE;
+
+          if (leadsData && leadsData.length > 0) {
+            console.log(
+              `${leadsData.length} leads received from API for update.`
+            );
+
+            const leadsToInsert = leadsData.map((lead) => ({
+              ...lead,
+              projectId,
+              taskStageId,
+            }));
+
+            const insertedLeads = await Lead.insertMany(leadsToInsert);
+            console.log(
+              `${insertedLeads.length} leads successfully updated in the database.`
+            );
+
+            existingSettings.settings["IndiaMART"].leads = leadsToInsert; // Update leads in settings
+          } else {
+            console.log("No leads found for the provided time range.");
+          }
+        } catch (error) {
+          console.error(
+            "Error fetching data from IndiaMART API during update:",
+            error.message
+          );
+        }
+      }
     }
 
-    return res.status(200).json({ success: true, settings: updatedSettings });
+    // Update common fields
+    existingSettings.modifiedOn = Date.now();
+
+    // Save updated settings
+    await existingSettings.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Integration settings updated successfully.",
+      settings: existingSettings,
+    });
   } catch (error) {
     console.error("Error updating integration settings:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// Create Integration Settings
-// exports.addIntegrationSettings = async (req, res) => {
-//   try {
-//     const { companyId, provider } = req.params;
-//     const { settings = {}, schedule, authKey, callbackUrl, filters } = req.body;
-
-//     console.log("Incoming Request Body:", req.body);
-//     console.log("Company ID:", companyId);
-//     console.log("Provider:", provider);
-
-//     // Check if integration already exists
-//     const existingSettings = await IntegrationSetting.findOne({
-//       companyId,
-//       integrationProvider: provider,
-//     });
-
-//     if (existingSettings) {
-//       return res.status(400).json({
-//         success: false,
-//         message:
-//           "Integration settings already exist. Please update them instead.",
-//       });
-//     }
-
-//     // Ensure 'IndiaMART' settings exist in the structure
-//     if (provider === "IndiaMART") {
-//       // Initialize 'IndiaMART' settings if they don't exist
-//       if (!settings["IndiaMART"]) {
-//         settings["IndiaMART"] = {}; // Create 'IndiaMART' object if it doesn't exist
-//       }
-
-//       // Now safely assign values to the IndiaMART settings
-//       settings["IndiaMART"].authKey = authKey;
-//       settings["IndiaMART"].callbackUrl = callbackUrl;
-
-//       // Set filters if provided, or use default filters
-//       settings["IndiaMART"].filters = filters || {
-//         leadType: ["BUYER", "SELLER"], // Default filter
-//         priority: "High", // Default priority
-//       };
-//     }
-
-//     // Create new integration settings with updated settings
-//     const newIntegrationSettings = new IntegrationSetting({
-//       companyId,
-//       integrationProvider: provider,
-//       settings, // This now includes IndiaMART settings with authKey, callbackUrl, and filters
-//       schedule,
-//       enabled: true,
-//       createdOn: Date.now(),
-//       modifiedOn: Date.now(),
-//     });
-
-//     // Save the new integration settings to the database
-//     await newIntegrationSettings.save();
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Integration settings added successfully.",
-//       settings: newIntegrationSettings,
-//     });
-//   } catch (error) {
-//     console.error("Error adding integration settings:", error);
-//     return res.status(500).json({ success: false, error: error.message });
-//   }
-// };
-
 exports.addIntegrationSettings = async (req, res) => {
   try {
     const { companyId, provider } = req.params;
     const { projectId, crmKey, taskStageId, startDate, endDate } = req.body;
+    const settings = {};
 
     console.log("Incoming Request Body:", req.body);
     console.log("Company ID:", companyId);
@@ -179,7 +201,7 @@ exports.addIntegrationSettings = async (req, res) => {
 
     // Check if integration already exists
     const existingSettings = await IntegrationSetting.findOne({
-      companyId,
+      projectId,
       integrationProvider: provider,
     });
 
@@ -193,7 +215,15 @@ exports.addIntegrationSettings = async (req, res) => {
 
     // Ensure 'IndiaMART' settings exist in the structure
     if (provider === "IndiaMART") {
-      const settings = {};
+      // Initialize the IndiaMART object in settings
+      settings["IndiaMART"] = {};
+
+      // Set authKey and filters
+      settings["IndiaMART"].authKey = crmKey;
+      // settings["IndiaMART"].filters = {
+      //   leadType: ["SELLER"],
+      //   priority: "High",
+      // };
 
       // Fetch leads as part of integration settings creation
       if (!crmKey || !startDate || !endDate) {
@@ -229,7 +259,6 @@ exports.addIntegrationSettings = async (req, res) => {
           const insertedLeads = await Lead.insertMany(leadsToInsert);
 
           const tasks = leadsData.map((lead) => {
-            console.log(lead, "data of lead..........");
             return {
               projectId: projectId,
               taskStageId: taskStageId,
@@ -254,7 +283,7 @@ exports.addIntegrationSettings = async (req, res) => {
               createdOn: moment().toISOString(),
             };
           });
-          console.log(tasks, "tasks is here ");
+          //console.log(tasks, "tasks is here ");
           const insertedTasks = await Task.insertMany(tasks);
           console.log(
             `${insertedTasks.length} tasks successfully inserted into the database.`
@@ -276,9 +305,13 @@ exports.addIntegrationSettings = async (req, res) => {
     // Create new integration settings with updated settings
     const newIntegrationSettings = new IntegrationSetting({
       companyId,
+      projectId,
+      taskStageId,
       integrationProvider: provider,
-      settings: {},
+      settings,
       enabled: true,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
       createdOn: Date.now(),
       modifiedOn: Date.now(),
     });
