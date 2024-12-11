@@ -1,6 +1,7 @@
 
 const { LocationHistory } = require('../../models/location-history/location-history');
 const User = require('../../models/user/user-model');
+const mongoose = require('mongoose')
 
 const {activeClients, uwsApp} = require('../../index')
 
@@ -10,16 +11,51 @@ exports.getAllLocationHistory = async (req,res)=>{
   try{
     const {userId, date, companyId} = req.body
 
-    let startDate = new Date(date).setUTCHours(0,0,0,0)
-    let endDate = new Date(date).setUTCHours(23,59,59,999)
+    console.log(userId, companyId, date)
 
-    const locationHistory = await LocationHistory.findOne({companyId, userId,
-      "locationHistory.timestamp": { $gte: startDate, $lte: endDate },
-     })
+    const timeZoneOffset = 330
 
-    return res.json({success: true, data: locationHistory })
+    let startDate = new Date(new Date(date).setUTCHours(0,0,0,0))
+    let endDate = new Date(new Date(date).setUTCHours(23,59,59,999))
+
+    startDate.setMinutes(startDate.getMinutes() - timeZoneOffset);
+    endDate.setMinutes(endDate.getMinutes() - timeZoneOffset);
+
+    console.log(startDate , endDate)
+    const locationHistory = await LocationHistory.aggregate([
+      { 
+        $match: { 
+          companyId: new mongoose.Types.ObjectId(companyId), 
+          userId: new mongoose.Types.ObjectId(userId),
+          "locationHistory.timestamp": { $gte: startDate, $lte: endDate } 
+        }
+      },
+      {
+        $project: {
+          locationHistory: {
+            $filter: {
+              input: "$locationHistory",
+              as: "location",
+              cond: {
+                $and: [
+                  { $gte: ["$$location.timestamp", startDate] },
+                  { $lte: ["$$location.timestamp", endDate] }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]);
+
+
+
+    console.log(locationHistory, "Location")
+    
+    return res.json({success: true, data: locationHistory[0] })
   }
   catch(e){
+    console.log(e)
     return res.json({success: false, message: "", err: e, data:[]})
   }
 }
@@ -42,7 +78,7 @@ exports.addLocationHistory = async (req,res)=>{
     await User.updateOne({_id: userId},{
       currentLocation: locationHistory
     })
-    const isLocationHistoryExists = await LocationHistory.findOne({userId})
+    const isLocationHistoryExists = await LocationHistory.findOne({userId, companyId})
     if(isLocationHistoryExists){
       await LocationHistory.updateOne({_id: isLocationHistoryExists._id}, {
         $push: {locationHistory: locationHistory}
