@@ -240,15 +240,26 @@ exports.updateAccount = async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
-// Delete Account (soft delete)
+
 exports.deleteAccount = async (req, res) => {
   try {
     const accountId = req.params.id;
-    const result = await Account.findByIdAndDelete(accountId);
+
+    const result = await Account.findByIdAndUpdate(
+      accountId,
+      { isDeleted: true },
+      { new: true } 
+    );
+
     if (!result) {
       return res.status(404).json({ message: "Account not found" });
     }
-    return res.json({ data: accountId, success: true, message: "deleted successful!"});
+
+    return res.json({
+      data: result,
+      success: true,
+      message: "Account marked as deleted successfully!",
+    });
   } catch (error) {
     return res.status(500).json({ error: "Server error" });
   }

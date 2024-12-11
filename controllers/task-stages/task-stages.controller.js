@@ -1,10 +1,12 @@
 const mongoose = require("mongoose");
 const TaskStage = require("../../models/task-stages/task-stages-model");
-// const TaskStage =require()
+const audit = require("../audit-log/audit-log-controller");
+
 // Create a new task stage
 exports.create_task_stage = async (req, res) => {
   try {
-    const { sequence, title, displayName, show, companyId } = req.body;
+    const { sequence, title, displayName, show, companyId, createdBy } =
+      req.body;
 
     if (!companyId) {
       return res
@@ -15,7 +17,6 @@ exports.create_task_stage = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Title and display name are required.",
-        message: message.error,
       });
     }
 
@@ -25,17 +26,42 @@ exports.create_task_stage = async (req, res) => {
       displayName,
       show,
       companyId,
+      createdBy,
+      createdOn: new Date(),
+      modifiedBy: createdBy,
+      modifiedOn: new Date(),
     });
 
-    await newStage.save();
-    return res.json({
+    const result = await newStage.save();
+
+    // Insert audit logs
+    ["sequence", "title", "displayName", "show", "companyId"].forEach(
+      (field) => {
+        if (result[field] !== undefined) {
+          audit.insertAuditLog(
+            "",
+            result.title,
+            "TaskStage",
+            field,
+            result[field],
+            createdBy,
+            result._id
+          );
+        }
+      }
+    );
+
+    return res.status(201).json({
       success: true,
-      stage: newStage,
-      message: "task stage added successful",
+      stage: result,
+      message: "Task stage added successfully.",
     });
   } catch (error) {
     console.error("Error creating task stage:", error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({
+      success: false,
+      error: "Error in adding task stage.",
+    });
   }
 };
 
@@ -67,17 +93,40 @@ exports.create_task_stage = async (req, res) => {
 //       .json({ success: false, error: "Failed to load task stages." });
 //   }
 // };
+// exports.get_task_stages_by_company = async (req, res) => {
+//   try {
+//     const { companyId } = req.body;
+//     if (!companyId) {
+//       return res.status(400).json({ error: "Company ID is required." });
+//     }
+//     const stages = await TaskStage.find({
+//       companyId: new mongoose.Types.ObjectId(companyId), isDeleted:false
+//     });
+//     console.log(stages, "stages");
+
+//     return res.status(200).json({ success: true, stages });
+//   } catch (error) {
+//     console.error("Error fetching task stages:", error);
+//     return res
+//       .status(500)
+//       .json({ success: false, error: "Failed to load task stages." });
+//   }
+// };
 exports.get_task_stages_by_company = async (req, res) => {
   try {
-    const { companyId } = req.body; // Make sure companyId is passed in the request body
+    const { companyId } = req.body;
+
+    // Validate companyId
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required." });
     }
 
-    // Make sure to convert companyId to ObjectId for the query
+    // Find task stages where isDeleted is false
     const stages = await TaskStage.find({
       companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
     });
+
     console.log(stages, "stages");
 
     return res.status(200).json({ success: true, stages });
@@ -93,23 +142,43 @@ exports.get_task_stages_by_company = async (req, res) => {
 exports.update_task_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedStage = await TaskStage.findByIdAndUpdate(id, req.body, {
-      new: true,
-    });
+    const { modifiedBy, ...updateData } = req.body;
+
+    const updatedStage = await TaskStage.findByIdAndUpdate(
+      id,
+      { ...updateData, modifiedOn: new Date(), modifiedBy },
+      { new: true }
+    );
 
     if (!updatedStage) {
-      return res.status(404).json({ message: "Task stage not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Task stage not found." });
     }
-    return res.json({
-      updatedStage,
+
+    // Insert audit logs for updated fields
+    Object.keys(updateData).forEach((field) => {
+      audit.insertAuditLog(
+        "update",
+        updatedStage.title,
+        "TaskStage",
+        field,
+        updateData[field],
+        modifiedBy,
+        id
+      );
+    });
+
+    return res.status(200).json({
       success: true,
-      message: "task stage updated successful.",
+      updatedStage,
+      message: "Task stage updated successfully.",
     });
   } catch (error) {
-    return res.json({
-      error: error.message,
+    console.error("Error updating task stage:", error);
+    return res.status(500).json({
       success: false,
-      message: "error in updated task stage.",
+      error: "Error updating task stage.",
     });
   }
 };
@@ -117,9 +186,8 @@ exports.update_task_stage = async (req, res) => {
 // Reorder task stages
 exports.reorder_task_stages = async (req, res) => {
   try {
-    const { companyId, stages } = req.body;
+    const { companyId, stages, modifiedBy } = req.body;
 
-    // Validate request data
     if (!companyId) {
       return res
         .status(400)
@@ -132,16 +200,28 @@ exports.reorder_task_stages = async (req, res) => {
         .json({ success: false, message: "Invalid stages data." });
     }
 
-    // Update the sequence of each stage in the database
-    const updatePromises = stages.map((stage) => {
-      return TaskStage.findByIdAndUpdate(
+    const updatePromises = stages.map((stage) =>
+      TaskStage.findByIdAndUpdate(
         stage._id,
-        { sequence: stage.sequence },
+        { sequence: stage.sequence, modifiedOn: new Date(), modifiedBy },
         { new: true }
+      )
+    );
+
+    const results = await Promise.all(updatePromises);
+
+    // Insert audit logs for reordered stages
+    results.forEach((result) => {
+      audit.insertAuditLog(
+        "update",
+        result.title,
+        "TaskStage",
+        "sequence",
+        result.sequence,
+        modifiedBy,
+        result._id
       );
     });
-
-    await Promise.all(updatePromises);
 
     return res.status(200).json({
       success: true,
@@ -152,7 +232,6 @@ exports.reorder_task_stages = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to reorder task stages.",
-      error: error.message,
     });
   }
 };
@@ -161,23 +240,64 @@ exports.reorder_task_stages = async (req, res) => {
 exports.delete_task_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedStage = await TaskStage.findByIdAndDelete(id);
+
+    const deletedStage = await TaskStage.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
 
     if (!deletedStage) {
-      return res.status(404).json({ message: "Task stage not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Task stage not found." });
     }
-    return res.json({
+
+    // Insert audit log for deletion
+    audit.insertAuditLog(
+      "delete",
+      deletedStage.title,
+      "TaskStage",
+      "isDeleted",
+      true,
+      deletedStage.modifiedBy,
+      id
+    );
+
+    return res.status(200).json({
       success: true,
-      message: "task stage delete successful.",
+      message: "Task stage marked as deleted successfully.",
+      data: deletedStage,
     });
   } catch (error) {
-    return res.json({
-      error: error.message,
+    console.error("Error deleting task stage:", error);
+    return res.status(500).json({
       success: false,
-      message: "error in delete task stage.",
+      error: "Error deleting task stage.",
     });
   }
 };
+
+// exports.delete_task_stage = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const deletedStage = await TaskStage.findByIdAndDelete(id);
+
+//     if (!deletedStage) {
+//       return res.status(404).json({ message: "Task stage not found" });
+//     }
+//     return res.json({
+//       success: true,
+//       message: "task stage delete successful.",
+//     });
+//   } catch (error) {
+//     return res.json({
+//       error: error.message,
+//       success: false,
+//       message: "error in delete task stage.",
+//     });
+//   }
+// };
 
 // const mongoose = require("mongoose");
 // const Category = require("../../models/category/category-model");

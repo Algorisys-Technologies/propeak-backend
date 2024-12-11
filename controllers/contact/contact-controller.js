@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const { logError, logInfo } = require("../../common/logger");
 const cacheManager = require("../../redis");
 const { activeClients } = require("../..");
-const { getQueueMessageCount } = require('../../rabbitmq/index');
+const { getQueueMessageCount } = require("../../rabbitmq/index");
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
   ADDCONTACTERROR: "Error occurred while adding the contact",
@@ -17,31 +17,47 @@ exports.getAllContact = async (req, res) => {
   const { companyId, currentPage, query, accountId } = req.body;
 
   const regex = new RegExp(query, "i");
-  
-  const limit = 5
+
+  const limit = 5;
   if (!companyId) {
-    return res
-      .status(400)
-      .json({ success: false,contacts: [], totalPages:0, currentPage: 0, msg: "Company ID is required." });
+    return res.status(400).json({
+      success: false,
+      contacts: [],
+      totalPages: 0,
+      currentPage: 0,
+      msg: "Company ID is required.",
+    });
   }
-  console.log("in contacts")
+  console.log("in contacts");
 
   const contacts = await Contact.find({
-    $or: [{first_name:{ $regex: regex } }, {last_name:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {title: {$regex: regex}} ],
+    $or: [
+      { first_name: { $regex: regex } },
+      { last_name: { $regex: regex } },
+      { phone: { $regex: regex } },
+      { email: { $regex: regex } },
+      { title: { $regex: regex } },
+    ],
     companyId: companyId,
     account_id: accountId,
     isDeleted: false,
-  }).skip(limit * currentPage).limit(limit);
+  })
+    .skip(limit * currentPage)
+    .limit(limit);
 
   const totalPages = Math.ceil(await Contact.countDocuments({account_id: accountId, $or: [{first_name:{ $regex: regex } }, {last_name:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {title: {$regex: regex}} ],companyId: companyId,
     isDeleted: false,}) / limit)
   if (!contacts || contacts.length === 0) {
-    return res
-      .status(404)
-      .json({ success: false, contacts: [], totalPages:0, currentPage: 0, msg: "No contacts found for this company." });
+    return res.status(404).json({
+      success: false,
+      contacts: [],
+      totalPages: 0,
+      currentPage: 0,
+      msg: "No contacts found for this company.",
+    });
   }
 
-  res.json({contacts, totalPages, currentPage});
+  res.json({ contacts, totalPages, currentPage });
 };
 
 // exports.getAllContact = async (req, res) => {
@@ -129,7 +145,7 @@ exports.createContact = async (req, res) => {
         msg: "Company ID is required to create a contact.",
       });
     }
-   
+
     // if(contactData.creationMode == "AUTO"){
 
     //   const contactsQueueCount = await getQueueMessageCount("contact_extraction_queue")
@@ -154,12 +170,10 @@ exports.createContact = async (req, res) => {
     });
   } catch (err) {
     console.error("Error occurred while creating contact:", err);
-    res
-      .status(500)
-      .json({
-        success: false,
-        msg: "Error adding contact. Please try again later.",
-      });
+    res.status(500).json({
+      success: false,
+      msg: "Error adding contact. Please try again later.",
+    });
   }
 };
 
@@ -167,14 +181,14 @@ exports.createContact = async (req, res) => {
 exports.updateContact = async (req, res) => {
   try {
     const updatedContact = req.body;
-    console.log(updatedContact, "updatedContact")
-    console.log(req.body.id , "req.body._id ")
+    console.log(updatedContact, "updatedContact");
+    console.log(req.body.id, "req.body._id ");
     const result = await Contact.findOneAndUpdate(
       { _id: req.body.id },
       updatedContact,
       { new: true }
     );
-    console.log(result, "resultsssss")
+    console.log(result, "resultsssss");
     // console.log(_id, "_id")
     if (!result) {
       return res
@@ -183,7 +197,7 @@ exports.updateContact = async (req, res) => {
     }
     cacheManager.clearCachedData("contactData");
     logInfo(result, "updateContact result");
-    console.log(result , "resulysssssss")
+    console.log(result, "resulysssssss");
     res.json({
       success: true,
       message: `Successfully updated!`,
@@ -194,43 +208,29 @@ exports.updateContact = async (req, res) => {
     res.status(500).json({ success: false, msg: errors.EDITCONTACTERROR });
   }
 };
+
 exports.deleteContact = async (req, res) => {
-  console.log("delete this contact")
+  console.log("Deleting this contact...");
   try {
     const contactId = req.params.id;
-    const result = await Contact.findByIdAndDelete(contactId);
-    if (!result) {
-      return res.status(404).json({ message: "Account not found" });
+
+    const updatedContact = await Contact.findByIdAndUpdate(
+      contactId,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    if (!updatedContact) {
+      return res.status(404).json({ message: "Contact not found" });
     }
-    return res.status(200).json({ data: contactId, success: true, message: "deleted successful!" });
+
+    return res.status(200).json({
+      data: updatedContact,
+      success: true,
+      message: "Contact marked as deleted successfully!",
+    });
   } catch (error) {
+    console.error("Error deleting contact:", error);
     return res.status(500).json({ error: "Server error" });
   }
 };
-// Delete Contact (soft delete)
-// exports.deleteContact = async (req, res) => {
-//   try {
-//     const contactId = req.params.id;
-//     const result = await Contact.findByIdAndUpdate(
-//       contactId,
-//       { isDeleted: true },
-//       { new: true }
-//     );
-//     if (!result) {
-//       return res.status(404).json({ message: errors.CONTACT_DOESNT_EXIST });
-//     }
-
-//     // Clear the cache
-//     await cacheManager.clearCachedData("contactData");
-//     console.log("Cache cleared after deleting contact:", contactId);
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Contact deleted successfully",
-//       data: contactId,
-//     });
-//   } catch (error) {
-//     console.error("Error occurred:", error);
-//     return res.status(500).json({ error: "Server error" });
-//   }
-// };

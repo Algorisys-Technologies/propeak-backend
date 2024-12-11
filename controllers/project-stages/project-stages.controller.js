@@ -1,12 +1,11 @@
 const mongoose = require("mongoose");
-const ProjectStage = require("../../models/project-stages/project-stages-model.js");
+const ProjectStage = require("../../models/project-stages/project-stages-model");
+const audit = require("../audit-log/audit-log-controller");
 
 exports.create_project_stage = async (req, res) => {
-  // console.log(res, "response ", req , "  request")
   try {
-    console.log("okyyyyyyyyyyyyy");
-    const { sequence, title, displayName, show, companyId } = req.body;
-    console.log(title, "title");
+    const { sequence, title, displayName, show, companyId, createdBy } = req.body;
+
     if (!companyId) {
       return res
         .status(400)
@@ -18,26 +17,46 @@ exports.create_project_stage = async (req, res) => {
         error: "Title and display name are required.",
       });
     }
+
     const newStage = new ProjectStage({
       sequence,
       title,
       displayName,
       show,
       companyId,
+      createdBy,
+      createdOn: new Date(),
+      modifiedBy: createdBy,
+      modifiedOn: new Date(),
     });
 
-    await newStage.save();
+    const result = await newStage.save();
+
+    // Insert audit logs
+    ["sequence", "title", "displayName", "show", "companyId"].forEach((field) => {
+      if (result[field] !== undefined) {
+        audit.insertAuditLog(
+          "",
+          result.title,
+          "ProjectStage",
+          field,
+          result[field],
+          createdBy,
+          result._id
+        );
+      }
+    });
+
     return res.status(201).json({
       success: true,
-      stage: newStage,
-      message: "Project stage added successful",
+      stage: result,
+      message: "Project stage added successfully.",
     });
   } catch (error) {
     console.error("Error creating project stage:", error);
     return res.status(500).json({
       success: false,
-      error: error.message,
-      message: "error in adding project stage",
+      error: "Error in adding project stage.",
     });
   }
 };
@@ -45,80 +64,114 @@ exports.create_project_stage = async (req, res) => {
 exports.get_project_stages_by_company = async (req, res) => {
   try {
     const { companyId } = req.body;
-    console.log("CompanyId", companyId);
+
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required." });
     }
-    const stages = await ProjectStage.find({ companyId });
 
-    // console.log("Fetched stages for companyId:", companyId, "Stages:", stages);
+    const stages = await ProjectStage.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    });
+
     if (stages.length === 0) {
       return res
         .status(404)
         .json({ error: "No project stages found for this company." });
     }
+
     return res.status(200).json({ success: true, stages });
   } catch (error) {
-    console.error(
-      "Error fetching project stages for companyId:",
-      req.params.companyId,
-      error
-    );
+    console.error("Error fetching project stages:", error);
     return res
       .status(500)
       .json({ success: false, error: "Failed to load project stages." });
   }
 };
 
-// Update a project stage by ID
 exports.update_project_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedStage = await ProjectStage.findByIdAndUpdate(id, req.body, {
-      new: true,
-    });
+    const { modifiedBy, ...updateData } = req.body;
+
+    const updatedStage = await ProjectStage.findByIdAndUpdate(
+      id,
+      { ...updateData, modifiedOn: new Date(), modifiedBy },
+      { new: true }
+    );
+
     if (!updatedStage) {
-      return res.status(404).json({ message: "Project stage not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Project stage not found." });
     }
-    return res.json({
-      updatedStage,
+
+    // Insert audit logs for updated fields
+    Object.keys(updateData).forEach((field) => {
+      audit.insertAuditLog(
+        "update",
+        updatedStage.title,
+        "ProjectStage",
+        field,
+        updateData[field],
+        modifiedBy,
+        id
+      );
+    });
+
+    return res.status(200).json({
       success: true,
-      message: "Project stage updated successful.",
+      updatedStage,
+      message: "Project stage updated successfully.",
     });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    console.error("Error updating project stage:", error);
+    return res.status(500).json({ success: false, error: "Error updating project stage." });
   }
 };
 
-// Delete a project stage by ID
 exports.delete_project_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedStage = await ProjectStage.findByIdAndDelete(id);
+
+    const deletedStage = await ProjectStage.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
+
     if (!deletedStage) {
       return res
         .status(404)
         .json({ success: false, message: "Project stage not found." });
     }
-    return res.json({
+
+    // Insert audit log for deletion
+    audit.insertAuditLog(
+      "delete",
+      deletedStage.title,
+      "ProjectStage",
+      "isDeleted",
+      true,
+      deletedStage.modifiedBy,
+      id
+    );
+
+    return res.status(200).json({
       success: true,
-      message: "Project stage delete successful.",
+      message: "Project stage marked as deleted successfully.",
+      data: deletedStage,
     });
   } catch (error) {
-    return res.json({
-      error: error.message,
-      success: false,
-      message: "error in delete project stage.",
-    });
+    console.error("Error deleting project stage:", error);
+    return res.status(500).json({ success: false, error: "Error deleting project stage." });
   }
 };
 
-// Reorder project stages
 exports.reorder_project_stages = async (req, res) => {
   try {
-    const { companyId, stages } = req.body;
+    const { companyId, stages, modifiedBy } = req.body;
 
-    // Check if the required data is provided
     if (!companyId) {
       return res
         .status(400)
@@ -131,16 +184,28 @@ exports.reorder_project_stages = async (req, res) => {
         .json({ success: false, message: "Invalid stages data." });
     }
 
-    // Loop through the stages and update the sequence in the database
-    const updatePromises = stages.map((stage) => {
-      return ProjectStage.findByIdAndUpdate(
+    const updatePromises = stages.map((stage) =>
+      ProjectStage.findByIdAndUpdate(
         stage._id,
-        { sequence: stage.sequence },
+        { sequence: stage.sequence, modifiedOn: new Date(), modifiedBy },
         { new: true }
+      )
+    );
+
+    const results = await Promise.all(updatePromises);
+
+    // Insert audit logs for reordered stages
+    results.forEach((result) => {
+      audit.insertAuditLog(
+        "update",
+        result.title,
+        "ProjectStage",
+        "sequence",
+        result.sequence,
+        modifiedBy,
+        result._id
       );
     });
-
-    await Promise.all(updatePromises);
 
     return res.status(200).json({
       success: true,
@@ -151,7 +216,6 @@ exports.reorder_project_stages = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to reorder project stages.",
-      error: error.message,
     });
   }
 };
