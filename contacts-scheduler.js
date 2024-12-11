@@ -15,7 +15,7 @@ try {
   const j = schedule.scheduleJob(config.contactsSchedule, function () {
     rabbitMQ.receiveMessageFromQueue("contact_extraction_queue").then(async (msg) => {
       if (msg !== "No messages in queue") {
-        const { filePath, fileName, companyId, type } = msg;
+        const { filePath, fileName, companyId, type, accountId } = msg;
 
         try {
           // Check if file exists
@@ -58,7 +58,7 @@ try {
             companyId,
             first_name: extractDetails.first_name,
             last_name: extractDetails.last_name,
-            email: extractDetails.email_address,
+            email: extractDetails.email_address.join(","),
             phone:
               typeof extractDetails.phone_numbers === "object"
                 ? Object.keys(extractDetails.phone_numbers)
@@ -72,6 +72,7 @@ try {
               postal_code: extractDetails.pincode,
               country: extractDetails.country,
             },
+            secondary_address: extractDetails.secondary_address,
             website: extractDetails.website_url,
             title: extractDetails.company_name,
             department: extractDetails.designation,
@@ -81,7 +82,7 @@ try {
                     .map((p) => `${p}:${extractDetails.phone_numbers[p]}`)
                     .join(" ")
                 : extractDetails.phone_numbers,
-            account_id: null,
+            account_id: accountId || null,
             account_name: "",
             contact_owner: {
               name: "",
@@ -105,6 +106,8 @@ try {
               },
             }
           );
+
+          console.log(await contactResponse.json())
 
           if (!contactResponse.ok) {
             throw new Error("Failed to create contact");

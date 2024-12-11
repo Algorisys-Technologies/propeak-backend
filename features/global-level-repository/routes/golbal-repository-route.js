@@ -5,6 +5,7 @@ const verifyAppLevelAccess = require("../../../verify-app-level-access/verify-ap
 const verifyToken = require("../../../verify-token/verify-token");
 
 //add/upload file
+// router.post('/uploadVisitingCards', uploadglobalFileController.uploadVisitingCards);
 
 router.post('/add', uploadglobalFileController.postUploadFile);
 //get All file

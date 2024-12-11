@@ -188,8 +188,6 @@ exports.getAllRepositoryFile = (req, res) => {
 };
 
 
-
-
 exports.postUploadFile = (req, res) => {
     const companyId = req.body.companyId;
     const type = req.body.type
@@ -269,7 +267,7 @@ exports.postUploadFile = (req, res) => {
                 
                 if(pathName == "/contacts"){
                     if (type.startsWith("image/")) {
-                        const message = {filePath: companyFolderPath + pathName + "/" + filename, fileName: filename, companyId, type}
+                        const message = {accountId : req.body.accountId, filePath: companyFolderPath + pathName + "/" + filename, fileName: filename, companyId, type}
                         sendMessageToQueue(message,
                             "contact_extraction_queue",
                             "contact_extraction_routing")

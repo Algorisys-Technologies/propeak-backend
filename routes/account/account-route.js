@@ -10,6 +10,7 @@ const checkRole = require("../../verify-token/check-role");
 //     // verifyToken,
 //      accountController.getAccountById);
 // READ (ALL)
+
 router.post('/companyId', 
     // verifyToken, checkRole, 
     accountController.getAllAccounts);
