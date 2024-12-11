@@ -6,13 +6,18 @@ const {activeClients, uwsApp} = require('../../index')
 
 
 
-
-
-
 exports.getAllLocationHistory = async (req,res)=>{
   try{
-    const locationHistory = await LocationHistory.find({companyId})
-      return res.json({success: true, data: locationHistory })
+    const {userId, date, companyId} = req.body
+
+    let startDate = new Date(date).setUTCHours(0,0,0,0)
+    let endDate = new Date(date).setUTCHours(23,59,59,999)
+
+    const locationHistory = await LocationHistory.find({companyId, userId,
+      "locationHistory.timestamp": { $gte: startDate, $lte: endDate },
+     })
+
+    return res.json({success: true, data: locationHistory })
   }
   catch(e){
     return res.json({success: false, message: "", err: e, data:[]})
@@ -39,7 +44,7 @@ exports.addLocationHistory = async (req,res)=>{
     })
     const isLocationHistoryExists = await LocationHistory.findOne({userId})
     if(isLocationHistoryExists){
-      await LocationHistory.updateOne({userId}, {
+      await LocationHistory.updateOne({_id: isLocationHistoryExists._id}, {
         $push: {locationHistory: locationHistory}
       })
     }

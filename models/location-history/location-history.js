@@ -7,6 +7,7 @@ const LocationSchema = new mongoose.Schema({
     {
       lat: { type: Number },
       lng: { type: Number },
+      location: {type: String},
       timestamp: { type: Date, default: Date.now },
     },
   ],
