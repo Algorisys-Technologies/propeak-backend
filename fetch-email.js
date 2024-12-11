@@ -244,11 +244,10 @@ exports.fetchEmail = async ({ emailTaskConfig, projectId, taskStageId, companyId
       tls: account.tls,
       tlsOptions: { minVersion: "TLSv1.2", rejectUnauthorized: false },
       authTimeout: 30000,
-      debug: console.log,
+      // debug: console.log,
     };
 
     const mailFetcher = new MailAttachmentFetcher({ emailConfig, localFolderPath, targetDate: emailTaskConfig.lastFetched, targetEndDate: emailTaskConfig.lastToFetched, emailPatterns: emailTaskConfig.emailPatterns });
-    console.log(emailTaskConfig.emailPatterns.body_contains, "text")
     return new Promise((resolve) => {
       mailFetcher.start();
 
@@ -263,7 +262,7 @@ exports.fetchEmail = async ({ emailTaskConfig, projectId, taskStageId, companyId
   // Wait for all fetchers to complete
   await Promise.all(fetchers);
 
-  console.log("All emails fetched:", allEmails);
+  // console.log("All emails fetched:", allEmails);
 
   // Now create tasks for each email
 

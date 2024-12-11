@@ -54,6 +54,9 @@ const ContactSchema = new mongoose.Schema({
       // required: true,
     },
   },
+  secondary_address:{
+    type: String,
+  },
   lead_source: {
     type: String,
   },

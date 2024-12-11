@@ -14,7 +14,7 @@ const errors = {
 };
 
 exports.getAllContact = async (req, res) => {
-  const { companyId, currentPage, query } = req.body;
+  const { companyId, currentPage, query, accountId } = req.body;
 
   const regex = new RegExp(query, "i");
   
@@ -29,10 +29,11 @@ exports.getAllContact = async (req, res) => {
   const contacts = await Contact.find({
     $or: [{first_name:{ $regex: regex } }, {last_name:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {title: {$regex: regex}} ],
     companyId: companyId,
+    account_id: accountId,
     isDeleted: false,
   }).skip(limit * currentPage).limit(limit);
 
-  const totalPages = Math.ceil(await Contact.countDocuments({ $or: [{first_name:{ $regex: regex } }, {last_name:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {title: {$regex: regex}} ],companyId: companyId,
+  const totalPages = Math.ceil(await Contact.countDocuments({account_id: accountId, $or: [{first_name:{ $regex: regex } }, {last_name:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {title: {$regex: regex}} ],companyId: companyId,
     isDeleted: false,}) / limit)
   if (!contacts || contacts.length === 0) {
     return res
