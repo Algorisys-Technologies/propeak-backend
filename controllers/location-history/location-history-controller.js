@@ -13,7 +13,7 @@ exports.getAllLocationHistory = async (req,res)=>{
     let startDate = new Date(date).setUTCHours(0,0,0,0)
     let endDate = new Date(date).setUTCHours(23,59,59,999)
 
-    const locationHistory = await LocationHistory.find({companyId, userId,
+    const locationHistory = await LocationHistory.findOne({companyId, userId,
       "locationHistory.timestamp": { $gte: startDate, $lte: endDate },
      })
 

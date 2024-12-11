@@ -4,7 +4,7 @@ const locationController = require("../../controllers/location-history/location-
 const router = express.Router();
 
 
-router.get('/all', locationController.getAllLocationHistory)
+router.post('/all', locationController.getAllLocationHistory)
 
 router.get('/:userId', locationController.getLocationHistoryByUserId)
 
