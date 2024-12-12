@@ -11,47 +11,48 @@ mongoose
   .then(() => console.log("Connected to the database.", "DB"));
 
 try {
-  const fetchEmailJob = schedule.scheduleJob(config.fetchEmailScheduleEveryHour, async function () {
-    console.log("Running fetchEmail...");
-    try {
-      const emailConfigs = await EmailConfig.find({ isDeleted: false })
+  const fetchEmailJob = schedule.scheduleJob(
+    config.fetchEmailScheduleEveryHour,
+    async function () {
+      console.log("Running fetchEmail...");
+      try {
+        const emailConfigs = await EmailConfig.find({ isDeleted: false });
 
-      if (emailConfigs.length <= 0) {
-        console.log("No active email configuration found.");
-        return;
-      }
+        if (emailConfigs.length <= 0) {
+          console.log("No active email configuration found.");
+          return;
+        }
 
-      let emailAccounts = []
+        let emailAccounts = [];
 
+        emailConfigs.forEach(async (emailConfig) => {
+          emailConfig.authentication.forEach((auth) => {
+            emailAccounts.push({
+              user: auth.username,
+              password: auth.password,
+              host: emailConfig.smtpSettings.host,
+              port: emailConfig.smtpSettings.port,
+              tls: emailConfig.smtpSettings.tls,
+            });
+          });
 
+          const { companyId, projectId } = emailConfig;
 
-      emailConfigs.forEach(async (emailConfig) => {
-        emailConfig.authentication.forEach((auth) => {
-          emailAccounts.push({ user: auth.username, password: auth.password, host: emailConfig.smtpSettings.host, port: emailConfig.smtpSettings.port, tls: emailConfig.smtpSettings.tls })
-        })
-
-        const { companyId, projectId } = emailConfig;
-
-        const emails = await fetchEmail(
-          {
+          const emails = await fetchEmail({
             emailTaskConfig: emailConfig,
             projectId,
             taskStageId: emailConfig.taskStageId,
             companyId,
             userId: emailConfig.userId,
-            emailAccounts
-          }
-        );
+            emailAccounts,
+          });
 
-      // await EmailConfig.updateOne({ _id: emailConfig._id },{lastFetched: new Date()})
-      // await EmailConfig.updateOne({ _id: emailConfig._id },{lastToFetched: new Date()})
-
-      });
-      // console.log("Emails fetched successfully:", emails);
-    } catch (error) {
-      console.error("Error fetching emails:", error);
+        });
+      } catch (error) {
+        console.error("Error fetching emails:", error);
+      }
     }
-  });
+  );
 } catch (error) {
   console.error("Error scheduling fetchEmail job:", error);
 }
