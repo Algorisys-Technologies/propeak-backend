@@ -3,17 +3,25 @@ const axios = require("axios");
 const moment = require("moment");
 const Lead = require("./models/indiamart-integration/indiamart-lead-model");
 const Task = require("./models/task/task-model");
-const IntegrationSetting = require("./models/integration-setting");
+const mongoose = require("mongoose")
+
+console.log(process.env.DB)
+
+mongoose
+  .connect("mongodb://localhost/tms", {
+    socketTimeoutMS: 0,
+  })
+  .then(() => console.log("Connected to the database.", "DB"));
+
+
 const ProjectSetting = require("./models/indiamart-integration/project-setting-model");
-schedule.scheduleJob("0 * * * *", async () => {
+schedule.scheduleJob("*/10 * * * * ", async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
     const settings = await ProjectSetting.find({
-      integrationProvider: "IndiaMART",
+      
       isDeleted: false,
-      companyId,
-      projectId,
     });
 
     if (!settings.length) {
@@ -22,15 +30,15 @@ schedule.scheduleJob("0 * * * *", async () => {
     }
 
     for (const setting of settings) {
-      const { companyId, projectId, taskStageId, crmKey } = setting;
+      const { companyId, projectId, taskStageId, authKey, startDate, endDate } = setting;
+      console.log(authKey)
 
-      const startDate = moment()
-        .subtract(1, "hour")
-        .format("DD-MMM-YYYYHH:mm:ss");
-      const endDate = moment().format("DD-MMM-YYYYHH:mm:ss");
+      let newStartDate = moment(startDate).format("DD-MMM-YYYYHH:mm:ss");
+      let newEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
+     
 
       // API URL for fetching IndiaMART leads
-      const apiUrl = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${crmKey}&start_time=${startDate}&end_time=${endDate}`;
+      const apiUrl = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${newStartDate}&end_time=${newEndDate}`;
 
       try {
         // Fetch leads from IndiaMART API

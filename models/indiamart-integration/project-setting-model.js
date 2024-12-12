@@ -21,6 +21,13 @@ const projectSettingSchema = new mongoose.Schema(
       type: String,
       // required: true
     },
+    authKey:{
+      type:String,
+      // required:true,
+    },
+    keyName:{
+      type:String,
+    },
     enabled: { type: Boolean, default: true },
     fetchFrequetly:{type:Boolean,default:false},
     startDate: {
