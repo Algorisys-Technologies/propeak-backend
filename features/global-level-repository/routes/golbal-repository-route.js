@@ -8,6 +8,10 @@ const verifyToken = require("../../../verify-token/verify-token");
 // router.post('/uploadVisitingCards', uploadglobalFileController.uploadVisitingCards);
 
 router.post('/add', uploadglobalFileController.postUploadFile);
+
+router.post('/addMultiple', uploadglobalFileController.postMultipleVisitingCards);
+
+
 //get All file
 router.post('/getAllFile', uploadglobalFileController.getAllRepositoryFile);
 

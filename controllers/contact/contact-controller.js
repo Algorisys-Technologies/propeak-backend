@@ -133,6 +133,42 @@ exports.getContactById = async (req, res) => {
 //   }
 // };
 
+
+exports.createMultipleContacts = async (req, res) => {
+  console.log("Creating contactsssss...");
+
+  try {
+    const {contacts} = req.body;
+
+   
+
+    // if(contactData.creationMode == "AUTO"){
+
+    //   const contactsQueueCount = await getQueueMessageCount("contact_extraction_queue")
+    //   const users = activeClients.get(companyId)
+    //   users.forEach((user)=> {
+    //     user.send(JSON.stringify({event: "contact-created", contactsQueueCount }))
+    //   })
+    // }
+
+    const newContact = await Contact.insertMany(contacts);
+
+    console.log("contact created successfully:", newContact);
+
+    res.json({
+      success: true,
+      message: "Successfully added!",
+      result: newContact,
+    });
+  } catch (err) {
+    console.error("Error occurred while creating contact:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Error adding contact. Please try again later.",
+    });
+  }
+};
+
 exports.createContact = async (req, res) => {
   console.log("Creating contactsssss...");
 

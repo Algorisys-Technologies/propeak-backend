@@ -187,6 +187,100 @@ exports.getAllRepositoryFile = (req, res) => {
         });
 };
 
+exports.postMultipleVisitingCards = async (req, res) => {
+
+
+    try{
+        function ensureDirectoryExistence(filePath) {
+            var dirname = path.dirname(filePath);
+            if (fs.existsSync(dirname)) {
+                return true;
+            }
+            ensureDirectoryExistence(dirname);
+            fs.mkdirSync(dirname);
+        }
+    const companyId = req.body.companyId;
+    console.log("give me data", req.body);
+    console.log(req.files.files);
+    const files = req.files.files.length ? req.files.files  : [req.files.files]
+
+
+    if (!req.body.path) {
+        return res.status(400).json({ error: "Path is required." });
+    }
+    let pathName;
+    if (req.body.path === 'root') {
+        pathName = '/'
+    }
+    else {
+        if (req.body.path.charAt(0) === '/') {
+            pathName = req.body.path
+        }
+        else {
+            pathName = '/' + req.body.path
+        }
+    }
+
+
+    if (!files.length) {
+        res.send({ success: false, message: "No files were uploaded." });
+        return;
+    }
+
+    let uploadFiles = []
+     var companyFolderPath = uploadFolder + "/" + companyId + "/documents"
+
+    files.forEach((file)=>{
+        const uploadFile = {
+            title: req.body.title,
+            fileName: file.name,
+            description: req.body.description,
+            path: pathName,
+            isDeleted: false,
+            createdBy: "",
+            createdOn: new Date(),
+            companyId: companyId,
+        }
+        uploadFiles.push(uploadFile)
+
+       
+        var filename = file.name;
+        var uploadedFile = file;
+        let fileUploaded = uploadedFile.name.split('.');
+        let fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+
+        let validFileExtn = config.extentionFile;
+        let isValidFileExtn = validFileExtn.filter((extn) => extn === fileExtn);
+
+        
+    ensureDirectoryExistence(companyFolderPath + pathName + "/" + filename)
+    uploadedFile.mv(companyFolderPath + pathName + "/" + filename, function (err) {
+        if (err) {
+            console.log({ success: false, message: "File Not Saved." });
+                }
+            });
+
+    })
+
+    await UploadRepositoryFile.insertMany(uploadFiles)
+
+    if(pathName == "/contacts"){
+        const message = {accountId : req.body.accountId,  companyId, files, filePath: companyFolderPath + pathName + "/" }
+        sendMessageToQueue(message,
+            "mul_contact_extraction_queue",
+            "mul_contact_extraction_routing")
+    }
+
+    return res.json({success: true, message: "Successfully uploaded"})
+
+}catch(e){
+    return res.json({success: false, message: "Failed uploading files"})
+}
+
+
+
+   
+}
 
 exports.postUploadFile = (req, res) => {
     const companyId = req.body.companyId;

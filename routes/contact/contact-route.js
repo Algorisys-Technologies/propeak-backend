@@ -27,6 +27,15 @@ router.post(
   contactController.createContact
 );
 
+router.post(
+  "/addMultipleContacts",
+  // verifyToken,
+  contactController.createMultipleContacts
+);
+
+
+
+
 // UPDATE
 router.post(
   "/editContact",
