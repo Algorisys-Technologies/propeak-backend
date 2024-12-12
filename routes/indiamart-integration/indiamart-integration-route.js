@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const integrationController = require("../../controllers/indiamart-integration/indiamart-integration-controller");
-
+const projectSettings = require("../../controllers/indiamart-integration/project-setting-controller");
 router.get(
   "/GetIntegrationSettings/:companyId/:provider",
   integrationController.getIntegrationSettings
@@ -21,9 +21,9 @@ router.post(
   integrationController.handleIndiamartWebhook
 );
 
-// router.get(
-//   "/GetActiveIntegrations/:companyId/:provider?",
-//   integrationController.getActiveIntegrations
-// );  // "?" makes the provider parameter optional.
+router.post("/addProjectSetting", projectSettings.createProjectSettings);
 
+router.post("/projectSetting", projectSettings.getAllProjectSettings);
+
+router.put("/updateProjectSetting", projectSettings.updateProjectSettings);
 module.exports = router;
