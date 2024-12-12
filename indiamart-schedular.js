@@ -4,11 +4,13 @@ const moment = require("moment");
 const Lead = require("./models/indiamart-integration/indiamart-lead-model");
 const Task = require("./models/task/task-model");
 const mongoose = require("mongoose")
+const dotenv = require("dotenv");
 
-console.log(process.env.DB)
+dotenv.config();
+
 
 mongoose
-  .connect("mongodb://localhost/tms", {
+  .connect(process.env.DB, {
     socketTimeoutMS: 0,
   })
   .then(() => console.log("Connected to the database.", "DB"));
@@ -20,7 +22,7 @@ schedule.scheduleJob("*/10 * * * * ", async () => {
 
   try {
     const settings = await ProjectSetting.find({
-      
+      enabled: true,
       isDeleted: false,
     });
 
@@ -30,11 +32,22 @@ schedule.scheduleJob("*/10 * * * * ", async () => {
     }
 
     for (const setting of settings) {
-      const { companyId, projectId, taskStageId, authKey, startDate, endDate } = setting;
+      const { companyId, projectId, taskStageId, authKey, startDate, endDate, fetchFrequetly, lastFetched} = setting;
       console.log(authKey)
 
-      let newStartDate = moment(startDate).format("DD-MMM-YYYYHH:mm:ss");
-      let newEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
+      let newStartDate;
+      let newEndDate;
+
+      if(fetchFrequetly){
+        newStartDate = moment(lastFetched).format("DD-MMM-YYYYHH:mm:ss");
+        newEndDate = moment(new Date()).format("DD-MMM-YYYYHH:mm:ss");
+      }
+      else{
+        newStartDate = moment(startDate).format("DD-MMM-YYYYHH:mm:ss");
+        newEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
+      }
+
+    
      
 
       // API URL for fetching IndiaMART leads
@@ -101,6 +114,8 @@ schedule.scheduleJob("*/10 * * * * ", async () => {
           await newTask.save();
           console.log(`Task created for lead: ${lead.SUBJECT}`);
         }
+
+        await ProjectSetting.updateOne({_id: setting._id }, {lastFetched: new Date()})
       } catch (error) {
         console.error(
           `Error fetching leads for companyId: ${companyId}`,

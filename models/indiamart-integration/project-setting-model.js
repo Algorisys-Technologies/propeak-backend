@@ -28,7 +28,7 @@ const projectSettingSchema = new mongoose.Schema(
     keyName:{
       type:String,
     },
-    enabled: { type: Boolean, default: true },
+    enabled: { type: Boolean, default: false },
     fetchFrequetly:{type:Boolean,default:false},
     startDate: {
       type: Date,
@@ -38,12 +38,12 @@ const projectSettingSchema = new mongoose.Schema(
       type: Date,
       // required: true
     },
-    lastFetch: {
+    lastFetched: {
       type: Date,
       // required: true
     },
-    createdOn: { type: String, default: new Date().toISOString() },
-    modifiedOn: { type: String, default: new Date().toISOString() },
+    createdOn: { type: Date, default: new Date() },
+    modifiedOn: { type: Date, default: new Date() },
     createdBy: {
       type: String,
     },
