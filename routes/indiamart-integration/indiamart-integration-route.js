@@ -3,17 +3,22 @@ const router = express.Router();
 const integrationController = require("../../controllers/indiamart-integration/indiamart-integration-controller");
 
 router.get(
-  "/GetIntegrationSettings/:companyId/:provider",
+  "/GetIntegrationSettings/:companyId",
   integrationController.getIntegrationSettings
 );
 router.put(
-  "/UpdateIntegrationSettings/:companyId/:provider",
+  "/UpdateIntegrationSettings/:companyId",
   integrationController.updateIntegrationSettings
 );
 
 router.post(
-  "/AddIntegrationSettings/:companyId/:provider",
+  "/AddIntegrationSettings/:companyId",
   integrationController.addIntegrationSettings
+);
+
+router.delete(
+  "/DeleteIntegrationSettings/:companyId",
+  integrationController.deleteIntegrationSettings
 );
 
 router.post(

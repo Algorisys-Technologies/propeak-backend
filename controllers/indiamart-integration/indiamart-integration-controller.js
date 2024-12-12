@@ -5,53 +5,17 @@ const moment = require("moment");
 const axios = require("axios");
 const Task = require("../../models/task/task-model");
 
-//const bcrypt = require("bcryptjs");
-
-// Fetch Integration Settings for a Company
-// exports.getIntegrationSettings = async (req, res) => {
-//   console.log("IntegrationSettings");
-//   console.log("IntegrationSettings req", req.params, req.body);
-//   try {
-//     const { companyId, provider } = req.params;
-
-//     const settings = await IntegrationSetting.findOne({
-//       companyId,
-//       integrationProvider: provider,
-//     });
-
-//     if (!settings) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Settings not found." });
-//     }
-
-//     return res.status(200).json({ success: true, settings });
-//   } catch (error) {
-//     console.error("Error fetching integration settings:", error);
-//     return res.status(500).json({ success: false, error: error.message });
-//   }
-// };
-
 exports.getIntegrationSettings = async (req, res) => {
   try {
-    const { companyId, provider } = req.params;
-    const { projectId } = req.body;
+    const { companyId } = req.params;
 
     // console.log("Fetching Integration Settings:");
     // console.log("Company ID:", companyId);
-    // console.log("Provider:", provider);
-    // console.log("Project ID:", projectId);
 
     // Build the query object
     const query = {
       companyId,
-      integrationProvider: provider,
     };
-
-    // If projectId is provided, add it to the query
-    if (projectId) {
-      query.projectId = projectId;
-    }
 
     // Fetch integration settings from the database
     const integrationSettings = await IntegrationSetting.find(query);
@@ -76,16 +40,28 @@ exports.getIntegrationSettings = async (req, res) => {
 
 exports.updateIntegrationSettings = async (req, res) => {
   try {
-    const { companyId, provider } = req.params;
-    const { projectId, crmKey, taskStageId, startDate, endDate } = req.body;
+    const { companyId } = req.params;
+    const {
+      crmKey,
+      integrationProvider: provider,
+      crmKeyId,
+      keyname,
+    } = req.body;
 
-    console.log("Incoming Request Body for Update:", req.body);
-    console.log("Company ID:", companyId);
-    console.log("Provider:", provider);
+    console.log("keyname", keyname);
 
-    // Find existing settings
+    // Ensure all required parameters are present
+    if (!companyId || !provider || !crmKey || !crmKeyId || !keyname) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing required parameters: companyId, provider, crmKey, keyname, or crmKeyId.",
+      });
+    }
+
+    // Fetch existing integration settings
     const existingSettings = await IntegrationSetting.findOne({
-      projectId,
+      companyId,
       integrationProvider: provider,
     });
 
@@ -96,58 +72,34 @@ exports.updateIntegrationSettings = async (req, res) => {
       });
     }
 
-    // Update settings object
-    if (provider === "IndiaMART") {
-      if (crmKey) {
-        existingSettings.settings["IndiaMART"].authKey = crmKey;
-      }
-      if (startDate && endDate) {
-        const formattedStartDate = moment(startDate).format(
-          "DD-MMM-YYYYHH:mm:ss"
-        );
-        const formattedEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
+    const providerSettings = existingSettings.settings[provider];
 
-        const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${crmKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
-
-        try {
-          const response = await axios.get(url);
-          console.log("API response for update:", response.data);
-
-          const leadsData = response.data.RESPONSE;
-
-          if (leadsData && leadsData.length > 0) {
-            console.log(
-              `${leadsData.length} leads received from API for update.`
-            );
-
-            const leadsToInsert = leadsData.map((lead) => ({
-              ...lead,
-              projectId,
-              taskStageId,
-            }));
-
-            const insertedLeads = await Lead.insertMany(leadsToInsert);
-            console.log(
-              `${insertedLeads.length} leads successfully updated in the database.`
-            );
-
-            existingSettings.settings["IndiaMART"].leads = leadsToInsert; // Update leads in settings
-          } else {
-            console.log("No leads found for the provided time range.");
-          }
-        } catch (error) {
-          console.error(
-            "Error fetching data from IndiaMART API during update:",
-            error.message
-          );
-        }
-      }
+    if (!providerSettings) {
+      return res.status(400).json({
+        success: false,
+        message: `No settings found for provider: ${provider}.`,
+      });
     }
 
-    // Update common fields
-    existingSettings.modifiedOn = Date.now();
+    // Ensure crmKeyId is cast to string for comparison
+    const crmKeyIndex = providerSettings.findIndex(
+      (key) => key._id.toString() === crmKeyId
+    );
 
-    // Save updated settings
+    if (crmKeyIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "CRM Key Id not found.",
+      });
+    }
+
+    // Update the key based on the provider's structure
+    const keyField = provider === "IndiaMART" ? "authKey" : "clientId";
+    providerSettings[crmKeyIndex][keyField] = crmKey;
+    providerSettings[crmKeyIndex].keyName = keyname;
+
+    // Update the modified timestamp and save the updated settings
+    existingSettings.modifiedOn = Date.now();
     await existingSettings.save();
 
     return res.status(200).json({
@@ -157,169 +109,191 @@ exports.updateIntegrationSettings = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating integration settings:", error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while updating integration settings.",
+      error: error.message,
+    });
   }
 };
 
 exports.addIntegrationSettings = async (req, res) => {
   try {
-    const { companyId, provider } = req.params;
-    const { projectId, crmKey, taskStageId, startDate, endDate } = req.body;
-    const settings = {};
+    const { companyId } = req.params;
+    const { crmKey, integrationProvider: provider, keyname } = req.body;
 
-    console.log("Incoming Request Body:", req.body);
-    console.log("Company ID:", companyId);
-    console.log("Provider:", provider);
+    if (!companyId || !provider || !crmKey || !keyname) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing required parameters: companyId, provider, crmKey, or keyname.",
+      });
+    }
 
     const existingSettings = await IntegrationSetting.findOne({
-      projectId,
+      companyId,
       integrationProvider: provider,
     });
 
     if (existingSettings) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Integration settings already exist. Please update them instead.",
-      });
-    }
+      // Check if the CRM key already exists for the provider
+      const isDuplicate = existingSettings.settings[provider].some(
+        (integration) =>
+          integration.authKey === crmKey || integration.clientId === crmKey
+      );
 
-    if (provider === "IndiaMART") {
-      // Initialize the IndiaMART object in settings
-      settings["IndiaMART"] = {};
-
-      // Set authKey and filters
-      settings["IndiaMART"].authKey = crmKey;
-      // settings["IndiaMART"].filters = {
-      //   leadType: ["SELLER"],
-      //   priority: "High",
-      // };
-
-      // Fetch leads as part of integration settings creation
-      if (!crmKey || !startDate || !endDate) {
+      if (isDuplicate) {
         return res.status(400).json({
-          message:
-            "Missing required fields. Please provide crmKey, startDate, and endDate.",
+          success: false,
+          message: "This CRM key already exists for the selected provider.",
         });
       }
 
-      const formattedStartDate = moment(startDate).format(
-        "DD-MMM-YYYYHH:mm:ss"
-      );
-      const formattedEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
+      // If settings exist for the provider, push the new integration into the array
+      const newIntegration = {};
 
-      const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${crmKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
-
-      try {
-        const response = await axios.get(url);
-        console.log("API response:", response.data);
-
-        const leadsData = response.data.RESPONSE;
-
-        if (leadsData && leadsData.length > 0) {
-          console.log(`${leadsData.length} leads received from API.`);
-          const leadsToInsert = leadsData.map((lead) => ({
-            ...lead,
-            projectId,
-            taskStageId,
-          }));
-
-          const insertedLeads = await Lead.insertMany(leadsToInsert);
-
-          const tasks = [];
-          console.log("existing tasks...........");
-          for (const lead of leadsData) {
-            const existingTask = await Task.findOne({
-              projectId,
-              taskStageId,
-              title: lead.SUBJECT,
-              startDate: lead.QUERY_TIME,
-            });
-            console.log(existingTask, "existingTask.........");
-            if (existingTask) {
-              return res.status(400).json({
-                success: false,
-                message: "Leads are already exist. Please update them instead.",
-              });
-            }
-
-            tasks.push({
-              projectId: projectId,
-              taskStageId: taskStageId,
-              companyId: companyId,
-              title: lead.SUBJECT,
-              description: `
-              Address: ${lead.SENDER_ADDRESS}, 
-              City: ${lead.SENDER_CITY}, 
-              State: ${lead.SENDER_STATE}, 
-              Pincode: ${lead.SENDER_PINCODE}, 
-              Country: ${lead.SENDER_COUNTRY_ISO}, 
-              Mobile: ${lead.SENDER_MOBILE_ALT},`,
-              startDate: lead.QUERY_TIME,
-              customFieldValues: {
-                date: moment().format("DD/MM/YY"),
-                name: lead.SENDER_NAME,
-                mobile_number: lead.SENDER_MOBILE,
-                company_name: lead.SENDER_COMPANY,
-              },
-              creation_mode:"AUTO",
-              lead_source:"INDIAMART",
-              isDeleted: false,
-              createdOn: moment().toISOString(),
-            });
-          }
-
-          if (tasks.length > 0) {
-            const insertedTasks = await Task.insertMany(tasks);
-            console.log(
-              `${insertedTasks.length} new tasks successfully inserted into the database.`
-            );
-          } else {
-            console.log(
-              "No new tasks were created; all leads already have tasks."
-            );
-          }
-
-          console.log(
-            `${insertedLeads.length} leads successfully inserted into the database.`
-          );
-
-          settings["IndiaMART"] = { leads: leadsToInsert };
-        } else {
-          console.log("No leads found for the provided time range.");
-        }
-      } catch (error) {
-        console.error("Error fetching data from IndiaMART API:", error.message);
+      if (provider === "IndiaMART") {
+        newIntegration["keyName"] = keyname;
+        newIntegration["authKey"] = crmKey;
+        existingSettings.settings["IndiaMART"].push(newIntegration);
+      } else if (provider === "Salesforce") {
+        newIntegration["keyName"] = keyname;
+        newIntegration["clientId"] = crmKey;
+        existingSettings.settings["Salesforce"].push(newIntegration);
+      } else if (provider === "Zoho") {
+        newIntegration["keyName"] = keyname;
+        newIntegration["clientId"] = crmKey;
+        existingSettings.settings["Zoho"].push(newIntegration);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported integration provider: ${provider}`,
+        });
       }
+
+      // Update the `modifiedOn` timestamp and save the updated settings
+      existingSettings.modifiedOn = Date.now();
+      await existingSettings.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Integration added successfully.",
+        settings: existingSettings,
+      });
+    } else {
+      // If no existing settings, create new ones with the provider's settings
+      const settings = {};
+
+      if (provider === "IndiaMART") {
+        settings["IndiaMART"] = [{ keyName: keyname, authKey: crmKey }];
+      } else if (provider === "Salesforce") {
+        settings["Salesforce"] = [{ keyName: keyname, clientId: crmKey }];
+      } else if (provider === "Zoho") {
+        settings["Zoho"] = [{ keyName: keyname, clientId: crmKey }];
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported integration provider: ${provider}`,
+        });
+      }
+
+      const newIntegrationSettings = new IntegrationSetting({
+        companyId,
+        integrationProvider: provider,
+        settings,
+        enabled: true,
+        createdOn: Date.now(),
+        modifiedOn: Date.now(),
+      });
+
+      await newIntegrationSettings.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Integration settings added successfully.",
+        settings: newIntegrationSettings,
+      });
     }
-
-    const newIntegrationSettings = new IntegrationSetting({
-      companyId,
-      projectId,
-      taskStageId,
-      integrationProvider: provider,
-      settings,
-      enabled: true,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      createdOn: Date.now(),
-      modifiedOn: Date.now(),
-    });
-
-    await newIntegrationSettings.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Integration settings added successfully.",
-      settings: newIntegrationSettings,
-    });
   } catch (error) {
     console.error("Error adding integration settings:", error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while adding integration settings.",
+      error: error.message,
+    });
   }
 };
 
-// IndiaMART Webhook Handler
+exports.deleteIntegrationSettings = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { integrationProvider: provider, crmKeyId } = req.body;
+
+    // Ensure all required parameters are present
+    if (!companyId || !provider || !crmKeyId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing required parameters: companyId, provider, or crmKeyId.",
+      });
+    }
+
+    // Fetch existing integration settings
+    const existingSettings = await IntegrationSetting.findOne({
+      companyId,
+      integrationProvider: provider,
+    });
+
+    if (!existingSettings) {
+      return res.status(404).json({
+        success: false,
+        message: "Integration settings not found. Please add them first.",
+      });
+    }
+
+    const providerSettings = existingSettings.settings[provider];
+
+    if (!providerSettings) {
+      return res.status(400).json({
+        success: false,
+        message: `No settings found for provider: ${provider}.`,
+      });
+    }
+
+    // Find the index of the CRM key to delete
+    const crmKeyIndex = providerSettings.findIndex(
+      (key) => key._id.toString() === crmKeyId
+    );
+
+    if (crmKeyIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "CRM Key Id not found.",
+      });
+    }
+
+    // Remove the CRM key from the provider's settings
+    providerSettings.splice(crmKeyIndex, 1);
+
+    // Update the modified timestamp and save the updated settings
+    existingSettings.modifiedOn = Date.now();
+    await existingSettings.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "CRM Key deleted successfully.",
+      settings: existingSettings,
+    });
+  } catch (error) {
+    console.error("Error deleting integration settings:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while deleting integration settings.",
+      error: error.message,
+    });
+  }
+};
+
 exports.handleIndiamartWebhook = async (req, res) => {
   try {
     const { companyId } = req.params;
@@ -379,123 +353,6 @@ exports.handleIndiamartWebhook = async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
-
-// exports.addIntegrationSettings = async (req, res) => {
-//   try {
-//     const { companyId, provider } = req.params;
-//     const { projectId, crmKey, taskStageId, startDate, endDate } = req.body;
-
-//     console.log("Incoming Request Body:", req.body);
-//     console.log("Company ID:", companyId);
-//     console.log("Provider:", provider);
-//     const existingSettings = await IntegrationSetting.findOne({
-//       companyId,
-//       integrationProvider: provider,
-//     });
-
-//     if (existingSettings) {
-//       return res.status(400).json({
-//         success: false,
-//         message:
-//           "Integration settings already exist. Please update them instead.",
-//       });
-//     }
-//     if (provider === "IndiaMART") {
-//       const settings = {};
-//       if (!crmKey || !startDate || !endDate) {
-//         return res.status(400).json({
-//           message:
-//             "Missing required fields. Please provide crmKey, startDate, and endDate.",
-//         });
-//       }
-
-//       const formattedStartDate = moment(startDate).format(
-//         "DD-MMM-YYYYHH:mm:ss"
-//       );
-//       const formattedEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
-
-//       const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${crmKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
-
-//       try {
-//         const response = await axios.get(url);
-//         console.log("API response:", response.data);
-
-//         const leadsData = response.data.RESPONSE;
-
-//         if (leadsData && leadsData.length > 0) {
-//           console.log(`${leadsData.length} leads received from API.`);
-//           const leadsToInsert = leadsData.map((lead) => ({
-//             ...lead,
-//             projectId,
-//             taskStageId,
-//           }));
-
-//           const insertedLeads = await Lead.insertMany(leadsToInsert);
-
-//           const tasks = leadsData.map((lead) => {
-//             console.log(lead, "data of lead..........");
-//             return {
-//               projectId: projectId,
-//               taskStageId: taskStageId,
-//               companyId: companyId,
-//               title: lead.SUBJECT,
-//               description: `
-//               Address: ${lead.SENDER_ADDRESS},
-//               City: ${lead.SENDER_CITY},
-//               State: ${lead.SENDER_STATE},
-//               Pincode: ${lead.SENDER_PINCODE},
-//               Country: ${lead.SENDER_COUNTRY_ISO},
-//               Mobile: ${lead.SENDER_MOBILE_ALT},`,
-//               startDate: lead.QUERY_TIME,
-//               customFieldValues: {
-//                 date: moment().format("DD/MM/YY"),
-//                 name: lead.SENDER_NAME,
-//                 mobile_number: lead.SENDER_MOBILE,
-//                 company_name: lead.SENDER_COMPANY,
-//               },
-//               isDeleted: false,
-//               // createdBy: "System",
-//               createdOn: moment().toISOString(),
-//             };
-//           });
-//           console.log(tasks, "tasks is here ");
-//           const insertedTasks = await Task.insertMany(tasks);
-//           console.log(
-//             `${insertedTasks.length} tasks successfully inserted into the database.`
-//           );
-
-//           console.log(
-//             `${insertedLeads.length} leads successfully inserted into the database.`
-//           );
-
-//           settings["IndiaMART"] = { leads: leadsToInsert }; // Optionally store leads in settings
-//         } else {
-//           console.log("No leads found for the provided time range.");
-//         }
-//       } catch (error) {
-//         console.error("Error fetching data from IndiaMART API:", error.message);
-//       }
-//     }
-//     const newIntegrationSettings = new IntegrationSetting({
-//       companyId,
-//       integrationProvider: provider,
-//       settings: {},
-//       enabled: true,
-//       createdOn: Date.now(),
-//       modifiedOn: Date.now(),
-//     });
-//     await newIntegrationSettings.save();
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Integration settings added successfully.",
-//       settings: newIntegrationSettings,
-//     });
-//   } catch (error) {
-//     console.error("Error adding integration settings:", error);
-//     return res.status(500).json({ success: false, error: error.message });
-//   }
-// };
 
 // // Fetch Active Integrations for a Company (with optional provider filter)
 // exports.getActiveIntegrations = async (req, res) => {
