@@ -93,6 +93,23 @@ exports.updateIntegrationSettings = async (req, res) => {
       });
     }
 
+    // Check for duplicates in crmKey or keyname
+    const isDuplicate = providerSettings.some(
+      (key, index) =>
+        index !== crmKeyIndex &&
+        (key.authKey === crmKey ||
+          key.clientId === crmKey ||
+          key.keyName === keyname)
+    );
+
+    if (isDuplicate) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This CRM key or keyname already exists for the selected provider.",
+      });
+    }
+
     // Update the key based on the provider's structure
     const keyField = provider === "IndiaMART" ? "authKey" : "clientId";
     providerSettings[crmKeyIndex][keyField] = crmKey;
@@ -139,13 +156,16 @@ exports.addIntegrationSettings = async (req, res) => {
       // Check if the CRM key already exists for the provider
       const isDuplicate = existingSettings.settings[provider].some(
         (integration) =>
-          integration.authKey === crmKey || integration.clientId === crmKey
+          integration.authKey === crmKey ||
+          integration.clientId === crmKey ||
+          integration.keyName === keyname
       );
 
       if (isDuplicate) {
         return res.status(400).json({
           success: false,
-          message: "This CRM key already exists for the selected provider.",
+          message:
+            "This CRM key or keyname already exists for the selected provider.",
         });
       }
 
