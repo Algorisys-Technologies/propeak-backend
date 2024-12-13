@@ -4,7 +4,6 @@ const mongoose = require("mongoose");
 const { simpleParser } = require("mailparser");
 const dotenv = require("dotenv");
 
-
 dotenv.config();
 
 const { FetchEmail } = require("./models/fetch-email/fetch-email-model");
@@ -12,16 +11,19 @@ const Task = require("./models/task/task-model");
 
 const TaskStage = require("./models/task-stages/task-stages-model");
 
-
-
-
 class MailAttachmentFetcher {
-  constructor({ emailConfig, localFolderPath, targetDate, emailPatterns, targetEndDate }) {
+  constructor({
+    emailConfig,
+    localFolderPath,
+    targetDate,
+    emailPatterns,
+    targetEndDate,
+  }) {
     this.emailConfig = emailConfig;
     this.localFolderPath = localFolderPath;
     this.targetDate = targetDate;
     this.targetEndDate = targetEndDate;
-    this.emailPatterns = emailPatterns
+    this.emailPatterns = emailPatterns;
 
     if (!fs.existsSync(localFolderPath)) {
       fs.mkdirSync(localFolderPath, { recursive: true });
@@ -42,7 +44,6 @@ class MailAttachmentFetcher {
     const existingAccount = await FetchEmail.findOne({
       to: this.emailConfig.user,
     });
-
   }
 
   onImapReady() {
@@ -68,18 +69,20 @@ class MailAttachmentFetcher {
     }
     console.log("INBOX opened successfully.");
 
-    // Search emails 
+    // Search emails
     // ,["SUBJECT", this.targetSubject]
     const searchCriteria = [
       "ALL",
       ["SINCE", this.targetDate.toISOString()],
-      ["BEFORE", this.targetEndDate.toISOString()]
+      ["BEFORE", this.targetEndDate.toISOString()],
     ];
 
     // console.log(this.emailPatterns)
 
     // Dynamically add "FROM" conditions for all patterns
-    const fromPatterns = this.emailPatterns.map((pattern) => pattern.from).filter(Boolean);
+    const fromPatterns = this.emailPatterns
+      .map((pattern) => pattern.from)
+      .filter(Boolean);
     if (fromPatterns.length > 0) {
       let fromSearch = ["FROM", fromPatterns[0]];
 
@@ -89,7 +92,9 @@ class MailAttachmentFetcher {
       searchCriteria.push(fromSearch);
     }
 
-    const subjectPatterns = this.emailPatterns.map((pattern) => pattern.subject).filter(Boolean);
+    const subjectPatterns = this.emailPatterns
+      .map((pattern) => pattern.subject)
+      .filter(Boolean);
     if (subjectPatterns.length > 0) {
       let subjectSearch = ["SUBJECT", subjectPatterns[0]];
       for (let i = 1; i < subjectPatterns.length; i++) {
@@ -99,7 +104,9 @@ class MailAttachmentFetcher {
     }
 
     // Dynamically add "TEXT" conditions
-    const bodyPatterns = this.emailPatterns.map((pattern) => pattern.body_contains).filter(Boolean);
+    const bodyPatterns = this.emailPatterns
+      .map((pattern) => pattern.body_contains)
+      .filter(Boolean);
     if (bodyPatterns.length > 0) {
       let bodySearch = ["TEXT", bodyPatterns[0]];
       for (let i = 1; i < bodyPatterns.length; i++) {
@@ -147,17 +154,23 @@ class MailAttachmentFetcher {
 
             const emailDate = new Date(parsed.date);
             if (emailDate < this.targetDate) {
-              console.log(`Skipping email from ${parsed.date}: before target date.`);
+              console.log(
+                `Skipping email from ${parsed.date}: before target date.`
+              );
               return;
             }
 
             if (emailDate > this.targetEndDate) {
-              console.log(`Skipping email from ${parsed.date}: after target end date.`);
+              console.log(
+                `Skipping email from ${parsed.date}: after target end date.`
+              );
               return;
             }
-            
+
             // Process email if it falls within the date range
-            console.log(`Processing email from ${parsed.date}: within target range.`);
+            console.log(
+              `Processing email from ${parsed.date}: within target range.`
+            );
 
             // console.log(parsed, "dodo...........")
 
@@ -171,13 +184,12 @@ class MailAttachmentFetcher {
                 status: isSeen ? "seen" : "unseen",
                 attachments: parsed.attachments
                   ? parsed.attachments.map((att) => ({
-                    filename: att.filename || `attachment_${seqno}`,
-                    contentType: att.contentType,
-                    size: att.size,
-                    content: att.content, // Save content in MongoDB
-                  }))
+                      filename: att.filename || `attachment_${seqno}`,
+                      contentType: att.contentType,
+                      size: att.size,
+                      content: att.content, // Save content in MongoDB
+                    }))
                   : [],
-
               };
 
               // Add to allEmails array
@@ -189,7 +201,9 @@ class MailAttachmentFetcher {
                 for (const attachment of parsed.attachments) {
                   const filename =
                     attachment.filename ||
-                    `attachment_${seqno}_${parsed.attachments.indexOf(attachment) + 1}.${attachment.contentType.split("/")[1]}`;
+                    `attachment_${seqno}_${
+                      parsed.attachments.indexOf(attachment) + 1
+                    }.${attachment.contentType.split("/")[1]}`;
                   const fullPath = `${this.localFolderPath}/${filename}`;
 
                   // Use async writeFile to avoid blocking the event loop
@@ -224,11 +238,15 @@ class MailAttachmentFetcher {
   }
 }
 
-exports.fetchEmail = async ({ emailTaskConfig, projectId, taskStageId, companyId, userId, emailAccounts }) => {
+exports.fetchEmail = async ({
+  emailTaskConfig,
+  projectId,
+  taskStageId,
+  companyId,
+  userId,
+  emailAccounts,
+}) => {
   console.log("Running fetchEmail...");
-
-
-
 
   // Local folder to save attachments
   const localFolderPath = "./attachments";
@@ -277,12 +295,14 @@ exports.fetchEmail = async ({ emailTaskConfig, projectId, taskStageId, companyId
       });
 
       if (existingTask) {
-        console.log(`Task already exists: ${email.subject} - Skipping task creation.`);
+        console.log(
+          `Task already exists: ${email.subject} - Skipping task creation.`
+        );
         continue; // Skip creating a task if it already exists
-
       }
 
-      let taskStageTitle = (await TaskStage.findOne({ _id: taskStageId }))?.title || "todo"
+      let taskStageTitle =
+        (await TaskStage.findOne({ _id: taskStageId }))?.title || "todo";
 
       const newTask = new Task({
         title: email.subject,
@@ -299,6 +319,8 @@ exports.fetchEmail = async ({ emailTaskConfig, projectId, taskStageId, companyId
         companyId: companyId,
         taskStageId: taskStageId,
         userId,
+        creation_mode: "AUTO",
+        lead_source: "EMAIL",
       });
 
       // Save the new task to the database
@@ -309,7 +331,5 @@ exports.fetchEmail = async ({ emailTaskConfig, projectId, taskStageId, companyId
     console.error("Error creating tasks:", error);
   }
 
-
   return allEmails;
 };
-
