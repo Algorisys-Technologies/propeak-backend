@@ -31,4 +31,6 @@ router.post("/addProjectSetting", projectSettings.createProjectSettings);
 router.post("/projectSetting", projectSettings.getAllProjectSettings);
 
 router.put("/updateProjectSetting", projectSettings.updateProjectSettings);
+
+router.post("/createFetch", projectSettings.fetchIndiaMartSettings);
 module.exports = router;
