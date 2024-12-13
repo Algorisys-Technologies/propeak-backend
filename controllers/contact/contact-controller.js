@@ -138,22 +138,17 @@ exports.createMultipleContacts = async (req, res) => {
   console.log("Creating contactsssss...");
 
   try {
-    const {contacts} = req.body;
-
-   
-
-    // if(contactData.creationMode == "AUTO"){
-
-    //   const contactsQueueCount = await getQueueMessageCount("contact_extraction_queue")
-    //   const users = activeClients.get(companyId)
-    //   users.forEach((user)=> {
-    //     user.send(JSON.stringify({event: "contact-created", contactsQueueCount }))
-    //   })
-    // }
-
+    const {contacts, companyId} = req.body;
+    
     const newContact = await Contact.insertMany(contacts);
 
     console.log("contact created successfully:", newContact);
+    console.log(companyId, activeClients)
+    const users = activeClients.get(companyId)
+    console.log("live users", users)
+    users?.forEach((user)=> {
+      user.send(JSON.stringify({event: "contacts-created", message:`${contacts.length} Contacts created successfully`}))
+    })
 
     res.json({
       success: true,

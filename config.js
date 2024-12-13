@@ -19,7 +19,7 @@ module.exports = Object.freeze({
     dailySummaryReportSchedule: '30 51 10 * * 1-6',
     leaveNotificationSchedule: '*/30 * * * * 1-6',
     pendingLeaveapproveSchedule: '00 30 11 * * 2-7'  ,
-    contactsSchedule: "*/3 * * * *",
+    contactsSchedule: "*/1 * * * *",
     pendingLeaveapproveSchedule: '00 30 11 * * 2-7',
     fetchEmailSchedule: '*/1 * * * * ', // Every minute
     fetchEmailScheduleEvery10Min: '*/10 * * * *', // Every 10 minutes

@@ -74,6 +74,8 @@ uwsApp
         ws.userId = userId // Assign companyId to WebSocket
         activeClients.get(companyId).add(ws);
        }
+
+       console.log(activeClients)
       }
       if (data.event === "update-location") {
         // PERFORM YOUR OPERATION HERE

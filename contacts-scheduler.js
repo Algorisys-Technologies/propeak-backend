@@ -199,6 +199,7 @@ try {
             );
 
             if (!extractResponse.ok) {
+              console.log(extractResponse)
               return;
             }
 
@@ -274,10 +275,11 @@ try {
               `http://localhost:3001/api/contacts/addMultipleContacts`,
               {
                 method: "POST",
-                body: JSON.stringify({ contacts: contacts }),
+                body: JSON.stringify({ contacts: contacts, companyId }),
                 headers: {
                   "Content-Type": "application/json",
                 },
+
               }
             );
 

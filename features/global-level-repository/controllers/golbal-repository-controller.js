@@ -189,7 +189,6 @@ exports.getAllRepositoryFile = (req, res) => {
 
 exports.postMultipleVisitingCards = async (req, res) => {
 
-
     try{
         function ensureDirectoryExistence(filePath) {
             var dirname = path.dirname(filePath);
@@ -271,7 +270,7 @@ exports.postMultipleVisitingCards = async (req, res) => {
             "mul_contact_extraction_routing")
     }
 
-    return res.json({success: true, message: "Successfully uploaded"})
+    return res.json({success: true, message: "Visiting Cards Uploaded Successfully, Contacts will be created soon!"})
 
 }catch(e){
     return res.json({success: false, message: "Failed uploading files"})
