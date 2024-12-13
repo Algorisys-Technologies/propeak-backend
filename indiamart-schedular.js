@@ -3,11 +3,10 @@ const axios = require("axios");
 const moment = require("moment");
 const Lead = require("./models/indiamart-integration/indiamart-lead-model");
 const Task = require("./models/task/task-model");
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
 dotenv.config();
-
 
 mongoose
   .connect(process.env.DB, {
@@ -15,9 +14,8 @@ mongoose
   })
   .then(() => console.log("Connected to the database.", "DB"));
 
-
 const ProjectSetting = require("./models/indiamart-integration/project-setting-model");
-schedule.scheduleJob("*/10 * * * * ", async () => {
+schedule.scheduleJob("*/5 * * * * ", async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
@@ -32,23 +30,28 @@ schedule.scheduleJob("*/10 * * * * ", async () => {
     }
 
     for (const setting of settings) {
-      const { companyId, projectId, taskStageId, authKey, startDate, endDate, fetchFrequetly, lastFetched} = setting;
-      console.log(authKey)
+      const {
+        companyId,
+        projectId,
+        taskStageId,
+        authKey,
+        startDate,
+        endDate,
+        fetchFrequetly,
+        lastFetched,
+      } = setting;
+      console.log(authKey);
 
       let newStartDate;
       let newEndDate;
 
-      if(fetchFrequetly){
+      if (fetchFrequetly) {
         newStartDate = moment(lastFetched).format("DD-MMM-YYYYHH:mm:ss");
         newEndDate = moment(new Date()).format("DD-MMM-YYYYHH:mm:ss");
-      }
-      else{
+      } else {
         newStartDate = moment(startDate).format("DD-MMM-YYYYHH:mm:ss");
         newEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
       }
-
-    
-     
 
       // API URL for fetching IndiaMART leads
       const apiUrl = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${newStartDate}&end_time=${newEndDate}`;
@@ -62,6 +65,10 @@ schedule.scheduleJob("*/10 * * * * ", async () => {
           console.log("No new leads found from IndiaMART.");
           continue;
         }
+        const insertedLeads = await Lead.insertMany(leadsData);
+        console.log(
+          `${insertedLeads.length} leads successfully inserted into the database.`
+        );
 
         console.log(
           `Fetched ${leadsData.length} leads for companyId: ${companyId}`
@@ -115,7 +122,10 @@ schedule.scheduleJob("*/10 * * * * ", async () => {
           console.log(`Task created for lead: ${lead.SUBJECT}`);
         }
 
-        await ProjectSetting.updateOne({_id: setting._id }, {lastFetched: new Date()})
+        await ProjectSetting.updateOne(
+          { _id: setting._id },
+          { lastFetched: new Date() }
+        );
       } catch (error) {
         console.error(
           `Error fetching leads for companyId: ${companyId}`,
