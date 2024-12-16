@@ -15,13 +15,14 @@ mongoose
   .then(() => console.log("Connected to the database.", "DB"));
 
 const ProjectSetting = require("./models/indiamart-integration/project-setting-model");
-schedule.scheduleJob("*/5 * * * * ", async () => {
+schedule.scheduleJob("*/10 * * * * ", async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
     const settings = await ProjectSetting.find({
       enabled: true,
       isDeleted: false,
+      fetchFrequetly: true
     });
 
     if (!settings.length) {
