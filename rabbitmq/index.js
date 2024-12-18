@@ -7,22 +7,27 @@ const {
 
 let exchangeName = rabbitMQ_exchangeName;
 
-let connection;
 
 async function connect() {
-  try {
-    console.log("connecting")
-    connection = await amqp.connect(rabbitMQ_connectionKey);
-    console.log("Connected to RabbitMQ");
-  } catch (error) {
-    console.error("Error connecting to RabbitMQ:", error.message);
-    throw error;
-  }
+  let retries = 5
+  for (let i = 0; i < retries; i++) {
+    try {
+        const connection = await amqp.connect(rabbitMQ_connectionKey, {
+          heartbeat: 120, 
+        });
+        console.log('Connected to RabbitMQ');
+        return connection;
+    } catch (error) {
+        console.error(`Retrying connection (${i + 1}/${retries})...`, error);
+        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds before retrying
+    }
+}
+throw new Error('Unable to connect to RabbitMQ after multiple attempts');
 }
 
 async function sendMessageToQueue(msg, qName, routingKey) {
   try {
-    await connect()
+    let connection = await connect()
     let msgQueue = companyCode + qName;
     routingKey = companyCode + routingKey;
 
@@ -37,6 +42,7 @@ async function sendMessageToQueue(msg, qName, routingKey) {
     console.log("Message sent to queue:", message);
 
     await channel.close();
+    await connection.close()
     return message;
   } catch (error) {
     console.error("Error sending message to queue:", error.message);
@@ -46,7 +52,7 @@ async function sendMessageToQueue(msg, qName, routingKey) {
 
 async function receiveMessageFromQueue(qName) {
   try {
-    await connect()
+    let connection = await connect()
     let q = companyCode + qName;
     const channel = await connection.createChannel();
     const msgOrFalse = await channel.get(q, {durable: true });
@@ -58,6 +64,7 @@ async function receiveMessageFromQueue(qName) {
     }
 
     await channel.close();
+    await connection.close()
     return result;
   } catch (error) {
     console.error("Error receiving message from queue:", error.message);

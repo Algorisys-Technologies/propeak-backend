@@ -15,7 +15,8 @@ mongoose
   .then(() => console.log("Connected to the database.", "DB"));
 
 const ProjectSetting = require("./models/indiamart-integration/project-setting-model");
-schedule.scheduleJob("*/10 * * * * ", async () => {
+const { fetchEmailScheduleEveryHour } = require("./config");
+schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
