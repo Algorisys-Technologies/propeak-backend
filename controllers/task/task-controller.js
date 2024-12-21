@@ -2710,7 +2710,7 @@ exports.getKanbanTasks = async (req, res) => {
     console.log(filters)
 
     // console.log("req.body", req.body)
-    const page = req.query.page;
+    let page = req.query.page;
 
     const limit = 10;
     const skip = parseInt(page) * limit;
@@ -2726,11 +2726,13 @@ exports.getKanbanTasks = async (req, res) => {
     };
 
     if (searchFilter) {
+      page = 0
       const regex = new RegExp(searchFilter, "i");
       whereCondition.$or = [ {title: { $regex: regex }}, {description: { $regex: regex }}, {tag: { $regex: regex }}]
     }
 
     filters.forEach((filter) => {
+      page = 0
       const { field, value , isSystem} = filter;
 
       if (!field || value === undefined) return; // Skip if field or value is missing
