@@ -178,13 +178,14 @@ exports.fetchIndiaMartSettings = async (req, res) => {
             Mobile: ${lead.SENDER_MOBILE_ALT},`,
           startDate: lead.QUERY_TIME,
           customFieldValues: {
-            date: moment().format("DD/MM/YY"),
+            date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
             name: lead.SENDER_NAME,
             mobile_number: lead.SENDER_MOBILE,
             company_name: lead.SENDER_COMPANY,
           },
           isDeleted: false,
-          createdOn: moment().toISOString(),
+          createdOn: new Date(),
+          modifiedOn: new Date(),
           lead_source: "INDIAMART",
           creation_mode: "AUTO",
         }));

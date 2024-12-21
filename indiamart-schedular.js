@@ -112,7 +112,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             creation_mode: "AUTO",
             lead_source: "INDIAMART",
             customFieldValues: {
-              date: moment().format("DD/MM/YY"),
+              date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
               name: lead.SENDER_NAME,
               mobile_number: lead.SENDER_MOBILE,
               company_name: lead.SENDER_COMPANY,
