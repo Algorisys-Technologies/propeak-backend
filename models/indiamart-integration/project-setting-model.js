@@ -28,6 +28,10 @@ const projectSettingSchema = new mongoose.Schema(
     keyName:{
       type:String,
     },
+    method:{
+      type:String,
+      // required
+    },
     enabled: { type: Boolean, default: false },
     fetchFrequetly:{type:Boolean,default:false},
     startDate: {

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@playwright/test": "^1.49.1",
     "@tanstack/react-table": "^8.20.5",
     "amqplib": "^0.10.4",
     "axios": "^0.17.1",

@@ -21,6 +21,11 @@ const IntegrationSettingsSchema = new mongoose.Schema(
         {
           keyName: { type: String, required: true },
           authKey: { type: String },
+          method: {
+            type: String,
+            enum: ["API", "Web-Scrape"],
+            required: true,
+          },
         },
       ],
       Salesforce: [
@@ -31,6 +36,11 @@ const IntegrationSettingsSchema = new mongoose.Schema(
           refreshToken: { type: String },
           baseUrl: { type: String },
           apiVersion: { type: String },
+          method: {
+            type: String,
+            enum: ["API", "Web-Scrape"],
+            required: true,
+          },
         },
       ],
       Zoho: [
@@ -42,6 +52,11 @@ const IntegrationSettingsSchema = new mongoose.Schema(
           apiDomain: { type: String },
           moduleSync: { type: [String] },
           customMapping: { type: Object },
+          method: {
+            type: String,
+            enum: ["API", "Web-Scrape"],
+            required: true,
+          },
         },
       ],
     },

@@ -45,6 +45,7 @@ exports.updateIntegrationSettings = async (req, res) => {
       crmKey,
       integrationProvider: provider,
       crmKeyId,
+      method,
       keyname,
     } = req.body;
 
@@ -114,9 +115,11 @@ exports.updateIntegrationSettings = async (req, res) => {
     const keyField = provider === "IndiaMART" ? "authKey" : "clientId";
     providerSettings[crmKeyIndex][keyField] = crmKey;
     providerSettings[crmKeyIndex].keyName = keyname;
+    providerSettings[crmKeyIndex].method = method;
 
     // Update the modified timestamp and save the updated settings
     existingSettings.modifiedOn = Date.now();
+    existingSettings.method = method;
     await existingSettings.save();
 
     return res.status(200).json({
@@ -137,7 +140,7 @@ exports.updateIntegrationSettings = async (req, res) => {
 exports.addIntegrationSettings = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { crmKey, integrationProvider: provider, keyname } = req.body;
+    const { crmKey, integrationProvider: provider, keyname, method } = req.body;
 
     if (!companyId || !provider || !crmKey || !keyname) {
       return res.status(400).json({
@@ -175,14 +178,17 @@ exports.addIntegrationSettings = async (req, res) => {
       if (provider === "IndiaMART") {
         newIntegration["keyName"] = keyname;
         newIntegration["authKey"] = crmKey;
+        newIntegration["method"] = method;
         existingSettings.settings["IndiaMART"].push(newIntegration);
       } else if (provider === "Salesforce") {
         newIntegration["keyName"] = keyname;
         newIntegration["clientId"] = crmKey;
+        newIntegration["method"] = method;
         existingSettings.settings["Salesforce"].push(newIntegration);
       } else if (provider === "Zoho") {
         newIntegration["keyName"] = keyname;
         newIntegration["clientId"] = crmKey;
+        newIntegration["method"] = method;
         existingSettings.settings["Zoho"].push(newIntegration);
       } else {
         return res.status(400).json({
@@ -205,11 +211,11 @@ exports.addIntegrationSettings = async (req, res) => {
       const settings = {};
 
       if (provider === "IndiaMART") {
-        settings["IndiaMART"] = [{ keyName: keyname, authKey: crmKey }];
+        settings["IndiaMART"] = [{ keyName: keyname, authKey: crmKey , method: method }];
       } else if (provider === "Salesforce") {
-        settings["Salesforce"] = [{ keyName: keyname, clientId: crmKey }];
+        settings["Salesforce"] = [{ keyName: keyname, clientId: crmKey,  method: method }];
       } else if (provider === "Zoho") {
-        settings["Zoho"] = [{ keyName: keyname, clientId: crmKey }];
+        settings["Zoho"] = [{ keyName: keyname, clientId: crmKey,  method: method }];
       } else {
         return res.status(400).json({
           success: false,

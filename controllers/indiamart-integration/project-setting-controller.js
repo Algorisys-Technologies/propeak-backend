@@ -126,6 +126,7 @@ exports.fetchIndiaMartSettings = async (req, res) => {
     taskStageId,
     companyId,
     integrationProvider,
+    method
   } = req.body;
 
   if (!authKey) {
@@ -139,7 +140,6 @@ exports.fetchIndiaMartSettings = async (req, res) => {
       message: "companyId is missing. Please provide a valid companyId.",
     });
   }
-
   const now = moment();
   const defaultStartDate = now.startOf("day").format("DD-MMM-YYYYHH:mm:ss");
   const defaultEndDate = now.endOf("day").format("DD-MMM-YYYYHH:mm:ss");
@@ -153,9 +153,16 @@ exports.fetchIndiaMartSettings = async (req, res) => {
 
   const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
 
-  console.log("Constructed URL: ", url);
+
+
+ 
   const projectSettings = await ProjectSetting.findOne({ projectId });
-  if (projectSettings) {
+  if (!projectSettings) {
+    res.status(404).json({ success: false,  message: "Project settings not found." });
+  }
+
+
+  if(projectSettings.method == "API"){
     try {
       const response = await axios.get(url);
       console.log("API response:", response.data);
@@ -227,7 +234,9 @@ exports.fetchIndiaMartSettings = async (req, res) => {
       console.error("Error fetching IndiaMart settings: ", error);
       res.status(500).json({ success: false,  message: "Internal server error." });
     }
-  } else {
-    res.status(404).json({ success: false,  message: "Project settings not found." });
   }
+  if(projectSettings.method == "Web-Scape"){
+    res.status(200).json({ success: true,  message: "Leads fetched successfully." });
+  }   
+  
 };
