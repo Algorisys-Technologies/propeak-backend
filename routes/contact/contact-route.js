@@ -33,6 +33,14 @@ router.post(
   contactController.createMultipleContacts
 );
 
+router.post(
+  "/updateVisitingCardsStatus",
+  // verifyToken,
+  contactController.updateVisitingCardsStatus
+);
+
+
+
 
 
 

@@ -26,7 +26,11 @@ const UploadGlobalRepositoryFileSchema = new mongoose.Schema({
     },
     companyId:{
         type: String
-    }
+    },
+    isExtracted: {
+        type: Boolean,
+        default: false
+      },
 }, { versionKey: false });
 
 

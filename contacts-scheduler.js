@@ -142,12 +142,10 @@ try {
       .receiveMessageFromQueue("mul_contact_extraction_queue")
       .then(async (msg) => {
         if (msg !== "No messages in queue") {
-          const { files, companyId, accountId, filePath } = msg;
+          const { files, companyId, accountId, filePath, visitingCardsIds } = msg;
 
           try {
-            // Check if file exists
-
-            console.log("files", files);
+            
 
             const formDataToSend = new FormData();
             const contacts = [];
@@ -184,9 +182,6 @@ try {
 
             // Wait for all promises to complete
             await Promise.all(promises);
-
-            console.log(formDataToSend);
-
             const extractResponse = await fetch(
               `http://142.93.222.95:5001/card-extractions`,
               {
@@ -200,6 +195,13 @@ try {
 
             if (!extractResponse.ok) {
               console.log(extractResponse)
+              await fetch(`http://142.93.222.95:5001/reset_usage`, {
+                method: "POST",
+                body: {},
+                headers: {
+                  Authorization: "f03b339f-8af2-4492-ac79-9caad9b837d9",
+                },
+              });
               rabbitMQ.sendMessageToQueue(
                 msg,
                 "mul_contact_extraction_queue",
@@ -287,6 +289,21 @@ try {
 
               }
             );
+
+            if (contactResponse.ok) {
+              const updateStatus = await fetch(
+                `http://localhost:3001/api/contacts/updateVisitingCardsStatus`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({ visitingCardsIds, companyId }),
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+  
+                }
+              );
+              console.log(updateStatus)
+            }
 
             console.log(await contactResponse.json());
           } catch (error) {

@@ -5,6 +5,7 @@ const { logError, logInfo } = require("../../common/logger");
 const cacheManager = require("../../redis");
 const { activeClients } = require("../..");
 const { getQueueMessageCount } = require("../../rabbitmq/index");
+const UploadRepositoryFile = require('../../models/global-level-repository/global-level-repository-model');
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
   ADDCONTACTERROR: "Error occurred while adding the contact",
@@ -109,6 +110,25 @@ exports.getContactById = async (req, res) => {
     res
       .status(500)
       .json({ success: false, msg: `Something went wrong. ${err.message}` });
+  }
+};
+
+
+
+exports.updateVisitingCardsStatus = async (req, res) => {
+  try {
+    const visitingCardsIds = req.body.visitingCardsIds;
+
+    const updatedVisitingCards = await UploadRepositoryFile.updateMany(
+      { _id: { $in: visitingCardsIds } },
+      { $set: { isExtracted: true } }
+    );
+
+    return res.status(200).json({ success: true, message: "Visiting cards status updated successfully!" });
+  }
+  catch (err) {
+    console.error("Error occurred:", err);
+    res.status(500).json({ success: false, message: "Error updating visiting cards status." });
   }
 };
 
