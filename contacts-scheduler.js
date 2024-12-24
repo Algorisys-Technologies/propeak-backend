@@ -200,6 +200,11 @@ try {
 
             if (!extractResponse.ok) {
               console.log(extractResponse)
+              rabbitMQ.sendMessageToQueue(
+                msg,
+                "mul_contact_extraction_queue",
+                "mul_contact_extraction_routing"
+              );
               return;
             }
 
