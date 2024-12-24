@@ -51,6 +51,9 @@ async function scrollToLoadAllLeads(page) {
       return Array.from(leads).map((lead) => {
         return {
           name: lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A",
+          productName:
+            lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
+            "N/A",
           label: lead.querySelector(".f1")?.innerText?.trim() || "N/A",
           mobile: "N/A",
           details: lead.querySelector(".por")?.innerText?.trim() || "N/A",
@@ -162,7 +165,7 @@ async function scrollToLoadAllLeads(page) {
     projectId: "673eb6d62e87a01115656930",
     taskStageId: "671b472f9ccb60f1a05dfca9",
     companyId: "66ebbbc2c5bb38ee351dc0b2",
-    title: lead.name,
+    title: lead.productName || "N/A",
     description: `
         Address: ${lead.details},
         Label: ${lead.label}`,
@@ -186,112 +189,10 @@ async function scrollToLoadAllLeads(page) {
   expect(tasks.length).toBeGreaterThan(0);
 }
 
-// test("Scrape leads data from IndiaMART within a date range", async () => {
-  // Launch browser with clipboard permissions
 
-// const fetchLeads = async ()=> {
-//   const browser = await chromium.launch({ headless: true });
-//   const context = await browser.newContext({
-//     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
-//   });
-//   const page = await context.newPage();
-
-//   try {
-//     // Navigate to IndiaMART
-//     await page.goto("https://seller.indiamart.com/");
-//     console.log("Navigated to IndiaMART");
-
-//     // Login process
-//     await page.locator("#user_sign_in").click();
-//     console.log("Clicked on Sign In");
-
-//     const mobileNumber = "9892492782";
-//     const password = "KIPINDIAMART2022";
-
-//     await page.getByPlaceholder("Enter Your Mobile Number").fill(mobileNumber);
-//     console.log("Filled mobile number");
-
-//     await page.getByRole("button", { name: "Submit" }).click();
-//     await page.locator("#messageWid").click();
-//     await page.getByRole("button", { name: "Enter Password" }).click();
-//     await page.getByPlaceholder("Enter Password").fill(password);
-//     console.log("Filled password");
-
-//     await page.getByRole("button", { name: "Sign In" }).click();
-//     console.log("Logged in successfully");
-
-//     // Navigate to Lead Manager
-//     await page.getByRole("link", { name: "Lead Manager" }).click();
-//     console.log("Navigated to Lead Manager");
-
-//     // Open custom date filter
-//     await page.locator("#filterCTA").click();
-//     console.log("Clicked on filter");
-
-//     await page
-//       .getByText("Filters", { exact: true })
-//       .waitFor({ state: "visible" });
-//     await page.getByText("Filters", { exact: true }).click();
-
-//     await page
-//       .getByText("Select Date", { exact: true })
-//       .waitFor({ state: "visible" });
-//     await page.getByText("Select Date", { exact: true }).click();
-//     console.log("Clicked on 'Select Date'");
-
-//     await page
-//       .getByText("Custom Date", { exact: true })
-//       .waitFor({ state: "visible" });
-//     await page.getByText("Custom Date", { exact: true }).click();
-//     console.log("Opened custom date filter");
-
-//     // Set start and end dates
-//     await page.waitForSelector("#custom_date_start", { timeout: 100000 });
-//     await page.locator("#custom_date_start").scrollIntoViewIfNeeded();
-//     await page.locator("#custom_date_start").click();
-//     console.log("Clicked on start date");
-
-//     await page.getByRole("button", { name: "18" }).click();
-//     await page.locator("#custom_date_end").scrollIntoViewIfNeeded();
-//     await page.getByRole("button", { name: "23" }).click();
-//     console.log("Set custom date range");
-
-//     // Apply the filter
-//     await page
-//       .getByText("Apply", { exact: true })
-//       .waitFor({ state: "visible" });
-//     await page.getByText("Apply", { exact: true }).click();
-//     console.log("Applied custom date filter");
-
-//     // Scroll to load all leads
-//     await scrollToLoadAllLeads(page);
-
-//     // Example of using clipboard functionality
-//     const mobileElement = page.locator("#headerMobile");
-//     if (await mobileElement.count()) {
-//       await mobileElement.click();
-
-//       // Read text from clipboard
-//       const copiedText = await page.evaluate(async () => {
-//         return await navigator.clipboard.readText();
-//       });
-
-//       if (copiedText) {
-//         console.log(`Copied text: ${copiedText}`);
-//       } else {
-//         console.log("No text copied to clipboard.");
-//       }
-//     }
-//   } catch (error) {
-//     console.error("An error occurred:", error);
-//   } finally {
-//     await browser.close();
-//   }
-// // });
-// }
 
 const fetchLeads = async () => {
-  const browser = await chromium.launch({ headless: false });
+  const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
   });
@@ -360,27 +261,49 @@ const fetchLeads = async () => {
     console.log("Opened custom date filter");
     await delay(2000); // Wait for 2 seconds
 
-    // Set start and end dates
-    await page.waitForSelector("#custom_date_start", { timeout: 10000 });
-    await page.locator("#custom_date_start").scrollIntoViewIfNeeded();
-    await delay(1000); // Wait for 1 second
-    await page.locator("#custom_date_start").click();
-    console.log("Clicked on start date");
-    await delay(1000); // Wait for 1 second
+    // Wait for the date picker to be visible
+await page.waitForSelector("#custom_date_start", { timeout: 1000000 });
+await page.locator("#custom_date_start").scrollIntoViewIfNeeded();
+await delay(1000);
+await page.locator("#custom_date_start").click();
+console.log("Clicked on start date");
 
-    await page.getByRole("button", { name: "18" }).click();
-    await page.locator("#custom_date_end").scrollIntoViewIfNeeded();
-    await delay(1000); // Wait for 1 second
-    await page.getByRole("button", { name: "23" }).click();
-    console.log("Set custom date range");
+// Select the desired month
+const monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
+await page.locator(".rdrMonthPicker select").selectOption(monthToSelect);
+console.log("Selected month");
 
-    // Apply the filter
-    await page
-      .getByText("Apply", { exact: true })
-      .waitFor({ state: "visible", timeout: 5000 });
-    await page.getByText("Apply", { exact: true }).click();
-    console.log("Applied custom date filter");
-    await delay(3000); // Wait for 3 seconds
+// Select the desired year
+const yearToSelect = "2024";
+await page.locator(".rdrYearPicker select").selectOption(yearToSelect);
+console.log("Selected year");
+
+// Select the desired day
+const dayToSelect = "18";
+await page.getByRole("button", { name: dayToSelect }).click();
+console.log("Selected day");
+
+// Repeat the process for the end date
+await page.locator("#custom_date_end").scrollIntoViewIfNeeded();
+await delay(1000);
+await page.locator("#custom_date_end").click();
+console.log("Clicked on end date");
+
+await page.locator(".rdrMonthPicker select").selectOption(monthToSelect);
+console.log("Selected month for end date");
+
+await page.locator(".rdrYearPicker select").selectOption(yearToSelect);
+console.log("Selected year for end date");
+
+await page.getByRole("button", { name: dayToSelect }).click();
+console.log("Selected day for end date");
+
+// Apply the filter
+await page.getByText("Apply", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
+await page.getByText("Apply", { exact: true }).click();
+console.log("Applied custom date filter");
+await delay(3000);
+
 
     // Scroll to load all leads
     await scrollToLoadAllLeads(page);
