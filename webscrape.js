@@ -3,54 +3,23 @@ const moment= require("moment")
 
 require("dotenv").config();
 
+
 async function scrollToLoadAllLeads(page) {
-  let previousHeight = 0;
-  let currentHeight = 0;
+  const scrollableContainerSelector = ".ReactVirtualized__Grid";
+  const leadsSelector = ".list .row";
+  const leadsDataMap = new Map();
   let previousLeadCount = 0;
-  let currentLeadCount = 0;
-  let previousLeadsData = [];
-  let currentLeadsData = [];
-  let leadsData = [];
   let scrollAttempts = 0;
 
-  const scrollableContainerSelector = ".ReactVirtualized__Grid";
-
   do {
-    previousHeight = currentHeight;
-    previousLeadCount = currentLeadCount;
-    previousLeadsData = currentLeadsData;
-
-    // Scroll the container by its height
-    await page.evaluate((scrollableContainerSelector) => {
-      const container = document.querySelector(scrollableContainerSelector);
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
-    }, scrollableContainerSelector);
-
-    await page.waitForTimeout(3000);
-
-    // Get the current scroll height of the container
-    currentHeight = await page.evaluate((scrollableContainerSelector) => {
-      const container = document.querySelector(scrollableContainerSelector);
-      return container ? container.scrollHeight : 0;
-    }, scrollableContainerSelector);
-
-    await page.waitForSelector(".list .row", { timeout: 1000000 });
-    console.log("Leads container found");
-
-    // Get the current number of leads on the page
-    currentLeadCount = await page.evaluate(() => {
-      const leads = document.querySelectorAll(".list .row");
-      return leads.length;
-    });
-
-    // Get the current leads data (for example, text or specific elements)
-    currentLeadsData = await page.evaluate(() => {
-      const leads = document.querySelectorAll(".list .row");
+    // Fetch visible items in the container
+    const currentLeadsData = await page.evaluate((leadsSelector) => {
+      const leads = document.querySelectorAll(leadsSelector);
       return Array.from(leads).map((lead) => {
+        const name = lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A";
         return {
-          name: lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A",
+          id: lead.getAttribute("data-id") || name, // Use a unique identifier
+          name,
           productName:
             lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
             "N/A",
@@ -59,108 +28,48 @@ async function scrollToLoadAllLeads(page) {
           details: lead.querySelector(".por")?.innerText?.trim() || "N/A",
         };
       });
-    });
+    }, leadsSelector);
 
+    // Add new items to the map to ensure uniqueness
     for (const lead of currentLeadsData) {
-      if (lead.name === "Buyer") {
-        console.log(`Lead is Buyer, skipping: ${lead.name}`);
-        continue;
-      }
-
-      if (lead.label === "N/A") {
-        console.log(`Processing lead: ${lead.name}`);
-
-        await page.getByText(lead.name).click();
-        console.log(`Clicked on lead: ${lead.name}`);
-
-        try {
-          const locator = await page.locator("#splitviewlabelheader .wrd_elip");
-
-          const isElementAvailable = await locator.count();
-          if (isElementAvailable === 0) {
-            console.log(`No label found for ${lead.name}, skipping.`);
-            continue;
-          }
-
-          const label = await locator
-            .innerText()
-            .then((text) => text.trim())
-            .catch(() => "N/A");
-
-          console.log("label......", label);
-
-          if (label === "N/A") {
-            console.log(`No label available for ${lead.name}, skipping.`);
-            continue;
-          }
-
-          lead.label = label;
-          console.log("Fetched label:", lead.label);
-        } catch (error) {
-          console.log(`Error fetching label for ${lead.name}:`, error);
-          continue;
-        }
+      if (!leadsDataMap.has(lead.id)) {
+        leadsDataMap.set(lead.id, lead);
       }
     }
-
-    for (const lead of currentLeadsData) {
-      if (lead.name === "Buyer") {
-        console.log(`Lead is Buyer, skipping: ${lead.name}`);
-        continue;
-      }
-
-      try {
-        console.log(`Processing lead: ${lead.name}`);
-        await page.getByText(lead.name).click();
-        console.log(`Clicked on lead: ${lead.name}`);
-
-        // Click on the mobile element
-        const mobileElement = await page.locator("#headerMobile");
-        if (await mobileElement.count()) {
-          await mobileElement.click();
-          console.log(`Clicked on mobile element for ${lead.name}`);
-
-          // Fetch the mobile number from the clipboard
-          const mobileNumber = await page.evaluate(async () => {
-            return await navigator.clipboard.readText();
-          });
-
-          if (mobileNumber && !isNaN(Number(mobileNumber))) {
-            lead.mobile = mobileNumber;
-            console.log(`Fetched mobile: ${lead.mobile}`);
-          } else {
-            console.log(`No mobile number copied for ${lead.name}`);
-          }
-        } else {
-          console.log(`No mobile element found for ${lead.name}, skipping.`);
-        }
-      } catch (error) {
-        console.error(`Error processing lead ${lead.name}:`, error);
-        continue;
-      }
-    }
-
-    // Combine previous and current leads data
-    leadsData = [...previousLeadsData, ...currentLeadsData];
 
     console.log(
-      `Scrolled. Previous height: ${previousHeight}, Current height: ${currentHeight}. Previous lead count: ${previousLeadCount}, Current lead count: ${currentLeadCount}`
+      `Fetched ${currentLeadsData.length} leads. Total unique leads so far: ${leadsDataMap.size}`
     );
 
+    // Scroll the container
+    await page.evaluate((scrollableContainerSelector) => {
+      const container = document.querySelector(scrollableContainerSelector);
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }, scrollableContainerSelector);
+
+    // Wait for new items to load
+    await page.waitForTimeout(10000);
+   
+
+    // Check if new leads are added
+    if (leadsDataMap.size === previousLeadCount) {
+      console.log("No new leads found, stopping scrolling.");
+      break;
+    }
+
+    previousLeadCount = leadsDataMap.size;
     scrollAttempts++;
-  } while (
-    currentHeight > previousHeight ||
-    currentLeadCount > previousLeadCount
-  );
 
-  // while (
-  //   (currentHeight > previousHeight || currentLeadCount > previousLeadCount) &&
-  //   scrollAttempts < 20  // Limit the number of scroll attempts to avoid infinite loop
-  // );
+    console.log(`Scroll attempt ${scrollAttempts} completed.`);
+  } while (scrollAttempts < 20); // Limit to prevent infinite scrolling
 
+  // Convert leads map to an array
+  const leadsData = Array.from(leadsDataMap.values());
   console.log("All leads loaded", leadsData);
 
-  // Create tasks from lead data
+  // Process leads into tasks (as per your original logic)
   const tasks = leadsData.map((lead) => ({
     projectId: "673eb6d62e87a01115656930",
     taskStageId: "671b472f9ccb60f1a05dfca9",
@@ -173,32 +82,89 @@ async function scrollToLoadAllLeads(page) {
     customFieldValues: {
       date: moment().format("DD/MM/YY"),
       name: lead.name,
-      mobile_number: lead.mobile, // Changed to mobile_number
+      mobile_number: lead.mobile,
       company_name: lead.details || "N/A",
     },
     isDeleted: false,
     createdOn: new Date(),
-    modifiedOn : new Date(),
+    modifiedOn: new Date(),
   }));
 
-  // Output the tasks as JSON to verify task creation
   console.log("Tasks Data", JSON.stringify(tasks, null, 2));
 
-  // Assertion to check tasks were created
   expect(tasks).toBeDefined();
   expect(tasks.length).toBeGreaterThan(0);
 }
 
 
 
+
+
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Custom date filter selection logic
+async function selectCustomDate(page, startYear, startMonth, startDay, endYear, endMonth, endDay) {
+  console.log("Selecting start date...");
+  await page.locator("#custom_date_start").scrollIntoViewIfNeeded();
+  await page.locator("#custom_date_start").click();
+  await delay(1000);
+
+  console.log("Selecting year for start date...");
+  await page.locator(".rdrYearPicker select").selectOption(startYear);
+  await delay(1000);
+
+  console.log("Selecting month for start date...");
+  await page.locator(".rdrMonthPicker select").selectOption(startMonth);
+  await delay(1000);
+
+  console.log("Selecting day for start date...");
+  const startDaySelector = `.rdrDay:not(.rdrDayDisabled) span:has-text("${startDay}")`;
+  await page.locator(startDaySelector).click();
+  await delay(2000);
+
+  console.log("Selecting end date...");
+  await page.locator("#custom_date_end").scrollIntoViewIfNeeded();
+  await page.locator("#custom_date_end").click();
+  await delay(1000);
+
+  console.log("Selecting year for end date...");
+  await page.locator(".rdrYearPicker select").selectOption(endYear);
+  await delay(1000);
+
+  console.log("Selecting month for end date...");
+  await page.locator(".rdrMonthPicker select").selectOption(endMonth);
+  await delay(1000);
+
+  console.log("Selecting day for end date...");
+  const endDaySelector = `.rdrDay:not(.rdrDayDisabled) span:has-text("${endDay}")`;
+  await page.locator(endDaySelector).click();
+  await delay(2000);
+
+  console.log("Applying the custom date filter...");
+  await page.getByText("Apply", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
+  await page.getByText("Apply", { exact: true }).click();
+  await delay(3000);
+}
+
+
 const fetchLeads = async () => {
   const browser = await chromium.launch({ headless: true });
+  const start_dayToSelect = "18";
+const start_monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
+const start_yearToSelect = "2024";
+
+const end_dayToSelect = "24";
+const end_monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
+const end_yearToSelect = "2024";
+
+
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
   });
   const page = await context.newPage();
 
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+ 
 
   try {
     // Navigate to IndiaMART
@@ -269,35 +235,36 @@ await page.locator("#custom_date_start").click();
 console.log("Clicked on start date");
 
 // Select the desired month
-const monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
-await page.locator(".rdrMonthPicker select").selectOption(monthToSelect);
-console.log("Selected month");
 
-// Select the desired year
-const yearToSelect = "2024";
-await page.locator(".rdrYearPicker select").selectOption(yearToSelect);
+await page.locator(".rdrYearPicker select").selectOption(start_yearToSelect);
 console.log("Selected year");
+await delay(1000);
+
+await page.locator(".rdrMonthPicker select").selectOption(start_monthToSelect);
+console.log("Selected month");
+await delay(1000);
+// Select the desired year
 
 // Select the desired day
-const dayToSelect = "18";
-await page.getByRole("button", { name: dayToSelect }).click();
+
+await page.getByRole("button", { name: start_dayToSelect }).click();
 console.log("Selected day");
-
+await delay(2000);
 // Repeat the process for the end date
-await page.locator("#custom_date_end").scrollIntoViewIfNeeded();
-await delay(1000);
-await page.locator("#custom_date_end").click();
-console.log("Clicked on end date");
-
-await page.locator(".rdrMonthPicker select").selectOption(monthToSelect);
-console.log("Selected month for end date");
-
-await page.locator(".rdrYearPicker select").selectOption(yearToSelect);
+// await page.locator("#custom_date_end").scrollIntoViewIfNeeded();
+// await delay(1000);
+// await page.locator("#custom_date_end").click();
+// console.log("Clicked on end date");
+// await delay(1000);
+await page.locator(".rdrYearPicker select").selectOption(end_yearToSelect);
 console.log("Selected year for end date");
-
-await page.getByRole("button", { name: dayToSelect }).click();
+await delay(1000);
+await page.locator(".rdrMonthPicker select").selectOption(end_monthToSelect);
+console.log("Selected month for end date");
+await delay(1000);
+await page.getByRole("button", { name: end_dayToSelect }).click();
 console.log("Selected day for end date");
-
+await delay(1000);
 // Apply the filter
 await page.getByText("Apply", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
 await page.getByText("Apply", { exact: true }).click();
@@ -331,6 +298,8 @@ await delay(3000);
     await browser.close();
   }
 };
+
+
 
 
 fetchLeads()
