@@ -1,34 +1,145 @@
-const { test, expect, chromium } = require("@playwright/test")
-const moment= require("moment")
+const { test, expect, chromium } = require("@playwright/test");
+const moment = require("moment");
 
 require("dotenv").config();
 
+// async function scrollToLoadAllLeads(page) {
+//   const scrollableContainerSelector = ".ReactVirtualized__Grid";
+//   const _leadsSelector = ".list .row";
+//   const leadsDataMap = new Map();
+//   let previousLeadCount = 0;
+//   let scrollAttempts = 0;
+
+//   // Fetch visible items in the container
+
+//   // Scroll the container
+//   await page.evaluate(async (scrollableContainerSelector) => {
+//     const container = document.querySelector(scrollableContainerSelector);
+
+//     while (
+//       container.scrollTop + container.clientHeight <
+//       container.scrollHeight
+//     ) {
+//       const currentLeadsData = await page.evaluate((leadsSelector) => {
+//         const leads = document.querySelectorAll(leadsSelector);
+//         return Array.from(leads).map((lead) => {
+//           const name =
+//             lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A";
+//           return {
+//             id: lead.getAttribute("data-id") || name, // Use a unique identifier
+//             name,
+//             productName:
+//               lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
+//               "N/A",
+//             label: lead.querySelector(".f1")?.innerText?.trim() || "N/A",
+//             mobile: "N/A",
+//             details: lead.querySelector(".por")?.innerText?.trim() || "N/A",
+//           };
+//         });
+//       }, _leadsSelector);
+
+//       // Add new items to the map to ensure uniqueness
+//       for (const lead of currentLeadsData) {
+//         if (!leadsDataMap.has(lead.id)) {
+//           leadsDataMap.set(lead.id, lead);
+//         }
+//       }
+
+//       console.log(
+//         `Fetched ${currentLeadsData.length} leads. Total unique leads so far: ${leadsDataMap.size}`
+//       );
+
+//       container.scrollBy(0, 400);
+//     }
+
+//     // if (container) {
+//     //   container.scrollTop = container.scrollHeight;
+//     // }
+//   }, scrollableContainerSelector);
+
+//   // Wait for new items to load
+//   await page.waitForTimeout(10000);
+
+//   // Check if new leads are added
+//   // if (leadsDataMap.size === previousLeadCount) {
+//   //   console.log("No new leads found, stopping scrolling.");
+//   //   break;
+//   // }
+
+//   previousLeadCount = leadsDataMap.size;
+//   scrollAttempts++;
+
+//   console.log(`Scroll attempt ${scrollAttempts} completed.`);
+
+//   // Convert leads map to an array
+//   const leadsData = Array.from(leadsDataMap.values());
+//   console.log("All leads loaded", leadsData);
+
+//   // Process leads into tasks (as per your original logic)
+//   const tasks = leadsData.map((lead) => ({
+//     projectId: "673eb6d62e87a01115656930",
+//     taskStageId: "671b472f9ccb60f1a05dfca9",
+//     companyId: "66ebbbc2c5bb38ee351dc0b2",
+//     title: lead.productName || "N/A",
+//     description: `
+//         Address: ${lead.details},
+//         Label: ${lead.label}`,
+//     startDate: moment().format("YYYY-MM-DD"),
+//     customFieldValues: {
+//       date: moment().format("DD/MM/YY"),
+//       name: lead.name,
+//       mobile_number: lead.mobile,
+//       company_name: lead.details || "N/A",
+//     },
+//     isDeleted: false,
+//     createdOn: new Date(),
+//     modifiedOn: new Date(),
+//   }));
+
+//   console.log("Tasks Data", JSON.stringify(tasks, null, 2));
+
+//   expect(tasks).toBeDefined();
+//   expect(tasks.length).toBeGreaterThan(0);
+// }
 
 async function scrollToLoadAllLeads(page) {
   const scrollableContainerSelector = ".ReactVirtualized__Grid";
-  const leadsSelector = ".list .row";
+  const _leadsSelector = ".list .row";
   const leadsDataMap = new Map();
   let previousLeadCount = 0;
   let scrollAttempts = 0;
 
-  do {
-    // Fetch visible items in the container
-    const currentLeadsData = await page.evaluate((leadsSelector) => {
-      const leads = document.querySelectorAll(leadsSelector);
-      return Array.from(leads).map((lead) => {
-        const name = lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A";
-        return {
-          id: lead.getAttribute("data-id") || name, // Use a unique identifier
-          name,
-          productName:
-            lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
-            "N/A",
-          label: lead.querySelector(".f1")?.innerText?.trim() || "N/A",
-          mobile: "N/A",
-          details: lead.querySelector(".por")?.innerText?.trim() || "N/A",
-        };
-      });
-    }, leadsSelector);
+  while (true) {
+    // Scroll and fetch visible items in the container
+    const currentLeadsData = await page.evaluate(
+      ({ scrollableContainerSelector, leadsSelector }) => {
+        const container = document.querySelector(scrollableContainerSelector);
+        const leads = document.querySelectorAll(leadsSelector);
+
+        const leadsData = Array.from(leads).map((lead) => {
+          const name =
+            lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A";
+          return {
+            id: lead.getAttribute("data-id") || name, // Use a unique identifier
+            name,
+            productName:
+              lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
+              "N/A",
+            label: lead.querySelector(".f1")?.innerText?.trim() || "N/A",
+            mobile: "N/A",
+            details: lead.querySelector(".por")?.innerText?.trim() || "N/A",
+          };
+        });
+
+        // Scroll the container
+        if (container.scrollTop + container.clientHeight < container.scrollHeight) {
+          container.scrollBy(0, 400);
+        }
+
+        return leadsData;
+      },
+      { scrollableContainerSelector, leadsSelector: _leadsSelector } // Wrap arguments in an object
+    );
 
     // Add new items to the map to ensure uniqueness
     for (const lead of currentLeadsData) {
@@ -41,17 +152,8 @@ async function scrollToLoadAllLeads(page) {
       `Fetched ${currentLeadsData.length} leads. Total unique leads so far: ${leadsDataMap.size}`
     );
 
-    // Scroll the container
-    await page.evaluate((scrollableContainerSelector) => {
-      const container = document.querySelector(scrollableContainerSelector);
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
-    }, scrollableContainerSelector);
-
     // Wait for new items to load
-    await page.waitForTimeout(10000);
-   
+    await page.waitForTimeout(1000);
 
     // Check if new leads are added
     if (leadsDataMap.size === previousLeadCount) {
@@ -63,7 +165,7 @@ async function scrollToLoadAllLeads(page) {
     scrollAttempts++;
 
     console.log(`Scroll attempt ${scrollAttempts} completed.`);
-  } while (scrollAttempts < 20); // Limit to prevent infinite scrolling
+  }
 
   // Convert leads map to an array
   const leadsData = Array.from(leadsDataMap.values());
@@ -97,14 +199,18 @@ async function scrollToLoadAllLeads(page) {
 }
 
 
-
-
-
-
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Custom date filter selection logic
-async function selectCustomDate(page, startYear, startMonth, startDay, endYear, endMonth, endDay) {
+async function selectCustomDate(
+  page,
+  startYear,
+  startMonth,
+  startDay,
+  endYear,
+  endMonth,
+  endDay
+) {
   console.log("Selecting start date...");
   await page.locator("#custom_date_start").scrollIntoViewIfNeeded();
   await page.locator("#custom_date_start").click();
@@ -142,29 +248,27 @@ async function selectCustomDate(page, startYear, startMonth, startDay, endYear, 
   await delay(2000);
 
   console.log("Applying the custom date filter...");
-  await page.getByText("Apply", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
+  await page
+    .getByText("Apply", { exact: true })
+    .waitFor({ state: "visible", timeout: 5000 });
   await page.getByText("Apply", { exact: true }).click();
   await delay(3000);
 }
 
-
 const fetchLeads = async () => {
-  const browser = await chromium.launch({ headless: true });
-  const start_dayToSelect = "18";
-const start_monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
-const start_yearToSelect = "2024";
+  const browser = await chromium.launch({ headless: false });
+  const start_dayToSelect = "19";
+  const start_monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
+  const start_yearToSelect = "2024";
 
-const end_dayToSelect = "24";
-const end_monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
-const end_yearToSelect = "2024";
-
+  const end_dayToSelect = "20";
+  const end_monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
+  const end_yearToSelect = "2024";
 
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
   });
   const page = await context.newPage();
-
- 
 
   try {
     // Navigate to IndiaMART
@@ -228,49 +332,56 @@ const end_yearToSelect = "2024";
     await delay(2000); // Wait for 2 seconds
 
     // Wait for the date picker to be visible
-await page.waitForSelector("#custom_date_start", { timeout: 1000000 });
-await page.locator("#custom_date_start").scrollIntoViewIfNeeded();
-await delay(1000);
-await page.locator("#custom_date_start").click();
-console.log("Clicked on start date");
+    await page.waitForSelector("#custom_date_start", { timeout: 1000000 });
+    await page.locator("#custom_date_start").scrollIntoViewIfNeeded();
+    await delay(1000);
+    await page.locator("#custom_date_start").click();
+    console.log("Clicked on start date");
 
-// Select the desired month
+    // Select the desired month
 
-await page.locator(".rdrYearPicker select").selectOption(start_yearToSelect);
-console.log("Selected year");
-await delay(1000);
+    await page
+      .locator(".rdrYearPicker select")
+      .selectOption(start_yearToSelect);
+    console.log("Selected year");
+    await delay(1000);
 
-await page.locator(".rdrMonthPicker select").selectOption(start_monthToSelect);
-console.log("Selected month");
-await delay(1000);
-// Select the desired year
+    await page
+      .locator(".rdrMonthPicker select")
+      .selectOption(start_monthToSelect);
+    console.log("Selected month");
+    await delay(1000);
+    // Select the desired year
 
-// Select the desired day
+    // Select the desired day
 
-await page.getByRole("button", { name: start_dayToSelect }).click();
-console.log("Selected day");
-await delay(2000);
-// Repeat the process for the end date
-// await page.locator("#custom_date_end").scrollIntoViewIfNeeded();
-// await delay(1000);
-// await page.locator("#custom_date_end").click();
-// console.log("Clicked on end date");
-// await delay(1000);
-await page.locator(".rdrYearPicker select").selectOption(end_yearToSelect);
-console.log("Selected year for end date");
-await delay(1000);
-await page.locator(".rdrMonthPicker select").selectOption(end_monthToSelect);
-console.log("Selected month for end date");
-await delay(1000);
-await page.getByRole("button", { name: end_dayToSelect }).click();
-console.log("Selected day for end date");
-await delay(1000);
-// Apply the filter
-await page.getByText("Apply", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
-await page.getByText("Apply", { exact: true }).click();
-console.log("Applied custom date filter");
-await delay(3000);
-
+    await page.getByRole("button", { name: start_dayToSelect }).click();
+    console.log("Selected day");
+    await delay(2000);
+    // Repeat the process for the end date
+    // await page.locator("#custom_date_end").scrollIntoViewIfNeeded();
+    // await delay(1000);
+    // await page.locator("#custom_date_end").click();
+    // console.log("Clicked on end date");
+    // await delay(1000);
+    await page.locator(".rdrYearPicker select").selectOption(end_yearToSelect);
+    console.log("Selected year for end date");
+    await delay(1000);
+    await page
+      .locator(".rdrMonthPicker select")
+      .selectOption(end_monthToSelect);
+    console.log("Selected month for end date");
+    await delay(1000);
+    await page.getByRole("button", { name: end_dayToSelect }).click();
+    console.log("Selected day for end date");
+    await delay(1000);
+    // Apply the filter
+    await page
+      .getByText("Apply", { exact: true })
+      .waitFor({ state: "visible", timeout: 5000 });
+    await page.getByText("Apply", { exact: true }).click();
+    console.log("Applied custom date filter");
+    await delay(3000);
 
     // Scroll to load all leads
     await scrollToLoadAllLeads(page);
@@ -299,9 +410,4 @@ await delay(3000);
   }
 };
 
-
-
-
-fetchLeads()
-
-
+fetchLeads();
