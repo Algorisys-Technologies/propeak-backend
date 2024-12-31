@@ -153,15 +153,11 @@ async function scrollToLoadAllLeads(page) {
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 
-const fetchLeads = async () => {
+const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_monthToSelect, start_yearToSelect,
+  end_dayToSelect, end_monthToSelect, end_yearToSelect
+}) => {
   const browser = await chromium.launch({ headless: false });
-  const start_dayToSelect = "26";
-  const start_monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
-  const start_yearToSelect = "2024";
-
-  const end_dayToSelect = "27";
-  const end_monthToSelect = "11"; // April (0-based index: 0 = January, 1 = February, etc.)
-  const end_yearToSelect = "2024";
+ 
 
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
@@ -179,8 +175,7 @@ const fetchLeads = async () => {
     console.log("Clicked on Sign In");
     await delay(1000); // Wait for 1 second
 
-    const mobileNumber = "9892492782";
-    const password = "KIPINDIAMART2022";
+  
 
     await page.getByPlaceholder("Enter Your Mobile Number").fill(mobileNumber);
     console.log("Filled mobile number");
@@ -282,25 +277,9 @@ const fetchLeads = async () => {
     await delay(3000);
 
     // Scroll to load all leads
-    await scrollToLoadAllLeads(page);
+    return await scrollToLoadAllLeads(page);
 
     // Example of using clipboard functionality
-    const mobileElement = page.locator("#headerMobile");
-    if (await mobileElement.count()) {
-      await mobileElement.click();
-      await delay(1000); // Wait for 1 second
-
-      // Read text from clipboard
-      const copiedText = await page.evaluate(async () => {
-        return await navigator.clipboard.readText();
-      });
-
-      if (copiedText) {
-        console.log(`Copied text: ${copiedText}`);
-      } else {
-        console.log("No text copied to clipboard.");
-      }
-    }
   } catch (error) {
     console.error("An error occurred:", error);
   } finally {
@@ -308,4 +287,13 @@ const fetchLeads = async () => {
   }
 };
 
-fetchLeads();
+fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
+  start_dayToSelect : "31"
+  , start_monthToSelect : "11" // April (0-based index: 0 : January, 1 : February, etc.)
+  , start_yearToSelect : "2024"
+  , end_dayToSelect : "31"
+  , end_monthToSelect : "11" // April (0-based index: 0 : January, 1 : February, etc.)
+  , end_yearToSelect : "2024"
+});
+
+module.exports = fetchLeads;
