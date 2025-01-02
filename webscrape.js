@@ -102,7 +102,7 @@ async function scrollToLoadAllLeads(page) {
 
         // Fetch label
         try {
-          const labelLocator = page.locator("#splitviewlabelheader .wrd_elip");
+          const labelLocator = page.locator("#splitviewlabelheader .wrd_elip").first();
           if ((await labelLocator.count()) > 0) {
             lead.label = await labelLocator.innerText().then((text) => text.trim());
             console.log(`Fetched label: ${lead.label}`);
