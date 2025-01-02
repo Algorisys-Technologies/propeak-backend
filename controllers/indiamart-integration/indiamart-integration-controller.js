@@ -45,6 +45,7 @@ exports.updateIntegrationSettings = async (req, res) => {
       crmKey,
       integrationProvider: provider,
       crmKeyId,
+      method,
       keyname,
     } = req.body;
 
@@ -114,6 +115,7 @@ exports.updateIntegrationSettings = async (req, res) => {
     const keyField = provider === "IndiaMART" ? "authKey" : "clientId";
     providerSettings[crmKeyIndex][keyField] = crmKey;
     providerSettings[crmKeyIndex].keyName = keyname;
+    providerSettings[crmKeyIndex].method = method;
 
     // Update the modified timestamp and save the updated settings
     existingSettings.modifiedOn = Date.now();
@@ -137,7 +139,7 @@ exports.updateIntegrationSettings = async (req, res) => {
 exports.addIntegrationSettings = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { crmKey, integrationProvider: provider, keyname } = req.body;
+    const { crmKey, integrationProvider: provider, keyname, method } = req.body;
 
     if (!companyId || !provider || !crmKey || !keyname) {
       return res.status(400).json({
@@ -175,14 +177,17 @@ exports.addIntegrationSettings = async (req, res) => {
       if (provider === "IndiaMART") {
         newIntegration["keyName"] = keyname;
         newIntegration["authKey"] = crmKey;
+        newIntegration["method"] = method;
         existingSettings.settings["IndiaMART"].push(newIntegration);
       } else if (provider === "Salesforce") {
         newIntegration["keyName"] = keyname;
         newIntegration["clientId"] = crmKey;
+        newIntegration["method"] = method;
         existingSettings.settings["Salesforce"].push(newIntegration);
       } else if (provider === "Zoho") {
         newIntegration["keyName"] = keyname;
         newIntegration["clientId"] = crmKey;
+        newIntegration["method"] = method;
         existingSettings.settings["Zoho"].push(newIntegration);
       } else {
         return res.status(400).json({
@@ -205,17 +210,19 @@ exports.addIntegrationSettings = async (req, res) => {
       const settings = {};
 
       if (provider === "IndiaMART") {
-        settings["IndiaMART"] = [{ keyName: keyname, authKey: crmKey }];
+        settings["IndiaMART"] = [{ keyName: keyname, authKey: crmKey , method: method }];
       } else if (provider === "Salesforce") {
-        settings["Salesforce"] = [{ keyName: keyname, clientId: crmKey }];
+        settings["Salesforce"] = [{ keyName: keyname, clientId: crmKey,  method: method }];
       } else if (provider === "Zoho") {
-        settings["Zoho"] = [{ keyName: keyname, clientId: crmKey }];
+        settings["Zoho"] = [{ keyName: keyname, clientId: crmKey,  method: method }];
       } else {
         return res.status(400).json({
           success: false,
           message: `Unsupported integration provider: ${provider}`,
         });
       }
+
+      console.log("settings", settings);
 
       const newIntegrationSettings = new IntegrationSetting({
         companyId,
@@ -314,92 +321,4 @@ exports.deleteIntegrationSettings = async (req, res) => {
   }
 };
 
-exports.handleIndiamartWebhook = async (req, res) => {
-  try {
-    const { companyId } = req.params;
-    const inquiryData = req.body;
 
-    console.log("companyId", companyId, "inquiryData", inquiryData);
-
-    if (!inquiryData.inquiryId) {
-      const { v4: uuidv4 } = require("uuid");
-      inquiryData.inquiryId = uuidv4(); // Generate a new inquiryId
-      console.log(" inquiryData.inquiryId", inquiryData.inquiryId);
-    }
-
-    // Fetch Integration Settings
-    const integrationSettings = await IntegrationSetting.findOne({
-      companyId,
-      integrationProvider: "IndiaMART",
-      enabled: true,
-    });
-
-    console.log("integrationSettings......", integrationSettings);
-
-    if (!integrationSettings) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Integration not enabled." });
-    }
-
-    // Apply Filters (if any)
-    // const filters = integrationSettings.settings?.IndiaMART?.filters;
-    // if (
-    //   filters &&
-    //   (!filters.leadType?.includes(inquiryData.leadType) ||
-    //     (filters.priority && filters.priority !== inquiryData.priority))
-    // ) {
-    //   return res
-    //     .status(400)
-    //     .json({ success: false, message: "Lead does not match filters." });
-    // }
-
-    // console.log("filters", filters);
-
-    // Save Inquiry
-    const newInquiry = new IndiamartInquiry({
-      companyId,
-      inquiryId: inquiryData.inquiryId,
-      inquiryDetails: inquiryData,
-    });
-
-    await newInquiry.save();
-
-    console.log("newInquiry", newInquiry);
-
-    return res.status(201).json({ success: true, inquiry: newInquiry });
-  } catch (error) {
-    console.error("Error handling IndiaMART webhook:", error);
-    return res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-// // Fetch Active Integrations for a Company (with optional provider filter)
-// exports.getActiveIntegrations = async (req, res) => {
-//   try {
-//     const { companyId, provider } = req.params;
-//     const query = {
-//       companyId,
-//       enabled: true,
-//     };
-
-//     if (provider) {
-//       query.integrationProvider = provider;
-//     }
-
-//     const activeIntegrations = await IntegrationSetting.find(query);
-
-//     if (!activeIntegrations || activeIntegrations.length === 0) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "No active integrations found." });
-//     }
-
-//     return res
-//       .status(200)
-//       .json({ success: true, integrations: activeIntegrations });
-//   } catch (error) {
-//     console.error("Error fetching active integrations:", error);
-//     return res.status(500).json({ success: false, error: error.message });
-//   }
-// };

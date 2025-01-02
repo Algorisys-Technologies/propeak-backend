@@ -3,10 +3,12 @@ const mongoose = require("mongoose");
 const axios = require("axios");
 const Lead = require("../../models/indiamart-integration/indiamart-lead-model");
 const Task = require("../../models/task/task-model");
+const User = require("../../models/user/user-model");
 const moment = require("moment");
+const fetchLeads = require("../../webscrape");
 
 // Create a new Project Setting
-exports.createProjectSettings = async (req, res) => {
+exports.createProjectSetting = async (req, res) => {
   try {
     const { projectId } = req.body;
 
@@ -34,7 +36,7 @@ exports.createProjectSettings = async (req, res) => {
   }
 };
 
-exports.getAllProjectSettings = async (req, res) => {
+exports.getAllProjectSetting = async (req, res) => {
   const { companyId, projectId } = req.body;
 
   if (!companyId) {
@@ -46,9 +48,9 @@ exports.getAllProjectSettings = async (req, res) => {
   console.log(`Received companyId from request body: ${companyId}`);
 
   try {
-    const projectSettings = await ProjectSetting.find({ companyId, projectId });
+    const projectSetting = await ProjectSetting.find({ companyId, projectId });
 
-    if (!projectSettings.length) {
+    if (!projectSetting.length) {
       return res.status(404).json({
         success: false,
         message: "No project settings found for the provided company ID",
@@ -56,10 +58,10 @@ exports.getAllProjectSettings = async (req, res) => {
     }
 
     console.log(
-      `Fetched project settings: ${JSON.stringify(projectSettings, null, 2)}`
+      `Fetched project settings: ${JSON.stringify(projectSetting, null, 2)}`
     );
 
-    res.status(200).json({ success: true, data: projectSettings });
+    res.status(200).json({ success: true, data: projectSetting });
   } catch (error) {
     console.error(`Error fetching project settings: ${error.message}`, error);
 
@@ -90,7 +92,7 @@ exports.getProjectSettingById = async (req, res) => {
   }
 };
 
-exports.updateProjectSettings = async (req, res) => {
+exports.updateProjectSetting = async (req, res) => {
   console.log("update project setting................");
   console.log(req.body, "request body of update...........");
   try {
@@ -126,6 +128,7 @@ exports.fetchIndiaMartSettings = async (req, res) => {
     taskStageId,
     companyId,
     integrationProvider,
+    method
   } = req.body;
 
   if (!authKey) {
@@ -139,7 +142,6 @@ exports.fetchIndiaMartSettings = async (req, res) => {
       message: "companyId is missing. Please provide a valid companyId.",
     });
   }
-
   const now = moment();
   const defaultStartDate = now.startOf("day").format("DD-MMM-YYYYHH:mm:ss");
   const defaultEndDate = now.endOf("day").format("DD-MMM-YYYYHH:mm:ss");
@@ -153,9 +155,17 @@ exports.fetchIndiaMartSettings = async (req, res) => {
 
   const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
 
-  console.log("Constructed URL: ", url);
-  const projectSettings = await ProjectSetting.findOne({ projectId });
-  if (projectSettings) {
+
+
+ 
+  const projectSetting = await ProjectSetting.findOne({ projectId });
+  console.log(projectSetting, "projectSetting.....................");
+  if (!projectSetting) {
+    res.status(404).json({ success: false,  message: "Project settings not found." });
+  }
+
+
+  if(projectSetting.method == "API"){
     try {
       const response = await axios.get(url);
       console.log("API response:", response.data);
@@ -227,7 +237,110 @@ exports.fetchIndiaMartSettings = async (req, res) => {
       console.error("Error fetching IndiaMart settings: ", error);
       res.status(500).json({ success: false,  message: "Internal server error." });
     }
-  } else {
-    res.status(404).json({ success: false,  message: "Project settings not found." });
   }
+  if(projectSetting.method == "Web-Scrape"){
+    const {
+      companyId,
+      projectId,
+      taskStageId,
+      authKey,
+      startDate,
+      endDate,
+      fetchFrequetly,
+      lastFetched,
+    } = projectSetting;
+    console.log(authKey);
+
+    let newStartDate;
+    let newEndDate;
+
+    if (fetchFrequetly) {
+      newStartDate = new Date(lastFetched)
+      newEndDate = new Date(new Date())
+    } else {
+      newStartDate = new Date(startDate)
+      newEndDate = new Date(endDate)
+    }
+
+
+    try {
+      // Fetch leads from IndiaMART API
+      const [mobileNumber, password] = authKey.split(":");
+      const start_dayToSelect = new Date(newStartDate).getDate()
+      const start_monthToSelect = new Date(newStartDate).getMonth()
+      const start_yearToSelect = new Date(newStartDate).getFullYear()
+      const end_dayToSelect = new Date(newEndDate).getDate()
+      const end_monthToSelect = new Date(newEndDate).getMonth()
+      const end_yearToSelect = new Date(newEndDate).getFullYear()
+      const data = await fetchLeads({mobileNumber, password, start_dayToSelect, start_monthToSelect, start_yearToSelect, end_dayToSelect, end_monthToSelect, end_yearToSelect});
+      const leadsData = data;
+      if (!leadsData || leadsData.length === 0) {
+        console.log("No new leads found from IndiaMART.");
+      }
+      
+      console.log(
+        `Fetched ${leadsData.length} leads for companyId: ${companyId}`
+      );
+
+      for (const lead of leadsData) {
+        // Check for existing tasks to avoid duplicates
+        const existingTask = await Task.findOne({
+          projectId,
+          taskStageId,
+          title: lead.productName,
+          description: lead.details,
+          isDeleted: false,
+        });
+
+        if (existingTask) {
+          console.log(
+            `Task already exists for lead: ${lead.SUBJECT} - Skipping.`
+          );
+          continue;
+        }
+
+        const regex = new RegExp(lead.label, "i");
+
+        const users = await User.find({ name: {$regex: regex},companyId });
+
+        // Create new task for the lead
+        const newTask = new Task({
+          projectId,
+          taskStageId,
+          companyId,
+          title: lead.productName,
+          description: lead.details,
+          startDate: lead.startDate,
+          createdOn: new Date(),
+          modifiedOn: new Date(),
+          creation_mode: "AUTO",
+          tag: [lead.label],
+          lead_source: "INDIAMART",
+          userId: users[0]?._id || null,
+          customFieldValues: {
+            date: new Date(startDate).toLocaleDateString("IN"),
+            name: lead.name,
+            mobile_number: lead.mobile,
+            company_name: lead.name,
+          },
+          isDeleted: false,
+        });
+
+        await newTask.save();
+        console.log(`Task created for lead: ${lead.productName}`);
+      }
+
+      await ProjectSetting.updateOne(
+        { _id: projectSetting._id },
+        { lastFetched: new Date() }
+      );
+      res.status(200).json({ success: true,  message: "Leads fetched successfully." });
+    } catch (error) {
+      console.error(
+        `Error fetching leads for companyId: ${companyId}`,
+        error
+      );
+    }
+  }   
+  
 };
