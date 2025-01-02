@@ -390,23 +390,46 @@ exports.tasksFileUpload = async (req, res) => {
             function normalizeDate(value) {
               if (!value) return null;
 
-              const formats = ["DD-MM-YYYY", "DD/MM/YYYY"];
+              console.log("value...", value);
+
+              // Define formats, including handling two-digit years
+              const formats = [
+                "DD-MM-YYYY",
+                "DD/MM/YYYY",
+                "D-M-YY",
+                "D/M/YY",
+                "DD-MM-YY",
+                "DD/MM/YY",
+              ];
+
+              // Parse the date using moment
               const parsedDate = moment(value, formats, true);
+
+              console.log("parsedDate", parsedDate);
 
               if (!parsedDate.isValid()) {
                 console.warn(
                   `Warning: Invalid date format encountered: ${value}`
                 );
-                return value; // Return the original value if the date format is invalid
+                return null; // Return null for invalid dates
               }
 
-              return parsedDate.format("DD-MM-YYYY");
+              console.log(
+                "Parsed date in local timezone:",
+                parsedDate.format()
+              );
+              console.log("Parsed date in UTC:", parsedDate.utc().format());
+
+              // Return ISO string for valid dates
+              return parsedDate.startOf("day").toDate();
             }
 
             if (task.startDate) {
+              console.log("startDate", task.startDate);
               task.startDate = normalizeDate(task.startDate);
             }
             if (task.endDate) {
+              console.log("endDate", task.endDate);
               task.endDate = task.endDate ? normalizeDate(task.endDate) : "";
             }
 
@@ -469,7 +492,7 @@ exports.tasksFileUpload = async (req, res) => {
             }
           }
 
-          console.log("Tasks to be added:", tasks);
+          //console.log("Tasks to be added:", tasks);
 
           if (tasks.length > 0) {
             try {
