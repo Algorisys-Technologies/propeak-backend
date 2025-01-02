@@ -6,6 +6,7 @@ router.get(
   "/GetIntegrationSettings/:companyId",
   integrationController.getIntegrationSettings
 );
+
 router.put(
   "/UpdateIntegrationSettings/:companyId",
   integrationController.updateIntegrationSettings
@@ -21,16 +22,12 @@ router.delete(
   integrationController.deleteIntegrationSettings
 );
 
-router.post(
-  "/HandleIndiamartWebhook/:companyId",
-  integrationController.handleIndiamartWebhook
-);
 
-router.post("/addProjectSetting", projectSettings.createProjectSettings);
+router.post("/addProjectSetting", projectSettings.createProjectSetting);
 
-router.post("/projectSetting", projectSettings.getAllProjectSettings);
+router.post("/projectSetting", projectSettings.getAllProjectSetting);
 
-router.put("/updateProjectSetting", projectSettings.updateProjectSettings);
+router.put("/updateProjectSetting", projectSettings.updateProjectSetting);
 
 router.post("/createFetch", projectSettings.fetchIndiaMartSettings);
 module.exports = router;

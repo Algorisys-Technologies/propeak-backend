@@ -3,8 +3,44 @@ const moment = require("moment");
 
 require("dotenv").config();
 
+function extractISODate(details) {
+  const dateRegex = /\b(\d{1,2} \w{3}'\d{2}|\d{2} \w{3}'\d{2}|\w+\sday|yesterday)\b/i;
+  const timeRegex = /\b\d{1,2}:\d{2} (AM|PM)\b/i;
+  
+  const matchDate = details.match(dateRegex);
+  const matchTime = details.match(timeRegex);
+  const currentDate = new Date();
+  
+  let extractedDate = currentDate;
+  
+  if (matchDate) {
+      const datePart = matchDate[0].toLowerCase();
+      
+      if (datePart === 'yesterday') {
+          extractedDate.setDate(currentDate.getDate() - 1);
+      } else if (/\d{1,2} \w{3}'\d{2}/.test(datePart)) {
+          extractedDate = new Date(datePart.replace("'", "20"));
+      }
+  }
+  
+  // Combine extracted date with the time if available
+  if (matchTime) {
+      const timePart = matchTime[0];
+      const [hours, minutes] = timePart.split(/[: ]/).map(Number);
+      const isPM = timePart.includes('PM');
+      
+      extractedDate.setHours(isPM ? hours + 12 : hours, minutes);
+  }
+  
+  return extractedDate.toISOString();
+}
+
+
+
 
 async function scrollToLoadAllLeads(page) {
+
+
   const scrollableContainerSelector = ".ReactVirtualized__Grid";
   const leadsSelector = ".list .row";
   const leadsData = [];
@@ -35,6 +71,7 @@ async function scrollToLoadAllLeads(page) {
           productName:
           lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
           "N/A",
+          startDate: "N/A",
           details: lead.querySelector(".por")?.innerText?.trim() || "N/A",
           elementIndex: [...container.querySelectorAll(leadsSelector)].indexOf(lead),
         }));
@@ -50,6 +87,8 @@ async function scrollToLoadAllLeads(page) {
       if (leadsData.some((l) => l.id === lead.id)) {
         continue; // Skip already processed leads
       }
+
+      lead.startDate = extractISODate(lead.details);
 
       newLeadsAdded = true;
 
@@ -122,7 +161,7 @@ async function scrollToLoadAllLeads(page) {
           throw new Error("Scrollable container not found.");
         }
         const previousScrollTop = container.scrollTop;
-        container.scrollBy(0, 400); // Scroll down by 400px
+        container.scrollBy(0, 10); // Scroll down by 10px
         return { scrollTop: container.scrollTop, maxScrollHeight: container.scrollHeight, previousScrollTop };
       },
       scrollableContainerSelector
@@ -130,7 +169,7 @@ async function scrollToLoadAllLeads(page) {
 
     if (
       currentScrollHeight.scrollTop === currentScrollHeight.previousScrollTop &&
-      currentScrollHeight.scrollTop + 400 >= currentScrollHeight.maxScrollHeight
+      currentScrollHeight.scrollTop + 10 >= currentScrollHeight.maxScrollHeight
     ) {
       console.log("Reached the bottom of the list. No more leads to process.");
       break;
@@ -156,7 +195,8 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_monthToSelect, start_yearToSelect,
   end_dayToSelect, end_monthToSelect, end_yearToSelect
 }) => {
-  const browser = await chromium.launch({ headless: false });
+  console.log("In fetchLeads");
+  const browser = await chromium.launch({ headless: true });
  
 
   const context = await browser.newContext({
@@ -238,33 +278,33 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
 
     await page
       .locator(".rdrYearPicker select")
-      .selectOption(start_yearToSelect);
+      .selectOption(`${start_yearToSelect}`);
     console.log("Selected year");
     await delay(1000);
 
     await page
       .locator(".rdrMonthPicker select")
-      .selectOption(start_monthToSelect);
+      .selectOption(`${start_monthToSelect}`);
     console.log("Selected month");
     await delay(1000);
     // Select the desired year
 
     // Select the desired day
 
-    await page.getByRole("button", { name: start_dayToSelect }).click();
+    await page.getByRole("button", { name: `${start_dayToSelect}`, exact: true }).first().click();
     console.log("Selected day");
     await delay(2000);
 
     if(start_yearToSelect !== end_yearToSelect || start_monthToSelect !== end_monthToSelect || start_dayToSelect !== end_dayToSelect) {
-    await page.locator(".rdrYearPicker select").selectOption(end_yearToSelect);
+    await page.locator(".rdrYearPicker select").selectOption(`${end_yearToSelect}`);
     console.log("Selected year for end date");
     await delay(1000);
     await page
       .locator(".rdrMonthPicker select")
-      .selectOption(end_monthToSelect);
+      .selectOption(`${end_monthToSelect}`);
     console.log("Selected month for end date");
     await delay(1000);
-    await page.getByRole("button", { name: end_dayToSelect }).click();
+    await page.getByRole("button", { name: `${end_dayToSelect}`, exact: true }).first().click();
     console.log("Selected day for end date");
     await delay(1000);
     }
@@ -287,13 +327,13 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
   }
 };
 
-fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
-  start_dayToSelect : "31"
-  , start_monthToSelect : "11" // April (0-based index: 0 : January, 1 : February, etc.)
-  , start_yearToSelect : "2024"
-  , end_dayToSelect : "31"
-  , end_monthToSelect : "11" // April (0-based index: 0 : January, 1 : February, etc.)
-  , end_yearToSelect : "2024"
-});
+// fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
+//   start_dayToSelect : "31"
+//   , start_monthToSelect : "11" // April (0-based index: 0 : January, 1 : February, etc.)
+//   , start_yearToSelect : "2024"
+//   , end_dayToSelect : "31"
+//   , end_monthToSelect : "11" // April (0-based index: 0 : January, 1 : February, etc.)
+//   , end_yearToSelect : "2024"
+// });
 
 module.exports = fetchLeads;

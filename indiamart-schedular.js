@@ -3,6 +3,7 @@ const axios = require("axios");
 const moment = require("moment");
 const Lead = require("./models/indiamart-integration/indiamart-lead-model");
 const Task = require("./models/task/task-model");
+const User = require("./models/user/user-model");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
@@ -150,6 +151,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
           fetchFrequetly,
           lastFetched,
         } = setting;
+        console.log(setting)
         console.log(authKey);
 
         let newStartDate;
@@ -167,12 +169,12 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
         try {
           // Fetch leads from IndiaMART API
           const [mobileNumber, password] = authKey.split(":");
-          const start_dayToSelect = new Date(newStartDate).getDate()
-          const start_monthToSelect = new Date(newStartDate).getMonth()
-          const start_yearToSelect = new Date(newStartDate).getFullYear()
-          const end_dayToSelect = new Date(newEndDate).getDate()
-          const end_monthToSelect = new Date(newEndDate).getMonth()
-          const end_yearToSelect = new Date(newEndDate).getFullYear()
+          const start_dayToSelect = `${new Date(newStartDate).getDate()}`
+          const start_monthToSelect = `${new Date(newStartDate).getMonth()}`
+          const start_yearToSelect = `${new Date(newStartDate).getFullYear()}`
+          const end_dayToSelect = `${new Date(newEndDate).getDate()}`
+          const end_monthToSelect = `${new Date(newEndDate).getMonth()}`
+          const end_yearToSelect = `${new Date(newEndDate).getFullYear()}`
           const data = await fetchLeads({mobileNumber, password, start_dayToSelect, start_monthToSelect, start_yearToSelect, end_dayToSelect, end_monthToSelect, end_yearToSelect});
           const leadsData = data;
           if (!leadsData || leadsData.length === 0) {
@@ -180,9 +182,6 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             continue;
           }
           
-          console.log(
-            `${insertedLeads.length} leads successfully inserted into the database.`
-          );
   
           console.log(
             `Fetched ${leadsData.length} leads for companyId: ${companyId}`
@@ -193,7 +192,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             const existingTask = await Task.findOne({
               projectId,
               taskStageId,
-              title: lead.name,
+              title: lead.productName,
               description: lead.details,
               isDeleted: false,
             });
@@ -204,6 +203,10 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               );
               continue;
             }
+
+            const regex = new RegExp(lead.label, "i");
+
+            const users = await User.find({ name: {$regex: regex},companyId });
   
             // Create new task for the lead
             const newTask = new Task({
@@ -212,11 +215,13 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               companyId,
               title: lead.productName,
               description: lead.details,
-              startDate: new Date(startDate),
+              startDate: lead.startDate,
               createdOn: new Date(),
               modifiedOn: new Date(),
               creation_mode: "AUTO",
+              tag: [lead.label],
               lead_source: "INDIAMART",
+              userId: users[0]?._id || null,
               customFieldValues: {
                 date: new Date(startDate).toLocaleDateString("IN"),
                 name: lead.name,
@@ -227,7 +232,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             });
   
             await newTask.save();
-            console.log(`Task created for lead: ${lead.SUBJECT}`);
+            console.log(`Task created for lead: ${lead.productName}`);
           }
   
           await ProjectSetting.updateOne(

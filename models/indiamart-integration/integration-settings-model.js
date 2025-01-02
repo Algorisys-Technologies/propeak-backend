@@ -24,7 +24,6 @@ const IntegrationSettingsSchema = new mongoose.Schema(
           method: {
             type: String,
             enum: ["API", "Web-Scrape"],
-            required: true,
           },
         },
       ],
@@ -39,7 +38,6 @@ const IntegrationSettingsSchema = new mongoose.Schema(
           method: {
             type: String,
             enum: ["API", "Web-Scrape"],
-            required: true,
           },
         },
       ],
@@ -55,7 +53,6 @@ const IntegrationSettingsSchema = new mongoose.Schema(
           method: {
             type: String,
             enum: ["API", "Web-Scrape"],
-            required: true,
           },
         },
       ],
