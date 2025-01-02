@@ -239,6 +239,7 @@ exports.postMultipleVisitingCards = async (req, res) => {
             createdBy: "",
             createdOn: new Date(),
             companyId: companyId,
+            accountId: req.body.accountId || null
         }
         uploadFiles.push(uploadFile)
 

@@ -31,6 +31,9 @@ const UploadGlobalRepositoryFileSchema = new mongoose.Schema({
         type: Boolean,
         default: false
       },
+      accountId: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
 }, { versionKey: false });
 
 
