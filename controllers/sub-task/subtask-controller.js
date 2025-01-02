@@ -114,7 +114,7 @@ exports.createSubTask = async (req, res) => {
             var mailOptions = {
               from: config.from,
               to: email,
-              cc: emailOwner,
+              // cc: emailOwner,
               subject: `SubTask assigned - ${newSubTask.title}`,
               html: emailText,
             };
@@ -261,7 +261,7 @@ exports.updateSubTask = async (req, res) => {
             var mailOptions = {
               from: config.from,
               to: email,
-              cc: emailOwner,
+              // cc: emailOwner,
               subject: `SubTask assigned - ${newSubTask.title}`,
               html: emailText,
             };

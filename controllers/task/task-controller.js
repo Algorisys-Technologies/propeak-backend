@@ -284,7 +284,7 @@ exports.createTask = (req, res) => {
               var mailOptions = {
                 from: config.from,
                 to: email,
-                cc: emailOwner,
+                // cc: emailOwner,
                 subject: `${newTask.projectId} - Task assigned - ${newTask.title}`,
                 html: emailText,
               };
@@ -623,7 +623,7 @@ exports.updateTask = (req, res) => {
               var mailOptions = {
                 from: config.from,
                 to: email,
-                cc: emailOwner,
+                // cc: emailOwner,
                 subject: `${updatedTask.projectId} - Task updated - ${updatedTask.title}`,
                 html: emailText,
               };
@@ -2930,7 +2930,7 @@ exports.assignTasksToUser = async (req, res) => {
           const mailOptions = {
             from: config.from,
             to: email,
-            cc: emailOwner,
+            // cc: emailOwner,
             subject: `${updatedTask.projectId} - Task updated - ${updatedTask.title}`,
             html: emailText,
           };
@@ -3102,7 +3102,7 @@ exports.assignTasksToProject = async (req, res) => {
           var mailOptions = {
             from: config.from,
             to: email,
-            cc: emailOwner,
+            // cc: emailOwner,
             subject: `${targetProjectId} - Task copied - ${task.title}`,
             html: emailText,
           };
