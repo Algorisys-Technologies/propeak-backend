@@ -18,6 +18,7 @@ let uploadFolder = config.UPLOAD_PATH;
 const objectId = require("../../common/common");
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
 const TaskStage = require("../../models/task-stages/task-stages-model");
+const moment = require("moment");
 
 const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
@@ -375,22 +376,38 @@ exports.tasksFileUpload = async (req, res) => {
               }
             }
 
-            const convertDate = (dateStr) => {
-              if (dateStr.includes("/")) {
-                const [day, month, year] = dateStr.split("/").map(Number);
-                return new Date(year, month - 1, day).toISOString();
-              } else if (dateStr.includes("-")) {
-                const [day, month, year] = dateStr.split("-").map(Number);
-                return new Date(year, month - 1, day).toISOString();
+            // const convertDate = (dateStr) => {
+            //   if (dateStr.includes("/")) {
+            //     const [day, month, year] = dateStr.split("/").map(Number);
+            //     return new Date(year, month - 1, day).toISOString();
+            //   } else if (dateStr.includes("-")) {
+            //     const [day, month, year] = dateStr.split("-").map(Number);
+            //     return new Date(year, month - 1, day).toISOString();
+            //   }
+            //   return dateStr;
+            // };
+
+            function normalizeDate(value) {
+              if (!value) return null;
+
+              const formats = ["DD-MM-YYYY", "DD/MM/YYYY"];
+              const parsedDate = moment(value, formats, true);
+
+              if (!parsedDate.isValid()) {
+                console.warn(
+                  `Warning: Invalid date format encountered: ${value}`
+                );
+                return value; // Return the original value if the date format is invalid
               }
-              return dateStr;
-            };
+
+              return parsedDate.format("DD-MM-YYYY");
+            }
 
             if (task.startDate) {
-              task.startDate = convertDate(task.startDate);
+              task.startDate = normalizeDate(task.startDate);
             }
             if (task.endDate) {
-              task.endDate = task.endDate ? convertDate(task.endDate) : "";
+              task.endDate = task.endDate ? normalizeDate(task.endDate) : "";
             }
 
             if (task.userId) {
