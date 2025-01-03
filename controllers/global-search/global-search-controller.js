@@ -4,6 +4,7 @@ const Project = require("../../models/project/project-model");
 const { logError, logInfo } = require("../../common/logger");
 const Account = require("../../models/account/account-model");
 const Contact = require("../../models/contact/contact-model");
+const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
 
 exports.searchByTasksAndProjects = async (req, res) => {
   try {
@@ -48,7 +49,10 @@ exports.searchByTasksAndProjects = async (req, res) => {
     const accountQuery = {
       companyId: companyId,
       isDeleted: false,
-      tag: { $regex: searchQuery },
+      $or: [
+        { account_name: { $regex: searchQuery } },
+        { tag: { $regex: searchQuery } },
+      ],
     };
 
     // Fetch accounts with pagination
@@ -60,7 +64,10 @@ exports.searchByTasksAndProjects = async (req, res) => {
     const contactQuery = {
       companyId: companyId,
       isDeleted: false,
-      tag: { $regex: searchQuery },
+      $or: [
+        { title: { $regex: searchQuery } },
+        { tag: { $regex: searchQuery } },
+      ],
     };
 
     // Fetch contacts with pagination
@@ -68,13 +75,26 @@ exports.searchByTasksAndProjects = async (req, res) => {
       .skip(limit * page)
       .limit(limit);
 
+    const visitingCardsQuery = {
+      companyId: companyId,
+      isDeleted: false,
+      path: "/contacts",
+      $or: [
+        {  fileName: { $regex: searchQuery } },
+        { title: { $regex: searchQuery } },
+      ],
+    }
+    const visitingCards = await UploadRepositoryFile.find(visitingCardsQuery).skip(limit * page)
+    .limit(limit);
+
     // Count total tasks, projects, accounts, and contacts
     const totalTasks = await Task.countDocuments(taskQuery);
     const totalProjects = await Project.countDocuments(projectQuery);
     const totalAccounts = await Account.countDocuments(accountQuery);
     const totalContacts = await Contact.countDocuments(contactQuery);
+    const totalVisitingCards = await UploadRepositoryFile.countDocuments(visitingCardsQuery);
     const totalResults =
-      totalTasks + totalProjects + totalAccounts + totalContacts;
+      totalTasks + totalProjects + totalAccounts + totalContacts + totalVisitingCards;
 
     // Calculate total pages
     const totalPages = Math.ceil(totalResults / limit);
@@ -86,6 +106,7 @@ exports.searchByTasksAndProjects = async (req, res) => {
       accounts,
       contacts,
       totalPages,
+      visitingCards
     });
   } catch (error) {
     console.error("Error in searchByTasksProjectsAccountsContacts", error);
