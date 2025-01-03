@@ -18,6 +18,7 @@ let uploadFolder = config.UPLOAD_PATH;
 const objectId = require("../../common/common");
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
 const TaskStage = require("../../models/task-stages/task-stages-model");
+const { dateFnsLocalizer } = require("react-big-calendar");
 
 const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
@@ -377,20 +378,33 @@ exports.tasksFileUpload = async (req, res) => {
 
             const convertDate = (dateStr) => {
               if (dateStr.includes("/")) {
-                const [day, month, year] = dateStr.split("/").map(Number);
-                return new Date(year, month - 1, day).toISOString();
+                let [month, day, year] = dateStr.split("/").map(Number);
+                if (year < 100) {
+                  year += 2000;
+                }
+                else{
+                  [month, day] = [day, month];
+                }
+                return new Date(year, month - 1, day);
               } else if (dateStr.includes("-")) {
-                const [day, month, year] = dateStr.split("-").map(Number);
-                return new Date(year, month - 1, day).toISOString();
+                let [day, month, year] = dateStr.split("-").map(Number);
+                if (year < 100) {
+                  year += 2000;
+                }
+                return new Date(year, month - 1, day);
               }
               return dateStr;
             };
 
             if (task.startDate) {
+              console.log("Converting start date:", task.startDate);
               task.startDate = convertDate(task.startDate);
+              console.log("Converted start date:", task.startDate);
             }
             if (task.endDate) {
+              console.log("Converting end date:", task.endDate);
               task.endDate = task.endDate ? convertDate(task.endDate) : "";
+              console.log("Converted end date:", task.endDate);
             }
 
             if (task.userId) {
@@ -452,12 +466,12 @@ exports.tasksFileUpload = async (req, res) => {
             }
           }
 
-          console.log("Tasks to be added:", tasks);
+          // console.log("Tasks to be added:", tasks);
 
           if (tasks.length > 0) {
             try {
               await Task.insertMany(tasks);
-              console.log("Tasks successfully added:", tasks);
+              // console.log("Tasks successfully added:", tasks);
 
               let missingFieldsSummary = failedRecords
                 .map(
