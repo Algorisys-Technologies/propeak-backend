@@ -35,7 +35,7 @@ const totalSundays = require("../../common/common");
 const Holiday = require("../../models/leave/holiday-model");
 const { response } = require("express");
 const { skip } = require("rxjs-compat/operator/skip");
-let uploadFolder = config.UPLOAD_PATH
+let uploadFolder = config.UPLOAD_PATH;
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
 const {
   startOfMonth,
@@ -127,8 +127,8 @@ exports.createTask = (req, res) => {
     tag,
     storyPoint,
     priority,
-    creation_mode:"MANUAL",
-    lead_source:"USER",
+    creation_mode: "MANUAL",
+    lead_source: "USER",
     multiUsers: assignedUsers.map((user) => user.id),
     notifyUsers: notifyUsers.map((id) => id),
     customFieldValues,
@@ -772,6 +772,7 @@ exports.getTasks = (req, res) => {
 
   // Find tasks that match both projectId and companyId, and are not deleted
   Task.find({ projectId, companyId, isDeleted: false })
+    .populate("userId", "name")
     .then((tasks) => {
       if (!tasks || tasks.length === 0) {
         return res.status(404).json({
@@ -2427,10 +2428,7 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
 
       futureTasks: Task.find({
         companyId,
-        $or: [
-          { endDate: { $gt: endOfToday } },
-          { endDate: null },
-        ],
+        $or: [{ endDate: { $gt: endOfToday } }, { endDate: null }],
         isDeleted: false,
       })
         .skip(page * limit)
@@ -2441,10 +2439,7 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
 
       futureTasksTotalCount: Task.countDocuments({
         companyId,
-        $or: [
-          { endDate: { $gt: endOfToday } },
-          { endDate: null },
-        ],
+        $or: [{ endDate: { $gt: endOfToday } }, { endDate: null }],
         isDeleted: false,
       }),
     };
@@ -2483,7 +2478,6 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
     res.json({ success: false, message: error.message });
   }
 };
-
 
 exports.getDashboardData = async (req, res) => {
   let projectId = req.body.projectId;
@@ -2649,19 +2643,21 @@ exports.assignUsers = async (req, res) => {
 exports.getTasksStagesByProjectId = async (req, res) => {
   try {
     const { projectId, companyId } = req.params;
-    const project = (await Project.aggregate([
-      {
-        $match: { _id: new mongoose.Types.ObjectId(projectId) }, // Match the project by ID
-      },
-      {
-        $lookup: {
-          from: "users", // Name of the collection containing users (check your database for the correct name)
-          localField: "projectUsers", // Array of ObjectIds in the `Project` schema
-          foreignField: "_id", // Field in the `users` collection that matches the ObjectIds
-          as: "populatedProjectUsers", // Name of the output field for the populated array
+    const project = (
+      await Project.aggregate([
+        {
+          $match: { _id: new mongoose.Types.ObjectId(projectId) }, // Match the project by ID
         },
-      },
-    ]))[0];
+        {
+          $lookup: {
+            from: "users", // Name of the collection containing users (check your database for the correct name)
+            localField: "projectUsers", // Array of ObjectIds in the `Project` schema
+            foreignField: "_id", // Field in the `users` collection that matches the ObjectIds
+            as: "populatedProjectUsers", // Name of the output field for the populated array
+          },
+        },
+      ])
+    )[0];
     const taskStagesTitles = project.taskStages; // ["todo", "inProgress", "completed"]
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
@@ -2707,7 +2703,7 @@ exports.getKanbanTasks = async (req, res) => {
 
     const { filters, searchFilter, projectId, stageId } = req.body;
 
-    console.log(filters)
+    console.log(filters);
 
     // console.log("req.body", req.body)
     let page = req.query.page;
@@ -2726,18 +2722,22 @@ exports.getKanbanTasks = async (req, res) => {
     };
 
     if (searchFilter) {
-      page = 0
+      page = 0;
       const regex = new RegExp(searchFilter, "i");
-      whereCondition.$or = [ {title: { $regex: regex }}, {description: { $regex: regex }}, {tag: { $regex: regex }}]
+      whereCondition.$or = [
+        { title: { $regex: regex } },
+        { description: { $regex: regex } },
+        { tag: { $regex: regex } },
+      ];
     }
 
     filters.forEach((filter) => {
-      page = 0
-      const { field, value , isSystem} = filter;
+      page = 0;
+      const { field, value, isSystem } = filter;
 
       if (!field || value === undefined) return; // Skip if field or value is missing
 
-      if(isSystem == "false"){
+      if (isSystem == "false") {
         const regex = new RegExp(value, "i");
         whereCondition[`customFieldValues.${field}`] = { $regex: regex };
       }
@@ -2788,7 +2788,7 @@ exports.getKanbanTasks = async (req, res) => {
           break;
         }
         case "selectUsers": {
-          whereCondition["userId"] = value
+          whereCondition["userId"] = value;
         }
         default:
           break;
