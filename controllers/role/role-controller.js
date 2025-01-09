@@ -23,17 +23,41 @@ exports.getRolesByCompanyId = async (req, res) => {
 };
 
 exports.createRole = async (req, res) => {
-  console.log("......123")
+  console.log("......123");
+  console.log(req.body, "request body.............");
+  
   try {
+    const { name, companyId } = req.body;
+
+    const existingRole = await Role.findOne({ name, companyId });
+
+    if (existingRole) {
+      return res.json({ success: false, message: "Role with the same name already exists." });
+    }
+
     const role = new Role(req.body);
     await role.save();
-    // res.status(201).json(role);
-    return res.json({success: true, message: "role added successful."});
+    
+    return res.json({ success: true, message: "Role added successfully." });
   } catch (error) {
     console.error("Error creating role:", error);
-    return res.json({success: false, message: "error in added role."});
+    return res.json({ success: false, message: "Error in adding role." });
   }
 };
+
+// exports.createRole = async (req, res) => {
+//   console.log("......123");
+//   console.log(req.body, "request body.............")
+//   try {
+//     const role = new Role(req.body);
+//     await role.save();
+//     // res.status(201).json(role);
+//     return res.json({success: true, message: "role added successful."});
+//   } catch (error) {
+//     console.error("Error creating role:", error);
+//     return res.json({success: false, message: "error in added role."});
+//   }
+// };
 
 exports.updateRole = async (req, res) => {
   try {
