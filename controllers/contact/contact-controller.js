@@ -5,13 +5,32 @@ const { logError, logInfo } = require("../../common/logger");
 const cacheManager = require("../../redis");
 const { activeClients } = require("../..");
 const { getQueueMessageCount } = require("../../rabbitmq/index");
-const UploadRepositoryFile = require('../../models/global-level-repository/global-level-repository-model');
+const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
   ADDCONTACTERROR: "Error occurred while adding the contact",
   EDITCONTACTERROR: "Error occurred while updating the contact",
   DELETECONTACTERROR: "Error occurred while deleting the contact",
   NOT_AUTHORIZED: "You are not authorized",
+};
+
+exports.getContacts = async (req, res) => {
+  try {
+    const { companyId ,accountId} = req.body;
+    console.log(companyId, accountId, "is it coming ??????")
+    if (!companyId) {
+      return res.status(400).json({ success: false, message: "Company ID is required" });
+    }
+
+    const contacts = await Contact.find({
+      companyId: companyId,
+      account_id: accountId,
+      isDeleted: false,    });
+    return res.status(200).json({ success: true, contacts });
+  } catch (error) {
+    console.error("Error fetching contacts:", error.message);
+    return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+  }
 };
 
 exports.getAllContact = async (req, res) => {
@@ -46,8 +65,20 @@ exports.getAllContact = async (req, res) => {
     .skip(limit * currentPage)
     .limit(limit);
 
-  const totalPages = Math.ceil(await Contact.countDocuments({account_id: accountId, $or: [{first_name:{ $regex: regex } }, {last_name:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {title: {$regex: regex}} ],companyId: companyId,
-    isDeleted: false,}) / limit)
+  const totalPages = Math.ceil(
+    (await Contact.countDocuments({
+      account_id: accountId,
+      $or: [
+        { first_name: { $regex: regex } },
+        { last_name: { $regex: regex } },
+        { phone: { $regex: regex } },
+        { email: { $regex: regex } },
+        { title: { $regex: regex } },
+      ],
+      companyId: companyId,
+      isDeleted: false,
+    })) / limit
+  );
   if (!contacts || contacts.length === 0) {
     return res.status(404).json({
       success: false,
@@ -113,8 +144,6 @@ exports.getContactById = async (req, res) => {
   }
 };
 
-
-
 exports.updateVisitingCardsStatus = async (req, res) => {
   try {
     const visitingCardsIds = req.body.visitingCardsIds;
@@ -124,11 +153,20 @@ exports.updateVisitingCardsStatus = async (req, res) => {
       { $set: { isExtracted: true } }
     );
 
-    return res.status(200).json({ success: true, message: "Visiting cards status updated successfully!" });
-  }
-  catch (err) {
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: "Visiting cards status updated successfully!",
+      });
+  } catch (err) {
     console.error("Error occurred:", err);
-    res.status(500).json({ success: false, message: "Error updating visiting cards status." });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Error updating visiting cards status.",
+      });
   }
 };
 
@@ -153,22 +191,26 @@ exports.updateVisitingCardsStatus = async (req, res) => {
 //   }
 // };
 
-
 exports.createMultipleContacts = async (req, res) => {
   console.log("Creating contactsssss...");
 
   try {
-    const {contacts, companyId} = req.body;
-    
+    const { contacts, companyId } = req.body;
+
     const newContact = await Contact.insertMany(contacts);
 
     console.log("contact created successfully:", newContact);
-    console.log(companyId, activeClients)
-    const users = activeClients.get(companyId)
-    console.log("live users", users)
-    users?.forEach((user)=> {
-      user.send(JSON.stringify({event: "contacts-created", message:`${contacts.length} Contacts created successfully`}))
-    })
+    console.log(companyId, activeClients);
+    const users = activeClients.get(companyId);
+    console.log("live users", users);
+    users?.forEach((user) => {
+      user.send(
+        JSON.stringify({
+          event: "contacts-created",
+          message: `${contacts.length} Contacts created successfully`,
+        })
+      );
+    });
 
     res.json({
       success: true,

@@ -19,7 +19,10 @@ router.post(
   //  checkRole,
   contactController.getAllContact
 );
-
+router.post(
+  "/",
+  contactController.getContacts
+);
 // CREATE
 router.post(
   "/addContact",
