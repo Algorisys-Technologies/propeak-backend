@@ -109,6 +109,26 @@ const TaskSchema = new mongoose.Schema(
       enum: ["INDIAMART", "EMAIL", "USER", "EXCEL", "OTHERS"],
       // required: true,
     },
+    interested_products: [
+      {
+       product_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "product",
+      },
+      quantity: {
+        type: Number,
+      },
+      priority: {
+        type: String,
+      },
+      negotiated_price: {
+        type: Number,
+      },
+      total_value: {
+        type: Number,
+      },
+    }
+    ],
   },
 
   { versionKey: false }

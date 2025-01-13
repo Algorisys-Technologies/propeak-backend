@@ -242,6 +242,10 @@ try {
     "/api/indiamartLeads",
     require("./routes/indiamart-config/indiamart-config-route")
   );
+  app.use(
+    "/api/product",
+    require("./routes/product/product-route")
+  );
 } catch (e) {
   console.log(e);
 }

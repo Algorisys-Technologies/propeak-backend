@@ -65,6 +65,7 @@ exports.createTask = (req, res) => {
     depId,
     category,
     tag,
+    interested_products,
     storyPoint,
     priority,
     taskType,
@@ -133,6 +134,13 @@ exports.createTask = (req, res) => {
     notifyUsers: notifyUsers.map((id) => id),
     customFieldValues,
     companyId,
+    interested_products: interested_products.map((p)=>({
+        product_id : p,
+            quantity: 0,
+            priority: "",
+            negotiated_price: "",
+            total_value: "",
+    })),
     createdBy,
     createdOn: new Date(),
     modifiedBy,
@@ -512,6 +520,7 @@ exports.updateTask = (req, res) => {
     depId,
     category,
     tag,
+    interested_products,
     storyPoint,
     priority,
     multiUsers = [],
@@ -540,6 +549,13 @@ exports.updateTask = (req, res) => {
       assignedUser,
       category,
       tag,
+      interested_products: interested_products.map((p)=>({
+        product_id : p,
+            quantity: 0,
+            priority: "",
+            negotiated_price: "",
+            total_value: "",
+    })),
       storyPoint,
       priority,
       multiUsers: multiUsers.map((userId) => userId),
@@ -673,7 +689,8 @@ exports.updateTask = (req, res) => {
 exports.getTaskByTaskId = (req, res) => {
   const { taskId } = req.params;
 
-  Task.findById({ _id: new mongoose.Types.ObjectId(taskId) })
+  Task.findById({ _id: new mongoose.Types.ObjectId(taskId) }).populate({
+    path: "interested_products.product_id", })
     .then((result) => {
       if (!result) {
         return res.status(404).json({ message: "Task not found" });
