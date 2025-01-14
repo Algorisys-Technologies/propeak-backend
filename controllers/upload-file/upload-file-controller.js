@@ -19,6 +19,7 @@ const objectId = require("../../common/common");
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
 const TaskStage = require("../../models/task-stages/task-stages-model");
 const { dateFnsLocalizer } = require("react-big-calendar");
+const Product = require("../../models/product/product-model");
 
 const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
@@ -323,6 +324,7 @@ exports.tasksFileUpload = async (req, res) => {
             enddate: "endDate",
             storypoint: "storyPoint",
             tasktype: "taskType",
+            interested_products : "interested_products"
           };
 
           const reqBodyKeys = Object.keys(req.body);
@@ -406,6 +408,21 @@ exports.tasksFileUpload = async (req, res) => {
               task.endDate = task.endDate ? convertDate(task.endDate) : "";
               console.log("Converted end date:", task.endDate);
             }
+if(task.interested_products){
+  const productNames = task.interested_products.split(",")?.map((p)=> p?.trim())
+  const products = await Product.find({ name: { $in: productNames } })
+  task.interested_products = products?.map((p)=> (
+    {
+           product_id: p._id,
+          quantity: 0,
+          priority: "",
+          negotiated_price: 0,
+          total_value: 0,
+    }
+        
+  ))
+}
+
 
             if (task.userId) {
               task.userId = await getUserIdByName(task.userId, companyId);
