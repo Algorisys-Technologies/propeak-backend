@@ -1403,7 +1403,6 @@ exports.getAllTasks = (req, res) => {
 };
 
 exports.deleteTask = (req, res) => {
-  console.log("delete tasksssssssssssssssssss.............................. ");
   const { taskId } = req.body;
 
   if (!taskId) {
@@ -1451,7 +1450,80 @@ exports.deleteTask = (req, res) => {
       });
     });
 };
+exports.deleteSelectedTasks = async (req, res) => {
+  console.log("testing purpose")
+  const { taskIds, modifiedBy } = req.body;
+  console.log(req.body, "request bosy ")
+  console.log("Request Body:", req.body);
 
+  // Validate input
+  if (
+    !Array.isArray(taskIds) ||
+    taskIds.length === 0 ||
+    !modifiedBy
+  ) {
+    return res.status(400).json({
+      success: false,
+      msg: "taskIds and modifiedBy must be provided and valid.",
+    });
+  }
+
+  // Validate that taskIds are valid ObjectIds
+  if (taskIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+    return res.status(400).json({
+      success: false,
+      msg: "Invalid taskIds format.",
+    });
+  }
+
+  try {
+    // Step 1: Fetch the tasks to be deleted
+    const tasksToDelete = await Task.find({ _id: { $in: taskIds } });
+
+    if (!tasksToDelete || tasksToDelete.length === 0) {
+      return res.status(404).json({
+        success: false,
+        msg: "No tasks found to delete.",
+      });
+    }
+
+    // Step 2: Delete tasks
+    const deletedTasks = await Task.deleteMany({ _id: { $in: taskIds } });
+
+    if (deletedTasks.deletedCount === 0) {
+      return res.status(500).json({
+        success: false,
+        msg: "Failed to delete tasks.",
+      });
+    }
+
+    // Step 3: Log the deletion of each task (if needed)
+    tasksToDelete.forEach((task) => {
+      // Assuming you want to log the task deletion (optional)
+      audit.insertAuditLog(
+        "",
+        "Task",
+        "deleted",
+        task._id,
+        modifiedBy
+      );
+    });
+
+    // Step 4: Send a success response
+    res.json({
+      success: true,
+      msg: "Tasks deleted successfully!",
+      deletedTaskIds: taskIds, 
+    });
+  } catch (err) {
+    console.error("Error deleting tasks:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Failed to delete tasks.",
+      error: err.message,
+    });
+  }
+};
 exports.updateTasksSubTasks = (req, res) => {
   logInfo("updateTasksSubTasks");
   let task = req.body.task;

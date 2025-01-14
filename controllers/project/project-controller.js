@@ -210,7 +210,7 @@ exports.getProjectByProjectId = (req, res) => {
         archive: result.archive,
         customFieldValues: result.customFieldValues,
         projectTypeId: result.projectTypeId,
-        tag: result.tag
+        tag: result.tag,
       };
       // logInfo("getProjectByProjectId before return response");
       res.json({
@@ -271,11 +271,26 @@ exports.getProjectDataByProjectId = (req, res) => {
 };
 
 // CREATE
-exports.createProject = (req, res) => {
+exports.createProject = async (req, res) => {
   // console.log("req.body", req.body);
 
   logInfo(req.body, "createProject req.body");
   let userName = req.body.userName;
+  const { title, companyId } = req.body;
+  const existingProject = await Project.findOne({ title, companyId });
+
+  if (existingProject) {
+    // Fetch users associated with the existing project
+    const projectUsers = await User.find(
+      { _id: { $in: existingProject.projectUsers } },
+      "name email"
+    );
+    return res
+      .status(400)
+      .send(
+        `A project with the title "${existingProject.title}" is already in progress and is being worked on by ${projectUsers[0].name}.`
+      );
+  }
 
   let newProject = new Project({
     _id: req.body._id,
@@ -303,7 +318,7 @@ exports.createProject = (req, res) => {
     archive: req.body.archive,
     customFieldValues: req.body.customFieldValues,
     projectTypeId: req.body.projectTypeId,
-    group: req.body.group
+    group: req.body.group,
   });
 
   console.log(newProject);
@@ -418,11 +433,25 @@ exports.createProject = (req, res) => {
 // Directly export the createProject function
 
 // UPDATE
-exports.updateProject = (req, res) => {
+exports.updateProject = async (req, res) => {
+  console.log("okay okay ")
   // console.log("req.body updated",req.body);
   logInfo(req.body, "updateProject req.body");
   try {
     let userName = req.body.userName;
+    const { _id, title, companyId, status } = req.body;
+
+    const existingProject = await Project.findOne({ title, companyId, _id: { $ne: _id } });
+    console.log(existingProject, "existingProject..............")
+    if (existingProject) {
+      const projectUsers = await User.find({ _id: { $in: existingProject.projectUsers } }, "name");
+      return res.status(400).json({
+        success: false,
+        msg: `A project with the title "${existingProject.title}" already exists and is being worked on by ${
+          projectUsers[0]?.name || "someone"
+        }.`,
+      });
+    }
 
     //Add all group members to projectUsers if they are not already present
 
@@ -627,9 +656,23 @@ exports.updateProject = (req, res) => {
   }
 };
 
-exports.updateProjectField = (req, res) => {
+exports.updateProjectField = async (req, res) => {
   logInfo("updateProjectField");
   logInfo(req.body, "req.body in update fields");
+  const { _id, title, companyId, status } = req.body;
+
+    const existingProject = await Project.findOne({ title, companyId, _id: { $ne: _id } });
+    console.log(existingProject, "existingProject..............")
+    if (existingProject) {
+      const projectUsers = await User.find({ _id: { $in: existingProject.projectUsers } }, "name");
+      return res.status(400).json({
+        success: false,
+        msg: `A project with the title "${existingProject.title}" already exists and is being worked on by ${
+          projectUsers[0]?.name || "someone"
+        }.`,
+      });
+    }
+
   let updatedProject = new Project({
     _id: req.body._id,
     title: req.body.title,
@@ -642,7 +685,7 @@ exports.updateProjectField = (req, res) => {
     group: req.body.group,
     companyId: req.body.companyId,
     userGroups: req.body.userGroups,
-    
+
     createdBy: req.body.createdBy,
     createdOn: req.body.createdOn,
     modifiedBy: req.body.modifiedBy,
@@ -656,7 +699,7 @@ exports.updateProjectField = (req, res) => {
     archive: req.body.archive,
     projectTypeId: req.body.projectTypeId,
     customFieldValues: req.body.customFieldValues,
-    tag: req.body.tag
+    tag: req.body.tag,
   });
   Project.findOneAndUpdate(
     {
@@ -730,11 +773,14 @@ exports.deleteProject = (req, res) => {
   ).then(async (result) => {
     let field = "isDeleted";
 
-    await Task.updateMany({
-      projectId: req.body.id
-    }, {
-      isDeleted: true
-    })
+    await Task.updateMany(
+      {
+        projectId: req.body.id,
+      },
+      {
+        isDeleted: true,
+      }
+    );
     // let userIdToken = req.userInfo.userName;
     // audit.insertAuditLog(
     //   "false",
@@ -1418,7 +1464,6 @@ exports.getProjectsKanbanData = async (req, res) => {
       sequence: "asc",
     });
 
-   
     // Fetch paginated projects for each stage separately
     const stagesWithProjects = await Promise.all(
       projectStages.map(async (stage) => {
@@ -1427,29 +1472,42 @@ exports.getProjectsKanbanData = async (req, res) => {
           isDeleted: false,
           companyId,
           archive,
+        };
+        if (userId !== "ALL") {
+          projectWhereCondition.projectUsers = { $in: [userId] };
         }
-        if(userId !== "ALL"){
-          projectWhereCondition.projectUsers = { $in: [userId] }
-        }
-        let iprojects = await Project.find(
-         projectWhereCondition
+        let iprojects = await Project.find(projectWhereCondition);
+
+        let projects = await Promise.all(
+          iprojects.map(async (p) => {
+            const tasksCount = await Task.countDocuments({
+              projectId: p._id,
+              isDeleted: false,
+            });
+
+            const isFavourite = await FavoriteProject.findOne({
+              projectId: p._id,
+              userId: userId,
+            });
+            return {
+              ...p.toObject(),
+              tasksCount,
+              isFavourite: isFavourite ? true : false,
+            };
+          })
         );
-        
-         let projects = await Promise.all(iprojects.map(async (p)=> {
-          const tasksCount = await Task.countDocuments({projectId: p._id, isDeleted: false})
 
-          const isFavourite = await FavoriteProject.findOne({projectId: p._id, userId: userId})
-          return {...p.toObject() , tasksCount, isFavourite: isFavourite? true : false}
-         }))
-
-   
         // .skip(skip)
         // .limit(limit);
         return { ...stage.toObject(), projects };
       })
     );
 
-    const totalCount =  await Project.countDocuments({isDeleted: false, companyId,archive})
+    const totalCount = await Project.countDocuments({
+      isDeleted: false,
+      companyId,
+      archive,
+    });
 
     // Calculate total page count for each stage
     // const pageCounts = await Promise.all(
@@ -1471,7 +1529,11 @@ exports.getProjectsKanbanData = async (req, res) => {
 
     // console.log(projectStages, "projectStages")
 
-    return res.json({ success: true, projectStages: stagesWithProjects , totalCount});
+    return res.json({
+      success: true,
+      projectStages: stagesWithProjects,
+      totalCount,
+    });
   } catch (error) {
     console.log(error);
     return res.json({
@@ -1483,7 +1545,7 @@ exports.getProjectsKanbanData = async (req, res) => {
 
 exports.updateStage = async (req, res) => {
   try {
-    const { projectId, newStageId , status} = req.body;
+    const { projectId, newStageId, status } = req.body;
 
     await Project.findByIdAndUpdate(
       { _id: projectId },

@@ -95,5 +95,6 @@ router.post("/deleteTask", taskController.deleteTask);
 router.post("/assign", verifyToken, taskController.assignUsers);
 router.post("/assignTasksToUser", taskController.assignTasksToUser);
 router.post("/assignTasksToProject", taskController.assignTasksToProject);
+router.post("/selectedDelete", taskController.deleteSelectedTasks);
 
 module.exports = router;
