@@ -36,9 +36,13 @@ const Product = require('../../models/product/product-model');
 exports.list = async function (req, res) {
   try {
     const page = req.query.page ? req.query.page : 0;
+    const q = req.query.q || ""
+    const regex = new RegExp(q, "i");
+
+
     const limit = 10
-    const products = await Product.find({companyId: req.params.companyId}).limit(limit).skip(limit * page);
-    const totalPages = Math.ceil(await Product.find({companyId: req.params.companyId}).countDocuments() / limit);
+    const products = await Product.find({name: {$regex: regex},companyId: req.params.companyId}).limit(limit).skip(limit * page);
+    const totalPages = Math.ceil(await Product.find({name: {$regex: regex},companyId: req.params.companyId}).countDocuments() / limit);
     res.json({success: true, result: products, totalPages: totalPages});
   } catch (error) {
     res.json({ message: error, success: false , result: [], totalPages: 0});
@@ -74,7 +78,7 @@ exports.create = async function (req, res) {
     const result = await product.save();
     res.json({success: true, message: 'Product created successfully', result: result});
   } catch (error) {
-    res.json({ message: error, success: false });
+    res.json({ message: "Error Adding Product", success: false });
   }
 }
 
