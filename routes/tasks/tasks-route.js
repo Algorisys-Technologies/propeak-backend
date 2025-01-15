@@ -42,6 +42,7 @@ router.get(
 );
 router.post("/allTask", taskController.getTasks);
 router.post("/getTaskTable", taskController.getTasksTable);
+router.post("/deleteFiltered", taskController.deleteFiltered)
 router.post("/getTasksCalendar", taskController.getTasksCalendar);
 // router.get("/data/:taskId", taskController.getTaskByProjectId);
 router.post("/deleteTask", taskController.deleteTask);

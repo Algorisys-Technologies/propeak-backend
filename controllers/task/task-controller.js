@@ -938,19 +938,15 @@ exports.getTasksTable = async (req, res) => {
       .lean()
       .populate("userId", "name");
 
-    if (tasks.length === 0) {
-      return res.status(404).json({
-        success: false,
-        msg: "No tasks found for the specified project",
-      });
-    }
-
+   
     res.json({
       success: true,
       data: tasks,
       totalCount,
       page,
       totalPages,
+      filters,
+      searchFilter
     });
   } catch (error) {
     console.error("Error in getTasksTable:", error);
@@ -3295,3 +3291,131 @@ exports.getTasksKanbanData = async (req, res) => {
     return res.json({ message: "error fetching task kanban", success: false });
   }
 };
+
+exports.deleteFiltered = async (req, res) =>{
+  console.log("in delete Filter")
+
+  try {
+    const {
+      projectId,
+      filters = [],
+      searchFilter,
+    } = req.body;
+
+    console.log("req body data", req.body);
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        msg: "Project ID is required to fetch tasks",
+      });
+    }
+
+    
+
+    // Validate project ID format
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      return res
+        .status(400)
+        .json({ success: false, msg: "Invalid project ID format." });
+    }
+
+    // Base condition for fetching tasks
+    let condition = {
+      projectId: new mongoose.Types.ObjectId(projectId),
+      isDeleted: false,
+    };
+
+    if(!searchFilter && !(filters.length && filters[0].value)){
+      return res.json({success: false, message: "No Filter Applied"})
+
+    }
+
+    // Apply search filter if provided
+    if (searchFilter) {
+      const regex = new RegExp(searchFilter, "i");
+      condition.title = { $regex: regex };
+    }
+
+    // Apply additional filters
+    if(filters.length && filters[0].value){
+      for (const filter of filters) {
+        // Changed to 'for...of' loop
+        const { field, value, isSystem } = filter;
+  
+        if (!field || value === undefined) return;
+  
+        if (isSystem == "false") {
+          const regex = new RegExp(value, "i");
+          condition[`customFieldValues.${field}`] = { $regex: regex };
+        }
+  
+        if (field === "selectUsers") {
+          const user = await User.findOne({ name: value }).select("_id");
+  
+          if (user) {
+            condition.userId = user._id;
+          } else {
+            return res.status(400).json({
+              success: false,
+              msg: "User not found",
+            });
+          }
+        } else {
+          switch (field) {
+            case "title":
+            case "description":
+            case "tag":
+            case "status":
+            case "depId":
+            case "taskType":
+            case "priority":
+            case "createdBy":
+            case "modifiedBy":
+            case "sequence":
+            case "dateOfCompletion": {
+              const regex = new RegExp(value, "i");
+              condition[field] = { $regex: regex };
+              break;
+            }
+            case "completed": {
+              condition[field] = value === "true";
+              break;
+            }
+            case "storyPoint": {
+              condition[field] = Number(value);
+              break;
+            }
+            case "startDate":
+            case "endDate":
+            case "createdOn":
+            case "modifiedOn": {
+              condition[field] = {
+                $lte: new Date(new Date(value).setUTCHours(23, 59, 59, 999)),
+                $gte: new Date(new Date(value).setUTCHours(0, 0, 0, 0)),
+              };
+              break;
+            }
+            case "userId":
+            case "taskStageId": {
+              condition[field] = value;
+              break;
+            }
+            default:
+              break;
+          }
+        }
+      }
+    }
+
+    await Task.deleteMany(condition)
+
+    res.json({success: true, message: "Filtered Tasks Deleted"})
+
+  }
+  catch(e){
+    res.json({success: false, message: "Failed Deleting Filtered Tasks"})
+  }
+   
+
+}
