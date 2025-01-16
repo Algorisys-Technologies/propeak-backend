@@ -32,6 +32,7 @@
 // const Product = (module.exports = mongoose.model("product", ProductSchema));
 
 const Product = require('../../models/product/product-model');
+const xlsx = require('xlsx')
 
 exports.list = async function (req, res) {
   try {
@@ -45,7 +46,7 @@ exports.list = async function (req, res) {
     const totalPages = Math.ceil(await Product.find({name: {$regex: regex},companyId: req.params.companyId}).countDocuments() / limit);
     res.json({success: true, result: products, totalPages: totalPages});
   } catch (error) {
-    res.json({ message: error, success: false , result: [], totalPages: 0});
+    res.json({ message: "Failed Listing Products", success: false , result: [], totalPages: 0});
   }
 }
 
@@ -57,7 +58,7 @@ exports.get = async function (req, res) {
     }
     res.json({success: true, result: product});
   } catch (error) {
-    res.json({ message: error, success: false, result: {} });
+    res.json({ message: "Failed Listing Products", success: false, result: {} });
   }
 }
 
@@ -88,6 +89,7 @@ exports.update = async function (req, res) {
     if (!product) {
       return res.status(404).send('Product not found');
     }
+    console.log(req.body)
     product.name = req.body.name;
     product.category = req.body.category;
     product.base_price = req.body.base_price;
@@ -98,7 +100,8 @@ exports.update = async function (req, res) {
     const result = await product.save();
     res.json({success: true, message: 'Product updated successfully', result: result});
   } catch (error) {
-    res.json({ message: error, success: false });
+    console.log(error)
+    res.json({ message: "Failed Updating Product", success: false });
   }
 }
 
@@ -110,3 +113,51 @@ exports.delete = async function (req, res) {
     res.json({ message: error, success: false });
   }
 }
+
+exports.uploadProductFile = async function (req, res) {
+  try {
+    // Ensure file is provided
+    if (!req.files || !req.files.productFile) {
+      return res.status(400).json({ success: false, message: 'Product file is required.' });
+    }
+
+    const productFile = req.files.productFile;
+    const companyId = req.body.companyId;
+
+    // Validate companyId
+    if (!companyId) {
+      return res.status(400).json({ success: false, message: 'Company ID is required.' });
+    }
+
+    // Parse the uploaded Excel file
+    const workbook = xlsx.read(productFile.data, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const productsData = xlsx.utils.sheet_to_json(worksheet);
+
+    // Validate if data exists in the Excel file
+    if (!productsData.length) {
+      return res.status(400).json({ success: false, message: 'The file is empty or not properly formatted.' });
+    }
+
+    // Map products to the schema fields
+    const products = productsData.map(product => ({
+      companyId: companyId,
+      name: product.name || '',
+      category: product.category || '',
+      base_price: product.base_price || 0,
+      stock: product.stock || 0,
+      description: product.description || '',
+      created_on: new Date(),
+      modified_on: new Date(),
+    }));
+
+    // Insert products into the database
+    await Product.insertMany(products);
+
+    res.json({ success: true, message: `${products.length} Products uploaded successfully.` });
+  } catch (error) {
+    console.error('Error uploading product file:', error);
+    res.json({ success: false, message: 'Failed Products Upload' });
+  }
+};

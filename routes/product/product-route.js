@@ -5,6 +5,7 @@ const router = express.Router();
 const productController = require('../../controllers/product/product-controller');
 
 router.post('/create', productController.create);
+router.post('/uploadProductFile', productController.uploadProductFile);
 router.post('/update/:id', productController.update);
 router.get('/list/:companyId', productController.list);
 router.get('/get/:id', productController.get);
