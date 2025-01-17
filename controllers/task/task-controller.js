@@ -936,7 +936,8 @@ exports.getTasksTable = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .lean()
-      .populate("userId", "name");
+      .populate("userId", "name" )
+      .populate({path: "interested_products.product_id"});
 
    
     res.json({
