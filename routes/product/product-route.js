@@ -10,5 +10,6 @@ router.post('/update/:id', productController.update);
 router.get('/list/:companyId', productController.list);
 router.get('/get/:id', productController.get);
 router.delete('/delete/:id', productController.delete);
+router.get('/listProductCategories/:companyId', productController.listProductCategories);
 
 module.exports = router;

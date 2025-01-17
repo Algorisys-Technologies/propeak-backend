@@ -31,6 +31,7 @@
 
 // const Product = (module.exports = mongoose.model("product", ProductSchema));
 
+const ProductCategory = require('../../models/product/product-category-model');
 const Product = require('../../models/product/product-model');
 const xlsx = require('xlsx')
 
@@ -66,6 +67,14 @@ exports.get = async function (req, res) {
 
 exports.create = async function (req, res) {
   try {
+    console.log(req.body)
+    const isProductCategoryExists = await ProductCategory.findOne({name: req.body.category})
+
+    if(!isProductCategoryExists){
+      await ProductCategory.create({name: req.body.category, companyId: req.body.companyId})
+    }
+  
+
     const product = new Product({
       name: req.body.name,
       category: req.body.category,
@@ -79,12 +88,19 @@ exports.create = async function (req, res) {
     const result = await product.save();
     res.json({success: true, message: 'Product created successfully', result: result});
   } catch (error) {
+    console.log(error)
     res.json({ message: "Error Adding Product", success: false });
   }
 }
 
 exports.update = async function (req, res) {
   try {
+
+    const isProductCategoryExists = await ProductCategory.findOne({name: req.body.category})
+
+    if(!isProductCategoryExists){
+      await ProductCategory.create({name: req.body.category, companyId: req.body.companyId})
+    }
     const product = await Product.findById(req.params.id);
     if (!product) {
       return res.status(404).send('Product not found');
@@ -152,12 +168,60 @@ exports.uploadProductFile = async function (req, res) {
       modified_on: new Date(),
     }));
 
-    // Insert products into the database
-    await Product.insertMany(products);
+    const categoryNames = [...new Set(products.map((p) => p.category))];
 
-    res.json({ success: true, message: `${products.length} Products uploaded successfully.` });
+  // Step 2: Fetch existing categories from the database
+  const existingCategories = await ProductCategory.find({
+    name: { $in: categoryNames },
+    companyId,
+  }).distinct("name");
+
+  // Step 3: Determine new categories to insert
+  const newCategories = categoryNames.filter(
+    (name) => !existingCategories.includes(name)
+  );
+
+  // Step 4: Insert new categories into the database
+  if (newCategories.length > 0) {
+    await ProductCategory.insertMany(
+      newCategories.map((name) => ({ name, companyId }))
+    );
+  }
+
+  // Step 5: Extract unique product names from input
+  const productNames = [...new Set(products.map((p) => p.name))];
+
+  // Step 6: Fetch existing product names from the database
+  const existingProductNames = await Product.find({
+    name: { $in: productNames },
+    companyId,
+  }).distinct("name");
+
+  // Step 7: Filter products to insert only new ones
+  const newProducts = products.filter(
+    (p) => !existingProductNames.includes(p.name)
+  );
+
+  // Step 8: Insert new products into the database
+  if (newProducts.length > 0) {
+    await Product.insertMany(newProducts);
+  }
+
+    res.json({ success: true, message: `${newProducts.length} Products uploaded successfully.` });
   } catch (error) {
     console.error('Error uploading product file:', error);
     res.json({ success: false, message: 'Failed Products Upload' });
   }
 };
+
+
+exports.listProductCategories = async function (req, res) {
+  try {
+
+    const productsCategories = await ProductCategory.find({companyId: req.params.companyId})
+    res.json({success: true, result: productsCategories});
+  } catch (error) {
+    res.json({ message: "Failed Listing Products Categories", success: false , result: []});
+  }
+}
+

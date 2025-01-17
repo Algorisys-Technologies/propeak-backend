@@ -8,10 +8,13 @@ const ProductSchema = new mongoose.Schema({
   },
   name: {
     type: String,
+    unique: true,
+    required: true,
  
   },
   category: {
     type: String,
+    required: true,
   },
   base_price: {
     type: Number,
