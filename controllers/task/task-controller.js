@@ -81,7 +81,6 @@ exports.createTask = (req, res) => {
   } = task;
 
   let assignedUsers = [];
-  console.log(multiUsers, "multiUsers...............");
   if (!multiUsers || multiUsers.length === 0) {
     assignedUsers = [{ id: userId }];
   } else {
@@ -100,12 +99,9 @@ exports.createTask = (req, res) => {
           assignedUsers.push({ id: normalizedId });
         }
       });
-
-      console.log(assignedUsers, "assignedUsersassignedUsers");
       return assignedUsers;
     };
 
-    console.log(multiUsers, "userId .........");
     if (userId) {
       multiUsers.push(userId);
     }
@@ -134,12 +130,12 @@ exports.createTask = (req, res) => {
     notifyUsers: notifyUsers.map((id) => id),
     customFieldValues,
     companyId,
-    interested_products: interested_products.map((p)=>({
-        product_id : p,
-            quantity: 0,
-            priority: "",
-            negotiated_price: "",
-            total_value: "",
+    interested_products: interested_products.map((p) => ({
+      product_id: p,
+      quantity: 0,
+      priority: "",
+      negotiated_price: "",
+      total_value: "",
     })),
     createdBy,
     createdOn: new Date(),
@@ -549,13 +545,13 @@ exports.updateTask = (req, res) => {
       assignedUser,
       category,
       tag,
-      interested_products: interested_products.map((p)=>({
-        product_id : p,
-            quantity: 0,
-            priority: "",
-            negotiated_price: "",
-            total_value: "",
-    })),
+      interested_products: interested_products.map((p) => ({
+        product_id: p,
+        quantity: 0,
+        priority: "",
+        negotiated_price: "",
+        total_value: "",
+      })),
       storyPoint,
       priority,
       multiUsers: multiUsers.map((userId) => userId),
@@ -689,8 +685,10 @@ exports.updateTask = (req, res) => {
 exports.getTaskByTaskId = (req, res) => {
   const { taskId } = req.params;
 
-  Task.findById({ _id: new mongoose.Types.ObjectId(taskId) }).populate({
-    path: "interested_products.product_id", })
+  Task.findById({ _id: new mongoose.Types.ObjectId(taskId) })
+    .populate({
+      path: "interested_products.product_id",
+    })
     .then((result) => {
       if (!result) {
         return res.status(404).json({ message: "Task not found" });
@@ -854,21 +852,21 @@ exports.getTasksTable = async (req, res) => {
     }
 
     // Apply additional filters
-    if(filters.length && filters[0].value){
+    if (filters.length && filters[0].value) {
       for (const filter of filters) {
         // Changed to 'for...of' loop
         const { field, value, isSystem } = filter;
-  
+
         if (!field || value === undefined) return;
-  
+
         if (isSystem == "false") {
           const regex = new RegExp(value, "i");
           condition[`customFieldValues.${field}`] = { $regex: regex };
         }
-  
+
         if (field === "selectUsers") {
           const user = await User.findOne({ name: value }).select("_id");
-  
+
           if (user) {
             condition.userId = user._id;
           } else {
@@ -923,7 +921,6 @@ exports.getTasksTable = async (req, res) => {
         }
       }
     }
-   
 
     console.log("Final condition:", condition);
 
@@ -939,7 +936,6 @@ exports.getTasksTable = async (req, res) => {
       .populate("userId", "name" )
       .populate({path: "interested_products.product_id"});
 
-   
     res.json({
       success: true,
       data: tasks,
@@ -947,7 +943,7 @@ exports.getTasksTable = async (req, res) => {
       page,
       totalPages,
       filters,
-      searchFilter
+      searchFilter,
     });
   } catch (error) {
     console.error("Error in getTasksTable:", error);
@@ -1451,17 +1447,13 @@ exports.deleteTask = (req, res) => {
     });
 };
 exports.deleteSelectedTasks = async (req, res) => {
-  console.log("testing purpose")
+  console.log("testing purpose");
   const { taskIds, modifiedBy } = req.body;
-  console.log(req.body, "request bosy ")
+  console.log(req.body, "request bosy ");
   console.log("Request Body:", req.body);
 
   // Validate input
-  if (
-    !Array.isArray(taskIds) ||
-    taskIds.length === 0 ||
-    !modifiedBy
-  ) {
+  if (!Array.isArray(taskIds) || taskIds.length === 0 || !modifiedBy) {
     return res.status(400).json({
       success: false,
       msg: "taskIds and modifiedBy must be provided and valid.",
@@ -1500,20 +1492,14 @@ exports.deleteSelectedTasks = async (req, res) => {
     // Step 3: Log the deletion of each task (if needed)
     tasksToDelete.forEach((task) => {
       // Assuming you want to log the task deletion (optional)
-      audit.insertAuditLog(
-        "",
-        "Task",
-        "deleted",
-        task._id,
-        modifiedBy
-      );
+      audit.insertAuditLog("", "Task", "deleted", task._id, modifiedBy);
     });
 
     // Step 4: Send a success response
     res.json({
       success: true,
       msg: "Tasks deleted successfully!",
-      deletedTaskIds: taskIds, 
+      deletedTaskIds: taskIds,
     });
   } catch (err) {
     console.error("Error deleting tasks:", err);
@@ -2638,8 +2624,6 @@ exports.assignUsers = async (req, res) => {
       console.log("Project not found for taskId:", taskId);
       return res.status(404).json({ error: "Task not found" });
     }
-
-    // Step 2: Find the specific task within the project
     const task = project.tasks.find((t) => t._id.toString() === taskId);
     if (!task) {
       console.log("Task not found within project for taskId:", taskId);
@@ -2648,8 +2632,7 @@ exports.assignUsers = async (req, res) => {
 
     console.log("Retrieved task:", task);
 
-    // Step 3: Validate users against projectUsers
-    const userId = assignedUsers[0]; // Assigning only one user
+    const userId = assignedUsers[0];
     const user = project.projectUsers.find(
       (user) => user._id.toString() === userId
     );
@@ -2663,14 +2646,13 @@ exports.assignUsers = async (req, res) => {
 
     console.log("userId", userId, "Users", user.userId);
 
-    task.userId = user.userId; // Assign the userId
-    task.hiddenUserId = user.name; // Set hiddenUserId to user's name
-    task.modifiedOn = new Date(); // Update modifiedOn
-    task.modifiedBy = req.userInfo.userId; // Update modifiedBy
+    task.userId = user.userId;
+    task.hiddenUserId = user.name;
+    task.modifiedOn = new Date();
+    task.modifiedBy = req.userInfo.userId;
 
     await project.save();
 
-    // Create the updateTask object to return
     const updateTask = {
       task: {
         userId: task.userId,
@@ -2820,7 +2802,7 @@ exports.getKanbanTasks = async (req, res) => {
     }
 
     filters.forEach((filter) => {
-      const { field, value , isSystem} = filter;
+      const { field, value, isSystem } = filter;
 
       if (!field || value === undefined) return; // Skip if field or value is missing
 
@@ -3236,6 +3218,82 @@ exports.assignTasksToProject = async (req, res) => {
     });
   }
 };
+exports.moveTasksToProject = async (req, res) => {
+  const { taskIds, targetProjectId, modifiedBy } = req.body;
+
+  console.log("Request Body:", req.body);
+
+  // Validate input
+  if (
+    !Array.isArray(taskIds) ||
+    taskIds.length === 0 ||
+    !targetProjectId ||
+    !modifiedBy
+  ) {
+    return res.status(400).json({
+      success: false,
+      msg: "taskIds, targetProjectId, and modifiedBy must be provided and valid.",
+    });
+  }
+
+  // Validate taskIds and targetProjectId format
+  if (
+    taskIds.some((id) => !mongoose.Types.ObjectId.isValid(id)) ||
+    !mongoose.Types.ObjectId.isValid(targetProjectId)
+  ) {
+    return res.status(400).json({
+      success: false,
+      msg: "Invalid taskIds or targetProjectId format.",
+    });
+  }
+
+  try {
+    // Step 1: Update tasks to set the new project ID
+    const updatedTasks = await Task.updateMany(
+      { _id: { $in: taskIds }, isDeleted: false },
+      {
+        $set: {
+          projectId: targetProjectId,
+          modifiedBy,
+          modifiedOn: new Date(),
+        },
+      }
+    );
+
+    if (updatedTasks.nModified === 0) {
+      return res.status(404).json({
+        success: false,
+        msg: "No tasks were updated. Please check the task IDs.",
+      });
+    }
+
+    // Step 2: Log audit details for the updated tasks
+    taskIds.forEach((taskId) => {
+      audit.insertAuditLog(
+        "",
+        "Task",
+        "movedToProject",
+        taskId,
+        modifiedBy,
+        targetProjectId
+      );
+    });
+
+    // Step 3: Send success response
+    res.json({
+      success: true,
+      msg: "Tasks moved to the target project successfully!",
+      updatedTaskIds: taskIds,
+    });
+  } catch (err) {
+    console.error("Error moving tasks:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Failed to move tasks.",
+      error: err.message,
+    });
+  }
+};
 
 exports.getTasksKanbanData = async (req, res) => {
   try {
@@ -3293,15 +3351,11 @@ exports.getTasksKanbanData = async (req, res) => {
   }
 };
 
-exports.deleteFiltered = async (req, res) =>{
-  console.log("in delete Filter")
+exports.deleteFiltered = async (req, res) => {
+  console.log("in delete Filter");
 
   try {
-    const {
-      projectId,
-      filters = [],
-      searchFilter,
-    } = req.body;
+    const { projectId, filters = [], searchFilter } = req.body;
 
     console.log("req body data", req.body);
 
@@ -3311,8 +3365,6 @@ exports.deleteFiltered = async (req, res) =>{
         msg: "Project ID is required to fetch tasks",
       });
     }
-
-    
 
     // Validate project ID format
     if (!mongoose.Types.ObjectId.isValid(projectId)) {
@@ -3327,9 +3379,8 @@ exports.deleteFiltered = async (req, res) =>{
       isDeleted: false,
     };
 
-    if(!searchFilter && !(filters.length && filters[0].value)){
-      return res.json({success: false, message: "No Filter Applied"})
-
+    if (!searchFilter && !(filters.length && filters[0].value)) {
+      return res.json({ success: false, message: "No Filter Applied" });
     }
 
     // Apply search filter if provided
@@ -3339,21 +3390,21 @@ exports.deleteFiltered = async (req, res) =>{
     }
 
     // Apply additional filters
-    if(filters.length && filters[0].value){
+    if (filters.length && filters[0].value) {
       for (const filter of filters) {
         // Changed to 'for...of' loop
         const { field, value, isSystem } = filter;
-  
+
         if (!field || value === undefined) return;
-  
+
         if (isSystem == "false") {
           const regex = new RegExp(value, "i");
           condition[`customFieldValues.${field}`] = { $regex: regex };
         }
-  
+
         if (field === "selectUsers") {
           const user = await User.findOne({ name: value }).select("_id");
-  
+
           if (user) {
             condition.userId = user._id;
           } else {
@@ -3409,14 +3460,10 @@ exports.deleteFiltered = async (req, res) =>{
       }
     }
 
-    await Task.deleteMany(condition)
+    await Task.deleteMany(condition);
 
-    res.json({success: true, message: "Filtered Tasks Deleted"})
-
+    res.json({ success: true, message: "Filtered Tasks Deleted" });
+  } catch (e) {
+    res.json({ success: false, message: "Failed Deleting Filtered Tasks" });
   }
-  catch(e){
-    res.json({success: false, message: "Failed Deleting Filtered Tasks"})
-  }
-   
-
-}
+};

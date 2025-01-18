@@ -42,7 +42,7 @@ router.get(
 );
 router.post("/allTask", taskController.getTasks);
 router.post("/getTaskTable", taskController.getTasksTable);
-router.post("/deleteFiltered", taskController.deleteFiltered)
+router.post("/deleteFiltered", taskController.deleteFiltered);
 router.post("/getTasksCalendar", taskController.getTasksCalendar);
 // router.get("/data/:taskId", taskController.getTaskByProjectId);
 router.post("/deleteTask", taskController.deleteTask);
@@ -96,6 +96,8 @@ router.post("/deleteTask", taskController.deleteTask);
 router.post("/assign", verifyToken, taskController.assignUsers);
 router.post("/assignTasksToUser", taskController.assignTasksToUser);
 router.post("/assignTasksToProject", taskController.assignTasksToProject);
+router.post("/moveTasksToProject", taskController.moveTasksToProject);
+
 router.post("/selectedDelete", taskController.deleteSelectedTasks);
 
 module.exports = router;

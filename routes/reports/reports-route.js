@@ -11,8 +11,11 @@ router.post(
   // checkRole,
   // verifyAppLevelAccess,
   reportsController.getMonthlyTaskReport
-); //verifyToken,
-
+); 
+router.post(
+  "/getMonthlyTaskReportExcel",
+  reportsController.getMonthlyTaskReportExcel
+);
 router.post(
   "/getMonthlyTaskReportForCompany",
   reportsController.getMonthlyTaskReportForCompany
