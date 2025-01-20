@@ -6,6 +6,7 @@ const config = require("../../../config/config");
 const { logError, logInfo } = require('../../../common/logger');
 const access = require('../../../check-entitlements');
 const { sendMessageToQueue } = require('../../../rabbitmq');
+const VFolder = require('../../../models/vfolder/vfolder-model');
 let uploadFolder = config.UPLOAD_PATH
 
 // let uploadFolder = './uploads';
@@ -324,6 +325,12 @@ exports.postMultipleVisitingCards = async (req, res) => {
 
     let uploadFiles = []
      var companyFolderPath = uploadFolder + "/" + companyId + "/documents"
+    
+    let vFolder = await VFolder.findOne({name: req.body.folderName, companyId})
+
+    if(!vFolder){
+        vFolder = await VFolder.create({name: req.body.folderName, companyId, created_on: new Date()})
+    }
 
     files.forEach((file)=>{
         const uploadFile = {
@@ -335,7 +342,8 @@ exports.postMultipleVisitingCards = async (req, res) => {
             createdBy: "",
             createdOn: new Date(),
             companyId: companyId,
-            accountId: req.body.accountId || null
+            accountId: req.body.accountId || null,
+            vfolderId: vFolder._id
         }
         uploadFiles.push(uploadFile)
 

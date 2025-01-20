@@ -31,6 +31,10 @@ const UploadGlobalRepositoryFileSchema = new mongoose.Schema({
         type: Boolean,
         default: false
       },
+      vfolderId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "vfolder"
+      },
       accountId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "account",
