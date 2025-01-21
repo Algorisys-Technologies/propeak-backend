@@ -130,7 +130,7 @@ exports.createTask = (req, res) => {
     notifyUsers: notifyUsers.map((id) => id),
     customFieldValues,
     companyId,
-    interested_products: interested_products.map((p) => ({
+    interested_products: interested_products?.map((p) => ({
       product_id: p,
       quantity: 0,
       priority: "",
@@ -545,7 +545,7 @@ exports.updateTask = (req, res) => {
       assignedUser,
       category,
       tag,
-      interested_products: interested_products.map((p) => ({
+      interested_products: interested_products?.map((p) => ({
         product_id: p,
         quantity: 0,
         priority: "",

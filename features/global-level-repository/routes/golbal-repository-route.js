@@ -21,6 +21,10 @@ router.post('/getAllContactFile', uploadglobalFileController.getAllContactsFile)
 
 router.post('/getVisitingCardsAccountWise', uploadglobalFileController.getVisitingCardsAccountWise);
 
+router.post('/getVisitingCardsFolderWise', uploadglobalFileController.getVisitingCardsFolderWise)
+
+
+
 //get singlefile
 
 router.get('/:fileId', uploadglobalFileController.getRepositoryFile);
