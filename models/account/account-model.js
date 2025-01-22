@@ -13,7 +13,6 @@ const AccountSchema = new mongoose.Schema({
   account_number: {
     type: String,
     unique: true,
-    required: true,
   },
   industry: {
     type: String,

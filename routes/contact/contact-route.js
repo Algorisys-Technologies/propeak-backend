@@ -37,6 +37,12 @@ router.post(
 );
 
 router.post(
+  "/convert",
+  // verifyToken,
+  contactController.convertToAccount
+);
+
+router.post(
   "/updateVisitingCardsStatus",
   // verifyToken,
   contactController.updateVisitingCardsStatus

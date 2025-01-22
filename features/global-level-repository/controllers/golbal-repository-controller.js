@@ -467,7 +467,7 @@ exports.postMultipleVisitingCards = async (req, res) => {
     const uploadedVisitingCards = await UploadRepositoryFile.insertMany(uploadFiles)
 
     if(pathName == "/contacts"){
-        const message = {accountId : req.body.accountId,  companyId, files, filePath: companyFolderPath + pathName + "/", visitingCardsIds: uploadedVisitingCards.map((card)=>card._id) }
+        const message = {accountId : req.body.accountId, vfolderId: vFolder._id,  companyId, files, filePath: companyFolderPath + pathName + "/", visitingCardsIds: uploadedVisitingCards.map((card)=>card._id) }
         sendMessageToQueue(message,
             "mul_contact_extraction_queue",
             "mul_contact_extraction_routing")
