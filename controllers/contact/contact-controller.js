@@ -237,7 +237,6 @@ exports.convertToAccount = async(req,res) =>{
     })
 
     await Contact.updateOne({_id: id}, {account_id: account._id, isConverted: true})
-    await UploadRepositoryFile.updateMany({vfolderId: contact.vfolderId}, {accountId: account._id})
     return res.json({success: true, message: "Contact converted successfully"})
   }
   catch(e){
