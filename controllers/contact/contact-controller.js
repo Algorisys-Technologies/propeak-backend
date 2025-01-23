@@ -199,10 +199,10 @@ exports.convertToAccount = async(req,res) =>{
     const contact = await Contact.findOne({_id: id})
 
     const account = await Account.create({
-      account_name: `${contact.first_name || ""} ${contact.last_name || ""}`.trim(),
+      account_name: `${contact.first_name || ""} ${contact.last_name || ""} ${contact.title || ""}`.trim(),
       account_number: null, // No equivalent in contact; set to null or generate dynamically if needed
-      industry: null, // No equivalent in contact
-      website: null, // No equivalent in contact
+      industry: contact.title || null, // No equivalent in contact
+      website: contact.email || null, // No equivalent in contact
       phone: contact.phone || contact.mobile || null,
       email: contact.email || null,
       billing_address: contact.address || {
@@ -232,10 +232,12 @@ exports.convertToAccount = async(req,res) =>{
       created_on: new Date(),
       modified_on:  new Date(),
       tag: contact.tag || [],
-
+      companyId: contact.companyId,
+      vfolderId: contact.vfolderId
     })
 
     await Contact.updateOne({_id: id}, {account_id: account._id, isConverted: true})
+    await UploadRepositoryFile.updateMany({vfolderId: contact.vfolderId}, {accountId: account._id})
     return res.json({success: true, message: "Contact converted successfully"})
   }
   catch(e){

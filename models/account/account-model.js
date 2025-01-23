@@ -80,6 +80,10 @@ const AccountSchema = new mongoose.Schema({
   tag: [{
     type: String
   }],
+  vfolderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "vfolder",
+  },
   isDeleted: { type: Boolean, default: false },
 });
 
