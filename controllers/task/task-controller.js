@@ -132,9 +132,9 @@ exports.createTask = (req, res) => {
     companyId,
     interested_products: interested_products?.map((p) => ({
       product_id: p.product_id,
-      quantity: parseInt(p.quantity || "0"),
+      quantity: parseFloat(p.quantity || "0"),
       priority: "",
-      negotiated_price: parseInt(p.price || "0"),
+      negotiated_price: parseFloat(p.price || "0"),
       total_value: "",
     })),
     createdBy,
@@ -547,9 +547,9 @@ exports.updateTask = (req, res) => {
       tag,
       interested_products: interested_products?.map((p) => ({
         product_id: p.product_id,
-        quantity: parseInt(p.quantity || "0"),
+        quantity: parseFloat(p.quantity || "0"),
         priority: "",
-        negotiated_price: parseInt(p.price || "0"),
+        negotiated_price: parseFloat(p.price || "0"),
         total_value: "",
       })),
       storyPoint,
