@@ -254,13 +254,10 @@ exports.fetchIndiaMartSettings = async (req, res) => {
     let newStartDate;
     let newEndDate;
 
-    if (fetchFrequetly) {
-      newStartDate = new Date(lastFetched)
-      newEndDate = new Date(new Date())
-    } else {
+   
       newStartDate = new Date(startDate)
       newEndDate = new Date(endDate)
-    }
+    
 
 
     try {
