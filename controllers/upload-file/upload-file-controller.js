@@ -25,16 +25,9 @@ const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
 };
 exports.tasksFileUpload = async (req, res) => {
-  console.log(req.body, "rwquest body is here ");
-  console.log(req.body.projectId, "req.body.projectId");
   const projectId = req.body.projectId;
   const userId = req.body.userId;
   const companyId = req.body.companyId;
-  console.log(companyId, "companyIdcompanyIdcompanyId");
-  console.log(req.files.taskFile.name, "req.files.taskFile.name");
-  console.log("Received file:", req.files);
-  console.log("task upload file");
-  console.log("taskFileUpload before response:", req.body);
   let taskTypes = [];
   try {
     const result = await TaskType.find({});
@@ -43,24 +36,15 @@ exports.tasksFileUpload = async (req, res) => {
     console.error("Error fetching task types:", err);
     return res.json({ error_code: 1, err_desc: "Error fetching task types" });
   }
-
-  console.log(req.files.taskFile, "req.files.taskFile");
-  console.log(taskTypes, "taskTypes");
-
   if (!req.files.taskFile) {
     return res.send({ error: "No files were uploaded." });
   }
 
   const uploadedFile = req.files.taskFile;
-  console.log(uploadedFile, "uploadedFile");
-
   const fileUploaded = uploadedFile.name.split(".");
   const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
   const validFileExtn = ["XLS", "XLSX"];
   const isValidFileExtn = validFileExtn.includes(fileExtn);
-
-  console.log("Detected file extension:", fileExtn);
-  console.log("Is valid file extension:", isValidFileExtn);
 
   if (isValidFileExtn) {
     const projectPath = path.join(uploadFolder, req.body.projectId);
@@ -114,189 +98,6 @@ exports.tasksFileUpload = async (req, res) => {
     }
   }
 
-  // async function parseFile(uploadFolder, filename, companyId) {
-  //   const exceltojson = filename.endsWith(".xlsx") ? xlsxtojson : xlstojson;
-
-  //   try {
-  //     exceltojson(
-  //       {
-  //         input: path.join(uploadFolder, filename),
-  //         output: null,
-  //         lowerCaseHeaders: true,
-
-  //       },
-  //       async function (err, result) {
-  //         if (err) {
-  //           console.error("Error parsing file:", err);
-  //           return res.json({ error_code: 1, err_desc: err, data: null });
-  //         }
-
-  //         let mapArray = {
-  //           title: "title",
-  //           status: "status",
-  //           description: "description",
-  //           tag: "tag",
-  //           priority: "priority",
-  //           selectusers: "userId",
-  //           startdate: "startDate",
-  //           enddate: "endDate",
-  //           storypoint: "storyPoint",
-  //           tasktype: "taskType",
-  //         };
-
-  //         const reqBodyKeys = Object.keys(req.body);
-  //         reqBodyKeys.forEach((key) => {
-  //           const formattedKey = key.toLowerCase().replace(/\s+/g, "");
-  //           if (!mapArray[formattedKey]) {
-  //             mapArray[formattedKey] = key;
-  //           }
-  //         });
-
-  //         console.log("Dynamic mapArray:", mapArray);
-
-  //         let tasks = [];
-  //         let failedRecords = [];
-
-  //         for (let index = 0; index < result.length; index++) {
-  //           let row = result[index];
-  //           let task = {};
-  //           let customFieldValues = {};
-  //           let hasValidFields = false;
-  //           let missingFields = [];
-
-  //           for (let field in row) {
-  //             let normalizedField = normalizeFieldName(field);
-  //             let mappedField = mapArray[normalizedField];
-
-  //             if (mappedField) {
-  //               task[mappedField] = row[field];
-  //               hasValidFields = true;
-  //             } else {
-  //               customFieldValues[normalizedField] = row[field];
-  //             }
-  //           }
-
-  //           // const convertDate = (dateStr) => {
-  //           //   const [day, month, year] = dateStr.split("-").map(Number);
-  //           //   return new Date(year + 2000, month - 1, day).toISOString();
-  //           // };
-
-  //           const convertDate = (dateStr) => {
-  //             if (dateStr.includes("/")) {
-  //               const [day, month, year] = dateStr.split("/").map(Number);
-  //               return new Date(year, month - 1, day).toISOString();
-  //             } else if (dateStr.includes("-")) {
-  //               const [day, month, year] = dateStr.split("-").map(Number);
-  //               return new Date(year, month - 1, day).toISOString();
-  //             }
-  //             return dateStr;
-  //           };
-
-  //           if (task.startDate) {
-  //             task.startDate = convertDate(task.startDate);
-  //           }
-  //           if (task.endDate) {
-  //             task.endDate = task.endDate ? convertDate(task.endDate) : "";
-  //           }
-
-  //           if (task.userId) {
-  //             task.userId = await getUserIdByName(task.userId, companyId);
-  //           }
-
-  //           if (task.status) {
-  //             const taskStageId = await getTaskStageIdByTitle(task.status, companyId);
-  //             task.taskStageId = taskStageId;
-  //           }
-
-  //           if (!hasValidFields) {
-  //             console.log(`Row ${index + 1} has no valid fields. Skipping...`);
-  //             failedRecords.push({
-  //               row: index + 1,
-  //               reason: "Missing valid fields",
-  //               missingFields: [],
-  //             });
-  //             continue;
-  //           }
-
-  //           task.status = task.status || "todo";
-  //           task.category = task.category || "todo";
-  //           task.completed = false;
-  //           task.depId = "";
-  //           task.isDeleted = false;
-  //           task.createdOn = new Date();
-  //           task.modifiedOn = new Date();
-  //           task.createdBy = userId;
-  //           task.projectId = projectId;
-  //           task.companyId = companyId;
-  //           task.modifiedBy = userId;
-  //           task.sequence = "1";
-  //           task.customFieldValues = customFieldValues;
-
-  //           if (!task.title) missingFields.push("title");
-  //           if (!task.storyPoint) missingFields.push("storyPoint");
-  //           if (!task.taskType) missingFields.push("taskType");
-  //           if (!task.status) missingFields.push("status");
-
-  //           if (missingFields.length === 0) {
-  //             tasks.push(task);
-  //           } else {
-  //             console.log(
-  //               `Task at row ${index + 1} missing required fields:`,
-  //               task,
-  //               "Missing fields:",
-  //               missingFields
-  //             );
-  //             failedRecords.push({
-  //               row: index + 1,
-  //               reason: "Missing required fields",
-  //               missingFields: missingFields,
-  //             });
-  //           }
-  //         }
-
-  //         console.log("Tasks to be added:", tasks);
-
-  //         if (tasks.length > 0) {
-  //           try {
-  //             await Task.insertMany(tasks);
-  //             console.log("Tasks successfully added:", tasks);
-
-  //             let missingFieldsSummary = failedRecords
-  //               .map(
-  //                 (fail) =>
-  //                   `Row ${fail.row + 1}: [${fail.missingFields.join(", ")}]`
-  //               )
-  //               .join("; ");
-
-  //             res.json({
-  //               // error_code: 0,
-  //               // err_desc: null,
-  //               msg: `Tasks added successfully for ${tasks.length} records.`,
-  //               failureMessage: `Tasks failed for ${failedRecords.length} records. Missing Fields: ${missingFieldsSummary}`,
-  //               failedRecords,
-  //               success: true,
-  //             });
-  //           } catch (err) {
-  //             console.error("Error saving tasks:", err);
-  //             res.json({
-  //               // error_code: 1,
-  //               msg: "Error saving tasks",
-  //               success: false,
-  //             });
-  //           }
-  //         } else {
-  //           res.json({
-  //             error: "Uploaded file is not in correct format",
-  //           });
-  //         }
-  //       }
-  //     );
-  //   } catch (e) {
-  //     console.error("parseFile error:", e);
-  //     res.json({ error_code: 1, err_desc: "Corrupted excel file" });
-  //   }
-  // }
-
   async function parseFile(uploadFolder, filename, companyId) {
     const exceltojson = filename.endsWith(".xlsx") ? xlsxtojson : xlstojson;
 
@@ -324,7 +125,7 @@ exports.tasksFileUpload = async (req, res) => {
             enddate: "endDate",
             storypoint: "storyPoint",
             tasktype: "taskType",
-            interested_products : "interested_products"
+            interested_products: "interested_products",
           };
 
           const reqBodyKeys = Object.keys(req.body);
@@ -335,12 +136,10 @@ exports.tasksFileUpload = async (req, res) => {
             }
           });
 
-          console.log("Dynamic mapArray:", mapArray);
-
           let tasks = [];
           let failedRecords = [];
-          let consecutiveBlankRows = 0; // Counter for consecutive blank rows
-          const maxBlankRows = 5; // Max allowed consecutive blank rows before stopping
+          let consecutiveBlankRows = 0;
+          const maxBlankRows = 5;
 
           for (let index = 0; index < result.length; index++) {
             let row = result[index];
@@ -348,43 +147,65 @@ exports.tasksFileUpload = async (req, res) => {
             let customFieldValues = {};
             let hasValidFields = false;
             let missingFields = [];
-
-            // Check if the row is blank (no relevant fields)
             if (Object.values(row).every((cell) => !cell)) {
-              consecutiveBlankRows++; // Increment counter if row is blank
+              consecutiveBlankRows++;
               if (consecutiveBlankRows >= maxBlankRows) {
                 console.log(
                   "Stopping processing after encountering " +
                     maxBlankRows +
                     " consecutive blank rows."
                 );
-                break; // Stop processing further rows if too many blank rows
+                break;
               }
-              continue; // Skip processing this row and move to the next one
+              continue;
             } else {
-              consecutiveBlankRows = 0; // Reset the blank row counter
+              consecutiveBlankRows = 0;
             }
 
-            // Process row data
+            // for (let field in row) {
+            //   let normalizedField = normalizeFieldName(field);
+            //   let mappedField = mapArray[normalizedField];
+
+            //   if (mappedField) {
+            //     task[mappedField] = row[field];
+            //     hasValidFields = true;
+            //   } else {
+            //     customFieldValues[normalizedField] = row[field];
+            //   }
+            // }
             for (let field in row) {
               let normalizedField = normalizeFieldName(field);
               let mappedField = mapArray[normalizedField];
-
+            
               if (mappedField) {
                 task[mappedField] = row[field];
+            
+                // Handle `isSystem` value programmatically
+                if (mappedField === "isSystem") {
+                  // If the value exists, check and convert it to a boolean
+                  task.isSystem =
+                    row[field]?.toLowerCase() === "yes" ||
+                    row[field]?.toLowerCase() === "true";
+                }
+            
                 hasValidFields = true;
               } else {
                 customFieldValues[normalizedField] = row[field];
               }
             }
+            
+            // Default `isSystem` to `false` if not provided
+            if (!task.hasOwnProperty("isSystem")) {
+              task.isSystem = false;
+            }
+            
 
             const convertDate = (dateStr) => {
               if (dateStr.includes("/")) {
                 let [month, day, year] = dateStr.split("/").map(Number);
                 if (year < 100) {
                   year += 2000;
-                }
-                else{
+                } else {
                   [month, day] = [day, month];
                 }
                 return new Date(year, month - 1, day);
@@ -399,33 +220,45 @@ exports.tasksFileUpload = async (req, res) => {
             };
 
             if (task.startDate) {
-              console.log("Converting start date:", task.startDate);
               task.startDate = convertDate(task.startDate);
-              console.log("Converted start date:", task.startDate);
             }
             if (task.endDate) {
-              console.log("Converting end date:", task.endDate);
               task.endDate = task.endDate ? convertDate(task.endDate) : "";
-              console.log("Converted end date:", task.endDate);
             }
-if(task.interested_products){
-  const productNames = task.interested_products.split(",")?.map((p)=> p?.trim())
-  const products = await Product.find({ name: { $in: productNames } })
-  task.interested_products = products?.map((p)=> (
-    {
-           product_id: p._id,
-          quantity: 0,
-          priority: "",
-          negotiated_price: 0,
-          total_value: 0,
-    }
-        
-  ))
-}
+            if (task.interested_products) {
+              const productNames = task.interested_products
+                .split(",")
+                ?.map((p) => p?.trim());
+              const products = await Product.find({
+                name: { $in: productNames },
+              });
+              task.interested_products = products?.map((p) => ({
+                product_id: p._id,
+                quantity: 0,
+                priority: "",
+                negotiated_price: 0,
+                total_value: 0,
+              }));
+            }
 
-
+            // if (task.userId) {
+            //   task.userId = await getUserIdByName(task.userId, companyId);
+            // }
             if (task.userId) {
-              task.userId = await getUserIdByName(task.userId, companyId);
+              const userIdFromName = await getUserIdByName(
+                task.userId,
+                companyId
+              );
+              if (userIdFromName) {
+                task.userId = userIdFromName;
+              } else {
+                console.warn(
+                  `User not found for name: ${task.userId}, skipping userId.`
+                );
+                task.userId = null;
+              }
+            } else {
+              task.userId = null;
             }
 
             if (task.status) {
@@ -435,6 +268,9 @@ if(task.interested_products){
               );
               task.taskStageId = taskStageId;
             }
+            task.storyPoint = task.storyPoint || 1;
+            task.taskType = task.taskType || "task";
+            task.priority = task.priority || "medium";
 
             if (!hasValidFields) {
               console.log(`Row ${index + 1} has no valid fields. Skipping...`);
@@ -482,14 +318,9 @@ if(task.interested_products){
               });
             }
           }
-
-          // console.log("Tasks to be added:", tasks);
-
           if (tasks.length > 0) {
             try {
               await Task.insertMany(tasks);
-              // console.log("Tasks successfully added:", tasks);
-
               let missingFieldsSummary = failedRecords
                 .map(
                   (fail) =>

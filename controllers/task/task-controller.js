@@ -48,8 +48,6 @@ const {
 
 exports.createTask = (req, res) => {
   const { taskData, fileName, projectId } = req.body;
-  console.log(req.body, "req.body................");
-  console.log(req.files);
   const { task, multiUsers } = JSON.parse(taskData);
   console.log(task, "tasktasktask");
   const {
@@ -79,6 +77,7 @@ exports.createTask = (req, res) => {
     createdByEmail,
     ownerEmail,
   } = task;
+  const publishStatus = req.body.publishStatus || "draft"; 
 
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
@@ -142,6 +141,7 @@ exports.createTask = (req, res) => {
     modifiedBy,
     modifiedOn: new Date(),
     isDeleted,
+    publish_status: publishStatus,
   });
 
   newTask

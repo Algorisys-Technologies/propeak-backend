@@ -111,24 +111,29 @@ const TaskSchema = new mongoose.Schema(
     },
     interested_products: [
       {
-       product_id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "product",
+        product_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "product",
+        },
+        quantity: {
+          type: Number,
+        },
+        priority: {
+          type: String,
+        },
+        negotiated_price: {
+          type: Number,
+        },
+        total_value: {
+          type: Number,
+        },
       },
-      quantity: {
-        type: Number,
-      },
-      priority: {
-        type: String,
-      },
-      negotiated_price: {
-        type: Number,
-      },
-      total_value: {
-        type: Number,
-      },
-    }
     ],
+    publish_status: {
+      type: String,
+      enum: ["draft", "published"],
+      default: "draft",
+    },
   },
 
   { versionKey: false }
