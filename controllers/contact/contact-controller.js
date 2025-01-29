@@ -6,6 +6,7 @@ const cacheManager = require("../../redis");
 const { activeClients } = require("../..");
 const { getQueueMessageCount } = require("../../rabbitmq/index");
 const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
+const Account = require("../../models/account/account-model");
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
   ADDCONTACTERROR: "Error occurred while adding the contact",
@@ -190,6 +191,59 @@ exports.updateVisitingCardsStatus = async (req, res) => {
 //     res.status(500).json({ success: false, msg: errors.ADDCONTACTERROR });
 //   }
 // };
+
+exports.convertToAccount = async(req,res) =>{
+  try{
+    const {id} = req.body
+
+    const contact = await Contact.findOne({_id: id})
+
+    const account = await Account.create({
+      account_name: `${contact.first_name || ""} ${contact.last_name || ""} ${contact.title || ""}`.trim(),
+      account_number: null, // No equivalent in contact; set to null or generate dynamically if needed
+      industry: contact.title || null, // No equivalent in contact
+      website: contact.email || null, // No equivalent in contact
+      phone: contact.phone || contact.mobile || null,
+      email: contact.email || null,
+      billing_address: contact.address || {
+        street: null,
+        city: null,
+        state: null,
+        postal_code: null,
+        country: null
+      },
+      shipping_address: contact.secondary_address
+        ? { street: contact.secondary_address }
+        : contact.address || {
+            street: null,
+            city: null,
+            state: null,
+            postal_code: null,
+            country: null
+          },
+      account_owner: contact.contact_owner || {
+        name: null,
+        user_id: null
+      },
+      annual_revenue: null, // No equivalent in contact
+      number_of_employees: null, // No equivalent in contact
+      account_type: "Customer", // Default value
+      description: contact.description || null,
+      created_on: new Date(),
+      modified_on:  new Date(),
+      tag: contact.tag || [],
+      companyId: contact.companyId,
+      vfolderId: contact.vfolderId
+    })
+
+    await Contact.updateOne({_id: id}, {account_id: account._id, isConverted: true})
+    return res.json({success: true, message: "Contact converted successfully"})
+  }
+  catch(e){
+    console.log(e)
+    return res.json({success: false, message: "Failed Contact Conversion"})
+  }
+}
 
 exports.createMultipleContacts = async (req, res) => {
   console.log("Creating contactsssss...");

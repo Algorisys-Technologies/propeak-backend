@@ -142,7 +142,7 @@ try {
       .receiveMessageFromQueue("mul_contact_extraction_queue")
       .then(async (msg) => {
         if (msg !== "No messages in queue") {
-          const { files, companyId, accountId, filePath, visitingCardsIds } = msg;
+          const { files, companyId, accountId, filePath, visitingCardsIds, vfolderId } = msg;
 
           try {
             
@@ -271,6 +271,7 @@ try {
                 modified_on: new Date().toISOString(),
                 isDeleted: false,
                 creationMode: "AUTO",
+                vfolderId
               };
 
               contacts.push(contact);

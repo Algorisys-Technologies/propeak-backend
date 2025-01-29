@@ -13,7 +13,6 @@ const AccountSchema = new mongoose.Schema({
   account_number: {
     type: String,
     unique: true,
-    required: true,
   },
   industry: {
     type: String,
@@ -81,6 +80,10 @@ const AccountSchema = new mongoose.Schema({
   tag: [{
     type: String
   }],
+  vfolderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "vfolder",
+  },
   isDeleted: { type: Boolean, default: false },
 });
 

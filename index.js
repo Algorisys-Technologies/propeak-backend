@@ -119,6 +119,10 @@ try {
     "/api/location-history",
     require("./routes/location-history/location-history-route")
   );
+  app.use(
+    "/api/vfolder",
+    require("./routes/vfolder/vfolder-route")
+  );
   app.use("/api/projects", require("./routes/projects/projects-route"));
   app.use("/api/tasks", require("./routes/tasks/tasks-route"));
   app.use("/api/subTasks", require("./routes/sub-tasks/subtasks-route"));

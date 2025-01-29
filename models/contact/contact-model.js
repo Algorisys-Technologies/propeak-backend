@@ -78,7 +78,15 @@ const ContactSchema = new mongoose.Schema({
   isDeleted: { type: Boolean, default: false },
   creationMode: {
     type: String
-  }
+  },
+   vfolderId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "vfolder"
+        },
+    isConverted: {
+      type: Boolean,
+      default: false
+    }
 });
 
 module.exports = mongoose.model("contact", ContactSchema);

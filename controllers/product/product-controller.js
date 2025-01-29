@@ -1,6 +1,6 @@
 // create controller actions for product model
 
-// const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
 // // Define the database model
 // const ProductSchema = new mongoose.Schema({
@@ -33,7 +33,8 @@
 
 const ProductCategory = require('../../models/product/product-category-model');
 const Product = require('../../models/product/product-model');
-const xlsx = require('xlsx')
+const xlsx = require('xlsx');
+const Task = require('../../models/task/task-model');
 
 exports.list = async function (req, res) {
   try {
@@ -123,10 +124,24 @@ exports.update = async function (req, res) {
 
 exports.delete = async function (req, res) {
   try {
+    console.log("in delete Product")
+    const tasksWithProduct = await Task.find({
+      "interested_products.product_id": req.params.id,
+    });
+
+    console.log("tasksWithProduct",tasksWithProduct)
+
+    if(tasksWithProduct.length > 0){
+      return res.json({success: false, message: "Product is assigned to a Task so it cannot be Deleted!"})
+    }
+
+    // if tasks length then it should return message product already assigned to a task it cannot be deleted
     const result = await Product.deleteOne({ _id: req.params.id });
+
+    // logic to check if product is assigned to task 
     res.json({success: true, message: 'Product deleted successfully'});
   } catch (error) {
-    res.json({ message: error, success: false });
+    res.json({ message: "Failed deleting product", success: false });
   }
 }
 

@@ -114,7 +114,7 @@ exports.getAllAccounts = async (req, res) => {
   
     companyId: companyId,
     isDeleted: false,
-  }).skip(limit*page).limit(limit);
+  }).skip(limit*page).limit(limit).populate("vfolderId");
 
   const totalPages = Math.ceil(await Account.countDocuments({
     $or: [{account_name:{ $regex: regex } }, {account_number:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {website: {$regex: regex}}, {account_type: {$regex: regex}} ],
