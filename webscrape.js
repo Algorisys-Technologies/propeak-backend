@@ -65,16 +65,26 @@ async function scrollToLoadAllLeads(page) {
 
         const leads = document.querySelectorAll(leadsSelector);
 
-        return Array.from(leads).map((lead) => ({
-          id: lead.getAttribute("data-id") || lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A",
-          name: lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A",
-          productName:
-          lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
-          "N/A",
-          startDate: "N/A",
-          details: lead.querySelector(".por")?.innerText?.trim() || "N/A",
-          elementIndex: [...container.querySelectorAll(leadsSelector)].indexOf(lead),
-        }));
+        return Array.from(leads).map((lead) => {
+          const dateTimeElement = lead.querySelector(".fr .fs12.clr77"); 
+          const dateTime = dateTimeElement ? dateTimeElement.innerText.trim() : "N/A"; 
+          
+          // Clone the element and remove the date/time to avoid including it in details
+          const detailsClone = lead.cloneNode(true);
+          if (dateTimeElement) {
+            dateTimeElement.remove();
+          }
+          
+          return {
+            id: lead.getAttribute("data-id") || lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A",
+            name: lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A",
+            productName: lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() || "N/A",
+            startDate: "N/A",  // Storing extracted date/time separately
+            dateTime,
+            details: detailsClone.innerText.trim() || "N/A", // Excluding date/time from details
+            elementIndex: [...container.querySelectorAll(leadsSelector)].indexOf(lead),
+          };
+        });
       },
       { scrollableContainerSelector, leadsSelector }
     );
@@ -88,7 +98,7 @@ async function scrollToLoadAllLeads(page) {
         continue; // Skip already processed leads
       }
 
-      lead.startDate = extractISODate(lead.details);
+      lead.startDate = extractISODate(lead.dateTime);
 
       newLeadsAdded = true;
 
@@ -291,7 +301,9 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
 
     // Select the desired day
 
-    await page.getByRole("button", { name: `${start_dayToSelect}`, exact: true }).first().click();
+    await page.locator(`.rdrDay:not(.rdrDayPassive):not(.rdrDayDisabled)`).filter({
+      hasText: `${start_dayToSelect}`
+  }).first().click();
     console.log("Selected day");
     await delay(2000);
 
@@ -304,7 +316,10 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
       .selectOption(`${end_monthToSelect}`);
     console.log("Selected month for end date");
     await delay(1000);
-    await page.getByRole("button", { name: `${end_dayToSelect}`, exact: true }).first().click();
+    await page.locator(`.rdrDay:not(.rdrDayPassive):not(.rdrDayDisabled)`).filter({
+      hasText: `${end_dayToSelect}`
+  }).first().click();
+    
     console.log("Selected day for end date");
     await delay(1000);
     }
@@ -327,13 +342,13 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
   }
 };
 
-// fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
-//   start_dayToSelect : "31"
-//   , start_monthToSelect : "11" // April (0-based index: 0 : January, 1 : February, etc.)
-//   , start_yearToSelect : "2024"
-//   , end_dayToSelect : "31"
-//   , end_monthToSelect : "11" // April (0-based index: 0 : January, 1 : February, etc.)
-//   , end_yearToSelect : "2024"
-// });
+fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
+  start_dayToSelect : "29"
+  , start_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
+  , start_yearToSelect : "2025"
+  , end_dayToSelect : "29"
+  , end_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
+  , end_yearToSelect : "2025"
+});
 
 module.exports = fetchLeads;
