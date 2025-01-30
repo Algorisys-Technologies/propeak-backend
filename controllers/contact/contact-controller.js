@@ -38,7 +38,12 @@ exports.getAllContact = async (req, res) => {
   const { companyId, currentPage, query, accountId } = req.body;
 
   const regex = new RegExp(query, "i");
+  console.log(regex, "from contact-controller")
 
+  let vfolderIdCondition = {};
+if (mongoose.Types.ObjectId.isValid(query)) {
+  vfolderIdCondition = { vfolderId: new mongoose.Types.ObjectId(query) };
+}
   const limit = 5;
   if (!companyId) {
     return res.status(400).json({
@@ -58,6 +63,7 @@ exports.getAllContact = async (req, res) => {
       { phone: { $regex: regex } },
       { email: { $regex: regex } },
       { title: { $regex: regex } },
+      vfolderIdCondition
     ],
     companyId: companyId,
     account_id: accountId,
