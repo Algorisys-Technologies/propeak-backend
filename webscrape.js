@@ -81,7 +81,7 @@ async function scrollToLoadAllLeads(page) {
             productName: lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() || "N/A",
             startDate: "N/A",  // Storing extracted date/time separately
             dateTime,
-            details: detailsClone.innerText.trim() || "N/A", // Excluding date/time from details
+            details: detailsClone.innerText.trim().replace(dateTime, "") || "N/A", // Excluding date/time from details
             elementIndex: [...container.querySelectorAll(leadsSelector)].indexOf(lead),
           };
         });
@@ -343,10 +343,10 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
 };
 
 fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
-  start_dayToSelect : "29"
+  start_dayToSelect : "24"
   , start_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
   , start_yearToSelect : "2025"
-  , end_dayToSelect : "29"
+  , end_dayToSelect : "25"
   , end_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
   , end_yearToSelect : "2025"
 });
