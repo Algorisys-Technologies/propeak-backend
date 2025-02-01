@@ -342,13 +342,13 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
   }
 };
 
-fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
-  start_dayToSelect : "24"
-  , start_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
-  , start_yearToSelect : "2025"
-  , end_dayToSelect : "25"
-  , end_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
-  , end_yearToSelect : "2025"
-});
+// fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
+//   start_dayToSelect : "24"
+//   , start_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
+//   , start_yearToSelect : "2025"
+//   , end_dayToSelect : "25"
+//   , end_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
+//   , end_yearToSelect : "2025"
+// });
 
 module.exports = fetchLeads;

@@ -65,10 +65,17 @@ const ConfigItemSchema = new mongoose.Schema({
 const ProjectConfigSchema = new mongoose.Schema({
   projectId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Project",
-    required: true,
+    ref: "project",
+  },
+  level: {
+    type: String
+  },
+  companyId:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "company",
   },
   config: [ConfigItemSchema],
+
 });
 
 module.exports = {
