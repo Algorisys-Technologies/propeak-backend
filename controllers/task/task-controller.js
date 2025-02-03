@@ -77,7 +77,7 @@ exports.createTask = (req, res) => {
     createdByEmail,
     ownerEmail,
   } = task;
-  const publishStatus = req.body.publishStatus || "draft"; 
+  const publishStatus = req.body.publishStatus || "draft";
 
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
@@ -682,6 +682,44 @@ exports.updateTask = (req, res) => {
     });
 };
 
+exports.autoSaveTask = async (req, res) => {
+  try {
+    const { _id, projectId, ...taskData } = req.body;
+
+    if (!Array.isArray(taskData.uploadFiles)) {
+      taskData.uploadFiles = [];
+    }
+
+    let task;
+    if (_id) {
+      // If task exists, update it
+      task = await Task.findByIdAndUpdate(
+        _id,
+        { ...taskData, modifiedOn: new Date(), publish_status: "draft" },
+        { new: true }
+      );
+    } else {
+      // Check if a draft task with the same title and projectId already exists
+      task = await Task.findOne({
+        title: taskData.title,
+        projectId,
+        publish_status: "draft",
+      });
+
+      if (!task) {
+        // If no draft exists, create a new one
+        task = new Task({ ...taskData, projectId, publish_status: "draft" });
+        await task.save();
+      }
+    }
+
+    return res.json(task);
+  } catch (error) {
+    console.error("Autosave error:", error);
+    res.status(500).json({ error: "Failed to autosave" });
+  }
+};
+
 exports.getTaskByTaskId = (req, res) => {
   const { taskId } = req.params;
 
@@ -933,8 +971,8 @@ exports.getTasksTable = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .lean()
-      .populate("userId", "name" )
-      .populate({path: "interested_products.product_id"});
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" });
 
     res.json({
       success: true,
