@@ -17,20 +17,28 @@ const errors = {
 
 exports.getContacts = async (req, res) => {
   try {
-    const { companyId ,accountId} = req.body;
-    console.log(companyId, accountId, "is it coming ??????")
+    const { companyId, accountId } = req.body;
+    console.log(companyId, accountId, "is it coming ??????");
     if (!companyId) {
-      return res.status(400).json({ success: false, message: "Company ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Company ID is required" });
     }
 
     const contacts = await Contact.find({
       companyId: companyId,
       account_id: accountId,
-      isDeleted: false,    });
+      isDeleted: false,
+    });
     return res.status(200).json({ success: true, contacts });
   } catch (error) {
     console.error("Error fetching contacts:", error.message);
-    return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Server error. Please try again later.",
+      });
   }
 };
 
@@ -38,7 +46,12 @@ exports.getAllContact = async (req, res) => {
   const { companyId, currentPage, query, accountId } = req.body;
 
   const regex = new RegExp(query, "i");
+  console.log(regex, "from contact-controller");
 
+  let vfolderId = null;
+  if (mongoose.Types.ObjectId.isValid(query)) {
+    vfolderId = new mongoose.Types.ObjectId(query);
+  }
   const limit = 5;
   if (!companyId) {
     return res.status(400).json({
@@ -58,6 +71,7 @@ exports.getAllContact = async (req, res) => {
       { phone: { $regex: regex } },
       { email: { $regex: regex } },
       { title: { $regex: regex } },
+      { vfolderId },
     ],
     companyId: companyId,
     account_id: accountId,
@@ -154,20 +168,16 @@ exports.updateVisitingCardsStatus = async (req, res) => {
       { $set: { isExtracted: true } }
     );
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Visiting cards status updated successfully!",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Visiting cards status updated successfully!",
+    });
   } catch (err) {
     console.error("Error occurred:", err);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error updating visiting cards status.",
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error updating visiting cards status.",
+    });
   }
 };
 
@@ -192,14 +202,16 @@ exports.updateVisitingCardsStatus = async (req, res) => {
 //   }
 // };
 
-exports.convertToAccount = async(req,res) =>{
-  try{
-    const {id} = req.body
+exports.convertToAccount = async (req, res) => {
+  try {
+    const { id } = req.body;
 
-    const contact = await Contact.findOne({_id: id})
+    const contact = await Contact.findOne({ _id: id });
 
     const account = await Account.create({
-      account_name: `${contact.first_name || ""} ${contact.last_name || ""} ${contact.title || ""}`.trim(),
+      account_name: `${contact.first_name || ""} ${contact.last_name || ""} ${
+        contact.title || ""
+      }`.trim(),
       account_number: null, // No equivalent in contact; set to null or generate dynamically if needed
       industry: contact.title || null, // No equivalent in contact
       website: contact.email || null, // No equivalent in contact
@@ -210,7 +222,7 @@ exports.convertToAccount = async(req,res) =>{
         city: null,
         state: null,
         postal_code: null,
-        country: null
+        country: null,
       },
       shipping_address: contact.secondary_address
         ? { street: contact.secondary_address }
@@ -219,31 +231,36 @@ exports.convertToAccount = async(req,res) =>{
             city: null,
             state: null,
             postal_code: null,
-            country: null
+            country: null,
           },
       account_owner: contact.contact_owner || {
         name: null,
-        user_id: null
+        user_id: null,
       },
       annual_revenue: null, // No equivalent in contact
       number_of_employees: null, // No equivalent in contact
       account_type: "Customer", // Default value
       description: contact.description || null,
       created_on: new Date(),
-      modified_on:  new Date(),
+      modified_on: new Date(),
       tag: contact.tag || [],
       companyId: contact.companyId,
-      vfolderId: contact.vfolderId
-    })
+      vfolderId: contact.vfolderId,
+    });
 
-    await Contact.updateOne({_id: id}, {account_id: account._id, isConverted: true})
-    return res.json({success: true, message: "Contact converted successfully"})
+    await Contact.updateOne(
+      { _id: id },
+      { account_id: account._id, isConverted: true }
+    );
+    return res.json({
+      success: true,
+      message: "Contact converted successfully",
+    });
+  } catch (e) {
+    console.log(e);
+    return res.json({ success: false, message: "Failed Contact Conversion" });
   }
-  catch(e){
-    console.log(e)
-    return res.json({success: false, message: "Failed Contact Conversion"})
-  }
-}
+};
 
 exports.createMultipleContacts = async (req, res) => {
   console.log("Creating contactsssss...");

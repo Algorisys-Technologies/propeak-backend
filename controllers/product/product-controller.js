@@ -43,7 +43,7 @@ exports.list = async function (req, res) {
     const regex = new RegExp(q, "i");
 
 
-    const limit = 10
+    const limit = 6
     const products = await Product.find({name: {$regex: regex},companyId: req.params.companyId}).limit(limit).skip(limit * page);
     const totalPages = Math.ceil(await Product.find({name: {$regex: regex},companyId: req.params.companyId}).countDocuments() / limit);
     res.json({success: true, result: products, totalPages: totalPages});
