@@ -163,6 +163,8 @@ router.get(
 // UPDATE project config
 router.put("/updateConfig/:id", projectConfigController.updateProjectConfig);
 
+router.get("/getGlobalTaskConfig/:companyId", projectConfigController.getGlobalTaskConfig);
+
 // Route to create comapny project configuration
 router.post(
   "/createCompanyProjectConfig",
