@@ -89,6 +89,7 @@ exports.getAllContact = async (req, res) => {
         { phone: { $regex: regex } },
         { email: { $regex: regex } },
         { title: { $regex: regex } },
+        { vfolderId },
       ],
       companyId: companyId,
       isDeleted: false,
