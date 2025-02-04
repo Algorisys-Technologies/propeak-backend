@@ -523,7 +523,7 @@ exports.projectFileUpload = async (req, res) => {
             enddate: "enddate",
             projecttype: "projecttype",
             projectstatus: "status",
-            taskstges: "taskStages",
+            taskstages: "taskStages",
             group: "group",
             projectmember: "projectUsers",
             membergroup: "userGroups",
