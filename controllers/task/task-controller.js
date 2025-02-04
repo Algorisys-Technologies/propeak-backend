@@ -708,7 +708,12 @@ exports.autoSaveTask = async (req, res) => {
 
       if (!task) {
         // If no draft exists, create a new one
-        task = new Task({ ...taskData, projectId, publish_status: "draft" });
+        task = new Task({
+          ...taskData,
+          projectId,
+          publish_status: "draft",
+          createdOn: new Date(),
+        });
         await task.save();
       }
     }
