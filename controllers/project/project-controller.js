@@ -1496,9 +1496,6 @@ exports.getProjectsKanbanData = async (req, res) => {
             };
           })
         );
-
-        // .skip(skip)
-        // .limit(limit);
         return { ...stage.toObject(), projects };
       })
     );
@@ -1508,27 +1505,6 @@ exports.getProjectsKanbanData = async (req, res) => {
       companyId,
       archive,
     });
-
-    // Calculate total page count for each stage
-    // const pageCounts = await Promise.all(
-    //   projectStages.map(async (stage) => {
-    //     const totalProjects = await Project.countDocuments({ projectStageId: stage._id });
-
-    //     const totalPages = Math.ceil(totalProjects / limit);
-    //     return { stageId: stage._id.toString(), totalPages };
-    //   })
-    // );
-
-    // Convert the array into an object for easier access by stageId
-    // const pageCountsObject = pageCounts.reduce((acc, { stageId, totalPages }) => {
-    //   acc[stageId] = { totalPages };
-    //   return acc;
-    // }, {});
-
-    // console.log("pageCountsObject", pageCountsObject); // Debugging log
-
-    // console.log(projectStages, "projectStages")
-
     return res.json({
       success: true,
       projectStages: stagesWithProjects,

@@ -13,17 +13,21 @@ var xlstojson = require("xls-to-json-lc");
 var xlsxtojson = require("xlsx-to-json-lc");
 const { logError, logInfo } = require("../../common/logger");
 const TaskType = require("../../models/task/task-type-model");
+const ProjectType = require("../../models/project-types/project-types-model");
+const Group = require("../../models/group/group-model");
 const access = require("../../check-entitlements");
 let uploadFolder = config.UPLOAD_PATH;
 const objectId = require("../../common/common");
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
 const TaskStage = require("../../models/task-stages/task-stages-model");
+const ProjectStage = require("../../models/project-stages/project-stages-model");
 const { dateFnsLocalizer } = require("react-big-calendar");
 const Product = require("../../models/product/product-model");
-
+const projectType = require("../../models/project-types/project-types-model");
 const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
 };
+
 exports.tasksFileUpload = async (req, res) => {
   const projectId = req.body.projectId;
   const userId = req.body.userId;
@@ -176,10 +180,10 @@ exports.tasksFileUpload = async (req, res) => {
             for (let field in row) {
               let normalizedField = normalizeFieldName(field);
               let mappedField = mapArray[normalizedField];
-            
+
               if (mappedField) {
                 task[mappedField] = row[field];
-            
+
                 // Handle `isSystem` value programmatically
                 if (mappedField === "isSystem") {
                   // If the value exists, check and convert it to a boolean
@@ -187,18 +191,17 @@ exports.tasksFileUpload = async (req, res) => {
                     row[field]?.toLowerCase() === "yes" ||
                     row[field]?.toLowerCase() === "true";
                 }
-            
+
                 hasValidFields = true;
               } else {
                 customFieldValues[normalizedField] = row[field];
               }
             }
-            
+
             // Default `isSystem` to `false` if not provided
             if (!task.hasOwnProperty("isSystem")) {
               task.isSystem = false;
             }
-            
 
             const convertDate = (dateStr) => {
               if (dateStr.includes("/")) {
@@ -294,11 +297,11 @@ exports.tasksFileUpload = async (req, res) => {
             task.companyId = companyId;
             task.modifiedBy = userId;
             task.sequence = "1";
+            if (!task.storyPoint) missingFields.push("storyPoint");
             task.customFieldValues = customFieldValues;
             task.creation_mode = "MANUAL";
             task.lead_source = "EXCEL";
             if (!task.title) missingFields.push("title");
-            if (!task.storyPoint) missingFields.push("storyPoint");
             if (!task.taskType) missingFields.push("taskType");
             if (!task.status) missingFields.push("status");
 
@@ -338,6 +341,476 @@ exports.tasksFileUpload = async (req, res) => {
               console.error("Error saving tasks:", err);
               res.json({
                 msg: "Error saving tasks",
+                success: false,
+              });
+            }
+          } else {
+            res.json({
+              error: "Uploaded file is not in correct format",
+            });
+          }
+        }
+      );
+    } catch (e) {
+      console.error("parseFile error:", e);
+      res.json({ error_code: 1, err_desc: "Corrupted excel file" });
+    }
+  }
+};
+exports.projectFileUpload = async (req, res) => {
+  const userId = req.body.userId;
+  const companyId = req.body.companyId;
+  let projectTypes = [];
+
+  try {
+    const result = await projectType.find({});
+    projectTypes = result.map((r) => r.title);
+  } catch (err) {
+    console.error("Error fetching project types:", err);
+    return res.json({
+      error_code: 1,
+      err_desc: "Error fetching project types",
+    });
+  }
+
+  if (!req.files.projectFile) {
+    return res.send({ error: "No files were uploaded." });
+  }
+
+  const uploadedFile = req.files.projectFile;
+  const fileUploaded = uploadedFile.name.split(".");
+  const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+  const validFileExtn = ["XLS", "XLSX"];
+  const isValidFileExtn = validFileExtn.includes(fileExtn);
+
+  if (isValidFileExtn) {
+    const projectPath = path.join(uploadFolder, req.body.companyId);
+    if (!fs.existsSync(projectPath)) {
+      fs.mkdirSync(projectPath, { recursive: true });
+    }
+
+    uploadedFile.mv(
+      path.join(projectPath, req.files.projectFile.name),
+      function (err) {
+        if (err) {
+          return res.send({ error: "File Not Saved." });
+        }
+        console.log("File saved successfully, parsing file...");
+        parseFile(projectPath, req.files.projectFile.name, companyId);
+      }
+    );
+  } else {
+    return res.send({
+      error:
+        "File format not supported! (Formats supported are: 'XLSX', 'XLS')",
+    });
+  }
+  async function getProjectTypeIdByTitle(projectType, companyId) {
+    console.log(
+      "Searching for projectType with name:",
+      projectType,
+      "and companyId:",
+      companyId
+    );
+    try {
+      const projectTypeData = await ProjectType.findOne({
+        projectType: projectType.trim(),
+        companyId: companyId.trim(),
+      });
+
+      if (!projectTypeData) {
+        console.log(
+          "No projectType found matching name:",
+          projectType,
+          "and companyId:",
+          companyId
+        );
+        return null;
+      }
+
+      console.log(projectTypeData, "projectType found");
+      return projectTypeData._id;
+    } catch (err) {
+      console.error("Error fetching projectType ID:", err);
+      return null;
+    }
+  }
+  async function getUserIdsByGroupName(groupName, companyId) {
+    console.log(`Searching for group: ${groupName}, companyId: ${companyId}`);
+
+    try {
+      const groupData = await Group.findOne({
+        groupName: groupName.trim(),
+        companyId: companyId.trim(),
+      });
+
+      if (
+        !groupData ||
+        !groupData.groupMembers ||
+        groupData.groupMembers.length === 0
+      ) {
+        console.warn(`No users found for group: ${groupName}`);
+        return [];
+      }
+
+      console.log(
+        `Group found: ${groupData.groupName}, Members:`,
+        groupData.groupMembers
+      );
+      return groupData.groupMembers.map(
+        (id) => new mongoose.Types.ObjectId(id)
+      );
+    } catch (err) {
+      console.error("Error fetching group members:", err);
+      return [];
+    }
+  }
+
+  function normalizeFieldName(field) {
+    return field
+      .replace(/\s*\(yes\)|\s*\(no\)/i, "")
+      .trim()
+      .toLowerCase();
+  }
+  async function getProjectStageIdByTitle(statusTitle, companyId) {
+    try {
+      const projectStage = await ProjectStage.findOne({
+        title: statusTitle,
+        companyId: companyId,
+      });
+      console.log(projectStage, "projectStage...........");
+      return projectStage ? projectStage._id.toString() : null;
+    } catch (err) {
+      console.error("Error fetching projectStage ID:", err);
+      return null;
+    }
+  }
+
+  async function getUserIdByName(name, companyId) {
+    try {
+      const user = await User.findOne({ name: name, companyId });
+      return user ? user._id : null;
+    } catch (err) {
+      console.error("Error fetching user ID:", err);
+      return null;
+    }
+  }
+
+  async function parseFile(uploadFolder, filename, companyId) {
+    const exceltojson = filename.endsWith(".xlsx") ? xlsxtojson : xlstojson;
+
+    try {
+      exceltojson(
+        {
+          input: path.join(uploadFolder, filename),
+          output: null,
+          lowerCaseHeaders: true,
+        },
+        async function (err, result) {
+          if (err) {
+            console.error("Error parsing file:", err);
+            return res.json({ error_code: 1, err_desc: err, data: null });
+          }
+          console.log(userId, "what is the userId is coming here ???");
+          console.log("Parsed JSON Data:", result);
+
+          let mapArray = {
+            title: "title",
+            description: "description",
+            userId: "userid",
+            tags: "tag",
+            startdate: "startdate",
+            enddate: "enddate",
+            projecttype: "projecttype",
+            projectstatus: "status",
+            taskstges: "taskStages",
+            group: "group",
+            projectmember: "projectUsers",
+            membergroup: "userGroups",
+            notifyme: "notifyUsers",
+            projectowner: "projectOwnerId",
+          };
+
+          const reqBodyKeys = Object.keys(req.body);
+          reqBodyKeys.forEach((key) => {
+            const formattedKey = key.toLowerCase().replace(/\s+/g, "");
+            if (!mapArray[formattedKey]) {
+              mapArray[formattedKey] = key;
+            }
+          });
+
+          let projects = [];
+          let failedRecords = [];
+          let consecutiveBlankRows = 0;
+          const maxBlankRows = 5;
+
+          for (let index = 0; index < result.length; index++) {
+            let row = result[index];
+            let project = {};
+            let customFieldValues = {};
+            let hasValidFields = false;
+            let missingFields = [];
+
+            if (Object.values(row).every((cell) => !cell)) {
+              consecutiveBlankRows++;
+              if (consecutiveBlankRows >= maxBlankRows) {
+                console.log(
+                  "Stopping processing after encountering " +
+                    maxBlankRows +
+                    " consecutive blank rows."
+                );
+                break;
+              }
+              continue;
+            } else {
+              consecutiveBlankRows = 0;
+            }
+
+            for (let field in row) {
+              let normalizedField = normalizeFieldName(field);
+              let mappedField = mapArray[normalizedField];
+
+              if (mappedField) {
+                project[mappedField] = row[field];
+                if (mappedField === "isSystem") {
+                  project.isSystem =
+                    row[field]?.toLowerCase() === "yes" ||
+                    row[field]?.toLowerCase() === "true";
+                }
+
+                hasValidFields = true;
+              } else {
+                customFieldValues[normalizedField] = row[field];
+              }
+            }
+
+            if (!project.hasOwnProperty("isSystem")) {
+              project.isSystem = false;
+            }
+
+            const convertDate = (dateStr) => {
+              if (dateStr.includes("/")) {
+                let [month, day, year] = dateStr.split("/").map(Number);
+                if (year < 100) {
+                  year += 2000;
+                } else {
+                  [month, day] = [day, month];
+                }
+                return new Date(year, month - 1, day);
+              } else if (dateStr.includes("-")) {
+                let [day, month, year] = dateStr.split("-").map(Number);
+                if (year < 100) {
+                  year += 2000;
+                }
+                return new Date(year, month - 1, day);
+              }
+              return dateStr;
+            };
+            if (Array.isArray(project.userGroups)) {
+              project.userGroups = project.userGroups.map((userGroup) => {
+              });
+            } else {
+              console.warn(
+                "userGroups is not an array, defaulting to empty array"
+              );
+              project.userGroups = [];
+            }
+            if (typeof project.userGroups === "string") {
+              project.userGroups = project.userGroups
+                .split(",")
+                .map((item) => item.trim());
+            }
+
+            if (project.projectUsers) {
+              const userNames = project.projectUsers
+                .split(",")
+                .map((name) => name.trim());
+              const users = await User.find({
+                name: { $in: userNames },
+                companyId,
+              }).select("_id");
+              project.projectUsers = users.map((user) => user._id);
+            }
+            if (project.notifyUsers) {
+              const userNames = project.notifyUsers
+                .split(",")
+                .map((name) => name.trim());
+              const users = await User.find({
+                name: { $in: userNames },
+                companyId,
+              }).select("_id");
+              project.notifyUsers = users.map((user) => user._id);
+            }
+            if (project.groupName) {
+              const groupMembers = await getUserIdsByGroupName(
+                project.groupName,
+                companyId
+              );
+
+              if (groupMembers.length > 0) {
+                project.groupMembers = groupMembers; // Store user IDs
+              } else {
+                console.warn(
+                  `No users found for group: ${project.groupName}, skipping groupMembers.`
+                );
+                project.groupMembers = [];
+              }
+            }
+            if (project.projecttype) {
+              const projectTypeId = await getProjectTypeIdByTitle(
+                project.projecttype,
+                companyId
+              );
+              if (projectTypeId) {
+                project.projectTypeId = projectTypeId;
+              } else {
+                console.warn(
+                  `ProjectType not found for title: ${project.projecttype}, skipping projectTypeId.`
+                );
+                project.projectTypeId = null;
+              }
+            }
+
+            console.log(project.taskStages, "project.taskStages");
+            if (project.taskStages) {
+              const taskStageTitles = project.taskStages
+                .split(",")
+                .map((title) => title.trim());
+
+              // Assign the array of task stage names directly to project.taskStages
+              project.taskStages = taskStageTitles;
+
+              if (project.taskStages.length === 0) {
+                console.warn(
+                  `No valid task stages found for titles: ${taskStageTitles.join(
+                    ", "
+                  )}`
+                );
+              }
+            } else {
+              console.warn("No task stages specified for the project.");
+            }
+
+            if (project.startdate) {
+              project.startdate = convertDate(project.startdate);
+            }
+            if (project.enddate) {
+              project.enddate = project.enddate
+                ? convertDate(project.enddate)
+                : "";
+            }
+
+            if (project.userid) {
+              const userIdFromName = await getUserIdByName(
+                project.userId,
+                companyId
+              );
+              if (userIdFromName) {
+                project.userId = userIdFromName;
+              } else {
+                console.warn(
+                  `User not found for name: ${project.userId}, skipping userId.`
+                );
+                project.userId = null;
+              }
+            } else {
+              project.userId = null;
+            }
+
+            // Convert projectowner to ID
+            if (project.projectOwnerId) {
+              const projectOwnerId = await getUserIdByName(
+                project.projectOwnerId,
+                companyId
+              );
+              if (projectOwnerId) {
+                project.projectOwnerId = projectOwnerId;
+              } else {
+                console.warn(
+                  `User not found for name: ${project.projectOwnerId}, skipping projectOwnerId.`
+                );
+                project.projectOwnerId = null;
+              }
+            } else {
+              project.projectOwnerId = null;
+            }
+
+            if (project.status) {
+              const projectStageId = await getProjectStageIdByTitle(
+                project.status,
+                companyId
+              );
+              project.projectStageId = projectStageId;
+            }
+
+            project.projectType = project.projectType || "Issue Tracker";
+
+            if (!hasValidFields) {
+              console.log(`Row ${index + 1} has no valid fields. Skipping...`);
+              failedRecords.push({
+                row: index + 1,
+                reason: "Missing valid fields",
+                missingFields: [],
+              });
+              continue;
+            }
+
+            project.status = project.status || "todo";
+            project.category = project.category || "todo";
+            project.userid = userId;
+            project.completed = false;
+            project.isDeleted = false;
+            project.archive = false;
+            project.createdOn = new Date();
+            project.modifiedOn = new Date();
+            project.createdBy = userId;
+            project.companyId = companyId;
+            project.modifiedBy = userId;
+            project.customFieldValues = customFieldValues;
+            project.creation_mode = "MANUAL";
+            project.lead_source = "EXCEL";
+
+            if (!project.title) missingFields.push("title");
+            // if (!project.projectTypeId) missingFields.push("projectTypeId");
+            if (!project.status) missingFields.push("status");
+
+            if (missingFields.length === 0) {
+              projects.push(project);
+            } else {
+              console.log(
+                `project at row ${index + 1} missing required fields:`,
+                project,
+                "Missing fields:",
+                missingFields
+              );
+              failedRecords.push({
+                row: index + 1,
+                reason: "Missing required fields",
+                missingFields: missingFields,
+              });
+            }
+          }
+
+          if (projects.length > 0) {
+            try {
+              await Project.insertMany(projects);
+              let missingFieldsSummary = failedRecords
+                .map(
+                  (fail) =>
+                    `Row ${fail.row + 1}: [${fail.missingFields.join(", ")}]`
+                )
+                .join("; ");
+
+              res.json({
+                msg: `projects added successfully for ${projects.length} records.`,
+                failureMessage: `projects failed for ${failedRecords.length} records. Missing Fields: ${missingFieldsSummary}`,
+                failedRecords,
+                success: true,
+              });
+            } catch (err) {
+              console.error("Error saving projects:", err);
+              res.json({
+                msg: "Error saving projects",
                 success: false,
               });
             }
