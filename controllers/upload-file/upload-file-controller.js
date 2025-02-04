@@ -14,6 +14,7 @@ var xlsxtojson = require("xlsx-to-json-lc");
 const { logError, logInfo } = require("../../common/logger");
 const TaskType = require("../../models/task/task-type-model");
 const ProjectType = require("../../models/project-types/project-types-model");
+const Group = require("../../models/group/group-model");
 const access = require("../../check-entitlements");
 let uploadFolder = config.UPLOAD_PATH;
 const objectId = require("../../common/common");
@@ -360,6 +361,7 @@ exports.projectFileUpload = async (req, res) => {
   const userId = req.body.userId;
   const companyId = req.body.companyId;
   let projectTypes = [];
+
   try {
     const result = await projectType.find({});
     projectTypes = result.map((r) => r.title);
@@ -370,9 +372,11 @@ exports.projectFileUpload = async (req, res) => {
       err_desc: "Error fetching project types",
     });
   }
+
   if (!req.files.projectFile) {
     return res.send({ error: "No files were uploaded." });
   }
+
   const uploadedFile = req.files.projectFile;
   const fileUploaded = uploadedFile.name.split(".");
   const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
@@ -401,7 +405,73 @@ exports.projectFileUpload = async (req, res) => {
         "File format not supported! (Formats supported are: 'XLSX', 'XLS')",
     });
   }
+  async function getProjectTypeIdByTitle(projectType, companyId) {
+    console.log(
+      "Searching for projectType with name:",
+      projectType,
+      "and companyId:",
+      companyId
+    );
+    try {
+      const projectTypeData = await ProjectType.findOne({
+        projectType: projectType.trim(),
+        companyId: companyId.trim(),
+      });
 
+      if (!projectTypeData) {
+        console.log(
+          "No projectType found matching name:",
+          projectType,
+          "and companyId:",
+          companyId
+        );
+        return null;
+      }
+
+      console.log(projectTypeData, "projectType found");
+      return projectTypeData._id;
+    } catch (err) {
+      console.error("Error fetching projectType ID:", err);
+      return null;
+    }
+  }
+  async function getUserIdsByGroupName(groupName, companyId) {
+    console.log(`Searching for group: ${groupName}, companyId: ${companyId}`);
+
+    try {
+      const groupData = await Group.findOne({
+        groupName: groupName.trim(),
+        companyId: companyId.trim(),
+      });
+
+      if (
+        !groupData ||
+        !groupData.groupMembers ||
+        groupData.groupMembers.length === 0
+      ) {
+        console.warn(`No users found for group: ${groupName}`);
+        return [];
+      }
+
+      console.log(
+        `Group found: ${groupData.groupName}, Members:`,
+        groupData.groupMembers
+      );
+      return groupData.groupMembers.map(
+        (id) => new mongoose.Types.ObjectId(id)
+      );
+    } catch (err) {
+      console.error("Error fetching group members:", err);
+      return [];
+    }
+  }
+
+  function normalizeFieldName(field) {
+    return field
+      .replace(/\s*\(yes\)|\s*\(no\)/i, "")
+      .trim()
+      .toLowerCase();
+  }
   async function getProjectStageIdByTitle(statusTitle, companyId) {
     try {
       const projectStage = await ProjectStage.findOne({
@@ -415,12 +485,7 @@ exports.projectFileUpload = async (req, res) => {
       return null;
     }
   }
-  function normalizeFieldName(field) {
-    return field
-      .replace(/\s*\(yes\)|\s*\(no\)/i, "")
-      .trim()
-      .toLowerCase();
-  }
+
   async function getUserIdByName(name, companyId) {
     try {
       const user = await User.findOne({ name: name, companyId });
@@ -446,19 +511,24 @@ exports.projectFileUpload = async (req, res) => {
             console.error("Error parsing file:", err);
             return res.json({ error_code: 1, err_desc: err, data: null });
           }
-          console.log("Parsed JSON Data:", result); // Debugging output
+          console.log(userId, "what is the userId is coming here ???");
+          console.log("Parsed JSON Data:", result);
+
           let mapArray = {
             title: "title",
             description: "description",
-            projectowner: "userId",
+            userId: "userid",
             tags: "tag",
             startdate: "startdate",
             enddate: "enddate",
-            projecttype: "projectTypeId",
+            projecttype: "projecttype",
             projectstatus: "status",
-            taskstages: "taskStages",
+            taskstges: "taskStages",
             group: "group",
             projectmember: "projectUsers",
+            membergroup: "userGroups",
+            notifyme: "notifyUsers",
+            projectowner: "projectOwnerId",
           };
 
           const reqBodyKeys = Object.keys(req.body);
@@ -480,6 +550,7 @@ exports.projectFileUpload = async (req, res) => {
             let customFieldValues = {};
             let hasValidFields = false;
             let missingFields = [];
+
             if (Object.values(row).every((cell) => !cell)) {
               consecutiveBlankRows++;
               if (consecutiveBlankRows >= maxBlankRows) {
@@ -494,6 +565,7 @@ exports.projectFileUpload = async (req, res) => {
             } else {
               consecutiveBlankRows = 0;
             }
+
             for (let field in row) {
               let normalizedField = normalizeFieldName(field);
               let mappedField = mapArray[normalizedField];
@@ -511,6 +583,7 @@ exports.projectFileUpload = async (req, res) => {
                 customFieldValues[normalizedField] = row[field];
               }
             }
+
             if (!project.hasOwnProperty("isSystem")) {
               project.isSystem = false;
             }
@@ -533,6 +606,21 @@ exports.projectFileUpload = async (req, res) => {
               }
               return dateStr;
             };
+            if (Array.isArray(project.userGroups)) {
+              project.userGroups = project.userGroups.map((userGroup) => {
+              });
+            } else {
+              console.warn(
+                "userGroups is not an array, defaulting to empty array"
+              );
+              project.userGroups = [];
+            }
+            if (typeof project.userGroups === "string") {
+              project.userGroups = project.userGroups
+                .split(",")
+                .map((item) => item.trim());
+            }
+
             if (project.projectUsers) {
               const userNames = project.projectUsers
                 .split(",")
@@ -543,37 +631,76 @@ exports.projectFileUpload = async (req, res) => {
               }).select("_id");
               project.projectUsers = users.map((user) => user._id);
             }
-            if (project.projectTypeId) {
-              const projectType = await ProjectType.findOne({
-                title: project.projectTypeId,
+            if (project.notifyUsers) {
+              const userNames = project.notifyUsers
+                .split(",")
+                .map((name) => name.trim());
+              const users = await User.find({
+                name: { $in: userNames },
+                companyId,
               }).select("_id");
-              project.projectTypeId = projectType ? projectType._id : null;
+              project.notifyUsers = users.map((user) => user._id);
+            }
+            if (project.groupName) {
+              const groupMembers = await getUserIdsByGroupName(
+                project.groupName,
+                companyId
+              );
+
+              if (groupMembers.length > 0) {
+                project.groupMembers = groupMembers; // Store user IDs
+              } else {
+                console.warn(
+                  `No users found for group: ${project.groupName}, skipping groupMembers.`
+                );
+                project.groupMembers = [];
+              }
+            }
+            if (project.projecttype) {
+              const projectTypeId = await getProjectTypeIdByTitle(
+                project.projecttype,
+                companyId
+              );
+              if (projectTypeId) {
+                project.projectTypeId = projectTypeId;
+              } else {
+                console.warn(
+                  `ProjectType not found for title: ${project.projecttype}, skipping projectTypeId.`
+                );
+                project.projectTypeId = null;
+              }
             }
 
-            if (project.startDate) {
-              project.startDate = convertDate(project.startDate);
+            console.log(project.taskStages, "project.taskStages");
+            if (project.taskStages) {
+              const taskStageTitles = project.taskStages
+                .split(",")
+                .map((title) => title.trim());
+
+              // Assign the array of task stage names directly to project.taskStages
+              project.taskStages = taskStageTitles;
+
+              if (project.taskStages.length === 0) {
+                console.warn(
+                  `No valid task stages found for titles: ${taskStageTitles.join(
+                    ", "
+                  )}`
+                );
+              }
+            } else {
+              console.warn("No task stages specified for the project.");
             }
-            if (project.endDate) {
-              project.endDate = project.endDate
-                ? convertDate(project.endDate)
+
+            if (project.startdate) {
+              project.startdate = convertDate(project.startdate);
+            }
+            if (project.enddate) {
+              project.enddate = project.enddate
+                ? convertDate(project.enddate)
                 : "";
             }
-            if (project.interested_products) {
-              const productNames = project.interested_products
-                .split(",")
-                ?.map((p) => p?.trim());
-              const products = await Product.find({
-                name: { $in: productNames },
-              });
-              project.interested_products = products?.map((p) => ({
-                product_id: p._id,
-                quantity: 0,
-                priority: "",
-                negotiated_price: 0,
-                total_value: 0,
-              }));
-            }
-            if (project.userId) {
+
+            if (project.userid) {
               const userIdFromName = await getUserIdByName(
                 project.userId,
                 companyId
@@ -590,6 +717,24 @@ exports.projectFileUpload = async (req, res) => {
               project.userId = null;
             }
 
+            // Convert projectowner to ID
+            if (project.projectOwnerId) {
+              const projectOwnerId = await getUserIdByName(
+                project.projectOwnerId,
+                companyId
+              );
+              if (projectOwnerId) {
+                project.projectOwnerId = projectOwnerId;
+              } else {
+                console.warn(
+                  `User not found for name: ${project.projectOwnerId}, skipping projectOwnerId.`
+                );
+                project.projectOwnerId = null;
+              }
+            } else {
+              project.projectOwnerId = null;
+            }
+
             if (project.status) {
               const projectStageId = await getProjectStageIdByTitle(
                 project.status,
@@ -597,7 +742,8 @@ exports.projectFileUpload = async (req, res) => {
               );
               project.projectStageId = projectStageId;
             }
-            project.projectType = project.projectType || "project";
+
+            project.projectType = project.projectType || "Issue Tracker";
 
             if (!hasValidFields) {
               console.log(`Row ${index + 1} has no valid fields. Skipping...`);
@@ -611,20 +757,21 @@ exports.projectFileUpload = async (req, res) => {
 
             project.status = project.status || "todo";
             project.category = project.category || "todo";
+            project.userid = userId;
             project.completed = false;
             project.isDeleted = false;
+            project.archive = false;
             project.createdOn = new Date();
             project.modifiedOn = new Date();
             project.createdBy = userId;
-            // project.projectId = projectId;
             project.companyId = companyId;
             project.modifiedBy = userId;
-            project.sequence = "1";
             project.customFieldValues = customFieldValues;
             project.creation_mode = "MANUAL";
             project.lead_source = "EXCEL";
+
             if (!project.title) missingFields.push("title");
-            if (!project.projectType) missingFields.push("projectType");
+            // if (!project.projectTypeId) missingFields.push("projectTypeId");
             if (!project.status) missingFields.push("status");
 
             if (missingFields.length === 0) {
@@ -643,6 +790,7 @@ exports.projectFileUpload = async (req, res) => {
               });
             }
           }
+
           if (projects.length > 0) {
             try {
               await Project.insertMany(projects);
