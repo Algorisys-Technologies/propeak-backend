@@ -4,7 +4,10 @@ const VFolder = require("../../models/vfolder/vfolder-model");
 exports.getVFolders = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const vFolders = await VFolder.find({ companyId, isDeleted: false });
+    const vFolders = await VFolder.find({ 
+      companyId, 
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] 
+    });
 
     return res.json({ success: true, result: vFolders });
   } catch (e) {
@@ -50,7 +53,7 @@ exports.deleteVFolder = async (req, res) => {
     }
 
     await VFolder.findByIdAndUpdate({ _id: id }, { isDeleted: true });
-    await ContactModel.findOneAndUpdate({vfolderId: id}, {isDeleted: true});
+    await ContactModel.updateMany({vfolderId: id}, {isDeleted: true});
     
     return res.json({
       success: true,

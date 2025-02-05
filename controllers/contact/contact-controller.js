@@ -65,34 +65,43 @@ exports.getAllContact = async (req, res) => {
   console.log("in contacts");
 
   const contacts = await Contact.find({
-    $or: [
-      { first_name: { $regex: regex } },
-      { last_name: { $regex: regex } },
-      { phone: { $regex: regex } },
-      { email: { $regex: regex } },
-      { title: { $regex: regex } },
-      { vfolderId },
+    $and: [
+      {
+        $or: [
+          { first_name: { $regex: regex } },
+          { last_name: { $regex: regex } },
+          { phone: { $regex: regex } },
+          { email: { $regex: regex } },
+          { title: { $regex: regex } },
+          { vfolderId },
+        ],
+      },
+      { companyId: companyId },
+      { account_id: accountId },
+      { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }, 
     ],
-    companyId: companyId,
-    account_id: accountId,
-    isDeleted: false,
   })
     .skip(limit * currentPage)
-    .limit(limit);
+    .limit(limit);  
 
   const totalPages = Math.ceil(
     (await Contact.countDocuments({
       account_id: accountId,
-      $or: [
-        { first_name: { $regex: regex } },
-        { last_name: { $regex: regex } },
-        { phone: { $regex: regex } },
-        { email: { $regex: regex } },
-        { title: { $regex: regex } },
-        { vfolderId },
+      $and: [
+        {
+          $or: [
+            { first_name: { $regex: regex } },
+            { last_name: { $regex: regex } },
+            { phone: { $regex: regex } },
+            { email: { $regex: regex } },
+            { title: { $regex: regex } },
+            { vfolderId },
+          ],
+        },
+        { companyId: companyId },
+        { account_id: accountId },
+        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }, 
       ],
-      companyId: companyId,
-      isDeleted: false,
     })) / limit
   );
   if (!contacts || contacts.length === 0) {
