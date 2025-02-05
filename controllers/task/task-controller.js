@@ -527,6 +527,7 @@ exports.updateTask = (req, res) => {
     userId,
     createdByEmail,
     ownerEmail,
+    publish_status,
   } = task;
 
   console.log(depId, "depId");
@@ -561,6 +562,7 @@ exports.updateTask = (req, res) => {
       modifiedBy,
       modifiedOn: new Date(),
       userId, // Update the userId here
+      publish_status,
     },
     { new: true } // Options to return the updated document and run validators
   )
@@ -686,9 +688,20 @@ exports.autoSaveTask = async (req, res) => {
   try {
     const { _id, projectId, ...taskData } = req.body;
 
+    console.log("req body", req.body);
+
     if (!Array.isArray(taskData.uploadFiles)) {
       taskData.uploadFiles = [];
     }
+
+    // Ensure that interested_products is an array
+    if (!Array.isArray(taskData.interested_products)) {
+      taskData.interested_products = [];
+    }
+
+    // Handle other potential empty fields as arrays or objects
+    taskData.subtasks = taskData.subtasks || [];
+    taskData.messages = taskData.messages || [];
 
     let task;
     if (_id) {
