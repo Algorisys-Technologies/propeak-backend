@@ -12,6 +12,10 @@ const VFolderSchema = new mongoose.Schema({
     required: true,
  
   },
+  isDeleted: {
+    type: Boolean,
+    required: true,
+  },
   created_on: {
     type: Date,
   },

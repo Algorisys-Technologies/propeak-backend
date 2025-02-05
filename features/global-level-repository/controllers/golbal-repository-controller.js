@@ -427,7 +427,7 @@ exports.postMultipleVisitingCards = async (req, res) => {
     let vFolder = await VFolder.findOne({name: req.body.folderName, companyId})
 
     if(!vFolder){
-        vFolder = await VFolder.create({name: req.body.folderName, companyId, created_on: new Date()})
+        vFolder = await VFolder.create({name: req.body.folderName, isDeleted:false, companyId, created_on: new Date()})
     }
 
     files.forEach((file)=>{
