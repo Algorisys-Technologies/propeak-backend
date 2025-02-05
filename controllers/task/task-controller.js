@@ -77,7 +77,7 @@ exports.createTask = (req, res) => {
     createdByEmail,
     ownerEmail,
   } = task;
-  const publishStatus = req.body.publishStatus || "draft";
+  const publishStatus = req.body.publishStatus || "published";
 
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
@@ -704,6 +704,7 @@ exports.autoSaveTask = async (req, res) => {
         title: taskData.title,
         projectId,
         publish_status: "draft",
+        creation_mode: "MANUAL",
       });
 
       if (!task) {
@@ -712,6 +713,7 @@ exports.autoSaveTask = async (req, res) => {
           ...taskData,
           projectId,
           publish_status: "draft",
+          creation_mode: "MANUAL",
           createdOn: new Date(),
         });
         await task.save();
