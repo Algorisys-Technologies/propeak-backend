@@ -703,8 +703,19 @@ exports.autoSaveTask = async (req, res) => {
     taskData.subtasks = taskData.subtasks || [];
     taskData.messages = taskData.messages || [];
 
+    if (taskData.startDate) {
+      taskData.startDate = new Date(taskData.startDate);
+    }
+    if (taskData.endDate) {
+      taskData.endDate = new Date(taskData.endDate);
+    }
+
     let task;
     if (_id) {
+      if (taskData.selectUsers) {
+        taskData.userId = taskData.selectUsers;
+      }
+
       // If task exists, update it
       task = await Task.findByIdAndUpdate(
         _id,
