@@ -589,40 +589,24 @@ exports.postUploadFile = (req, res) => {
 }
 
 exports.editRepositoryFile = ((req, res) => {
-    //console.log("req.body", req.body);
-    let userRole = req.userInfo.userRole.toLowerCase();
-    let accessCheck = access.checkEntitlementsForUserRole(userRole);
-    if (accessCheck === false) {
-        res.json({ err: errors.NOT_AUTHORIZED });
-        return;
-    }
-    let pathName;
-    if (req.body.path === '/') {
-        pathName = '/'
-    }
-    else {
-        pathName = req.body.path
-    }
+    console.log("req.body in edit global", req.body);
+    
+    
     let updatedFile = {
         _id: req.body._id,
         title: req.body.title,
-        fileName: req.body.fileName,
-        description: req.body.description,
-        path: pathName,
-        isDeleted: false,
-        createdBy: req.userInfo.userId,
-        createdOn: req.body.createdOn,
+        description: req.body.description
     }
 
     UploadRepositoryFile.findOneAndUpdate({ "_id": req.body._id }, updatedFile)
         .then((result) => {
-            //console.log("result", result);
+            console.log("result", result);
             res.json({
                 success: true,
                 msg: `Document Updated Successfully!`,
                 result: req.body
             })
-        })
+        }) 
 })
 
 
