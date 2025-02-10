@@ -47,9 +47,10 @@ const {
 } = require("date-fns");
 
 exports.createTask = (req, res) => {
+  console.log("create task wala ");
+  console.log(req.body, "request body in create tasks ");
   const { taskData, fileName, projectId } = req.body;
   const { task, multiUsers } = JSON.parse(taskData);
-  console.log(task, "tasktasktask");
   const {
     _id,
     userId,
@@ -77,7 +78,7 @@ exports.createTask = (req, res) => {
     createdByEmail,
     ownerEmail,
   } = task;
-  const publishStatus = req.body.publishStatus || "draft"; 
+  const publishStatus = req.body.publishStatus || "draft";
 
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
@@ -133,8 +134,9 @@ exports.createTask = (req, res) => {
       product_id: p.product_id,
       quantity: parseFloat(p.quantity || "0"),
       priority: "",
+      unit: p.unit,
       negotiated_price: parseFloat(p.price || "0"),
-      total_value: "",
+      total_value: parseFloat(p.total || "0"),
     })),
     createdBy,
     createdOn: new Date(),
@@ -335,175 +337,11 @@ exports.createTask = (req, res) => {
     });
 };
 
-// exports.createTask = (req, res) => {
-//   const { projectId, task } = req.body;
-//   if (!mongoose.Types.ObjectId.isValid(projectId)) {
-//     return res.status(400).json({ success: false, msg: "Invalid projectId" });
-//   }
-//   console.log(req.body, "request body ");
-//   const {
-//     _id,
-//     userId,
-//     title,
-//     description,
-//     startDate,
-//     endDate,
-//     taskStageId,
-//     status,
-//     assignedUser,
-//     depId,
-//     category,
-//     tag,
-//     storyPoint,
-//     priority,
-//     multiUsers = [],
-//     notifyUsers = [],
-//     customFieldValues = {},
-//     companyId,
-//     createdBy,
-//     modifiedBy,
-//     isDeleted,
-//   } = task;
-
-//   const newTask = new Task({
-//     _id,
-//     userId,
-
-//     title,
-//     description,
-//     startDate,
-//     endDate,
-//     taskStageId,
-//     projectId,
-//     status,
-//     assignedUser,
-//     depId,
-//     category,
-//     tag,
-//     storyPoint,
-//     priority,
-//     multiUsers: ?((userId) => userId),
-//     notifyUsers: notifyUsers.map((userId) => userId),
-//     customFieldValues,
-//     companyId,
-//     createdBy,
-//     createdOn: new Date(),
-//     modifiedBy,
-//     modifiedOn: new Date(),
-//     isDeleted,
-//   });
-
-//   newTask
-//     .save()
-//     .then((result) => {
-//       const userIdToken = req.body.userName;
-//       const fields = Object.keys(result.toObject()).filter(
-//         (key) =>
-//           result[key] !== undefined &&
-//           result[key] !== null &&
-//           result[key].length !== 0 &&
-//           result[key] !== ""
-//       );
-
-//       fields.forEach((field) => {
-//         if (field === "multiUsers" || field === "notifyUsers") {
-//           result[field].forEach((id) => {
-//             audit.insertAuditLog(
-//               "",
-//               result.title,
-//               "Task",
-//               field,
-//               id,
-//               userIdToken,
-//               result._id
-//             );
-//           });
-//         } else {
-//           audit.insertAuditLog(
-//             "",
-//             result.title,
-//             "Task",
-//             field,
-//             result[field],
-//             userIdToken,
-//             result._id
-//           );
-//         }
-//       });
-//       const emailOwner = notifyUsers.join(",");
-//       // const email = assignedUser.email;
-//       const email = assignedUser ? assignedUser.email : null;
-//       const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
-//         try {
-//           let updatedDescription = newTask.description
-//             .split("\n")
-//             .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
-
-//           let emailText = config.taskEmailContent
-//             .replace("#title#", newTask.title)
-//             .replace("#description#", updatedDescription)
-//             .replace("#projectName#", newTask.projectId)
-//             .replace("#projectId#", newTask.projectId)
-//             .replace("#priority#", newTask.priority.toUpperCase())
-//             .replace("#newTaskId#", newTask._id);
-
-//           let taskEmailLink = config.taskEmailLink
-//             .replace("#projectId#", newTask.projectId)
-//             .replace("#newTaskId#", newTask._id);
-
-//           if (email !== "XX") {
-//             var mailOptions = {
-//               from: config.from,
-//               to: email,
-//               cc: emailOwner,
-//               subject: `${newTask.projectId} - Task assigned - ${newTask.title}`,
-//               html: emailText,
-//             };
-
-//             let taskArr = {
-//               subject: mailOptions.subject,
-//               url: taskEmailLink,
-//               userId: newTask.assignedUser,
-//             };
-
-//             rabbitMQ
-//               .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
-//               .then((resp) => {
-//                 logInfo(
-//                   "Task add mail message sent to the message_queue: " + resp
-//                 );
-//                 addMyNotification(taskArr);
-//               })
-//               .catch((err) => {
-//                 console.error("Failed to send email via RabbitMQ", err);
-//               });
-//           }
-//         } catch (error) {
-//           console.error("Error in sending email", error);
-//         }
-//       };
-
-//       auditTaskAndSendMail(result, emailOwner, email);
-
-//       res.json({
-//         success: true,
-//         msg: "Task created successfully!",
-//       });
-//     })
-//     .catch((err) => {
-//       console.error("CREATE_TASK ERROR", err);
-//       res.status(400).json({
-//         success: false,
-//         msg: "Failed to create task",
-//         error: err.message,
-//       });
-//     });
-// };
 exports.updateTask = (req, res) => {
   console.log("is it coming th task update");
+  console.log(req.body, "request body of update task ")
   const { taskId } = req.body;
   const { projectId, task } = req.body;
-  console.log(req.body, "request body og update ");
 
   const {
     title,
@@ -529,8 +367,6 @@ exports.updateTask = (req, res) => {
     ownerEmail,
   } = task;
 
-  console.log(depId, "depId");
-
   Task.findByIdAndUpdate(
     taskId,
     {
@@ -550,7 +386,8 @@ exports.updateTask = (req, res) => {
         quantity: parseFloat(p.quantity || "0"),
         priority: "",
         negotiated_price: parseFloat(p.price || "0"),
-        total_value: "",
+        unit: p.unit,
+        total_value: parseFloat(p.total || "0"),
       })),
       storyPoint,
       priority,
@@ -776,16 +613,12 @@ exports.getTaskByProjectId = (req, res) => {
 
 exports.getTasks = (req, res) => {
   const { projectId, companyId } = req.body;
-  console.log(projectId, "project id ");
-  console.log(companyId, "companyId");
   if (!projectId || !companyId) {
     return res.status(400).json({
       success: false,
       msg: "Project ID and Company ID are required to fetch tasks",
     });
   }
-
-  // Find tasks that match both projectId and companyId, and are not deleted
   Task.find({ projectId, companyId, isDeleted: false })
     .populate("userId", "name")
     .then((tasks) => {
@@ -818,8 +651,6 @@ exports.getTasksTable = async (req, res) => {
       filters = [],
       searchFilter,
     } = req.body;
-
-    console.log("req body data", req.body);
 
     if (!projectId) {
       return res.status(400).json({
@@ -921,9 +752,6 @@ exports.getTasksTable = async (req, res) => {
         }
       }
     }
-
-    console.log("Final condition:", condition);
-
     // Count total tasks matching the condition
     const totalCount = await Task.countDocuments(condition);
     const totalPages = Math.ceil(totalCount / limit);
@@ -933,8 +761,8 @@ exports.getTasksTable = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .lean()
-      .populate("userId", "name" )
-      .populate({path: "interested_products.product_id"});
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" });
 
     res.json({
       success: true,
@@ -954,134 +782,6 @@ exports.getTasksTable = async (req, res) => {
     });
   }
 };
-
-// exports.getTasksTable = async (req, res) => {
-//   try {
-//     const {
-//       projectId,
-//       pagination = { page: 1, limit: 10 },
-//       filters = [],
-//       searchFilter,
-//     } = req.body;
-
-//     console.log("req body data", req.body);
-
-//     if (!projectId) {
-//       return res.status(400).json({
-//         success: false,
-//         msg: "Project ID is required to fetch tasks",
-//       });
-//     }
-
-//     const { page, limit: rawLimit } = pagination;
-//     const limit = parseInt(rawLimit, 10);
-//     const skip = (page - 1) * limit;
-
-//     // Validate project ID format
-//     if (!mongoose.Types.ObjectId.isValid(projectId)) {
-//       return res
-//         .status(400)
-//         .json({ success: false, msg: "Invalid project ID format." });
-//     }
-
-//     // Base condition for fetching tasks
-//     let condition = {
-//       projectId: new mongoose.Types.ObjectId(projectId),
-//       isDeleted: false,
-//     };
-
-//     // Apply search filter if provided
-//     if (searchFilter) {
-//       const regex = new RegExp(searchFilter, "i");
-//       condition.title = { $regex: regex };
-//     }
-
-//     // Apply additional filters
-//     filters.forEach((filter) => {
-//       const { field, value } = filter;
-
-//       if (!field || value === undefined) return; // Skip if field or value is missing
-
-//       switch (field) {
-//         case "title":
-//         case "description":
-//         case "tag":
-//         case "status":
-//         case "depId":
-//         case "taskType":
-//         case "priority":
-//         case "createdBy":
-//         case "modifiedBy":
-//         case "sequence":
-//         case "dateOfCompletion": {
-//           const regex = new RegExp(value, "i");
-//           condition[field] = { $regex: regex };
-//           break;
-//         }
-//         case "completed": {
-//           condition[field] = value === "true";
-//           break;
-//         }
-//         case "storyPoint": {
-//           condition[field] = Number(value);
-//           break;
-//         }
-//         case "startDate":
-//         case "endDate":
-//         case "createdOn":
-//         case "modifiedOn": {
-//           condition[field] = {
-//             $lte: new Date(new Date(value).setUTCHours(23, 59, 59, 999)),
-//             $gte: new Date(new Date(value).setUTCHours(0, 0, 0, 0)),
-//           };
-//           break;
-//         }
-//         case "userId":
-//         case "taskStageId": {
-//           condition[field] = value;
-//           break;
-//         }
-//         default:
-//           break;
-//       }
-//     });
-
-//     console.log("Final condition:", condition);
-
-//     // Count total tasks matching the condition
-//     const totalCount = await Task.countDocuments(condition);
-//     const totalPages = Math.ceil(totalCount / limit);
-
-//     // Fetch tasks with pagination and filtering
-//     const tasks = await Task.find(condition)
-//       .skip(skip)
-//       .limit(limit)
-//       .lean()
-//       .populate("userId", "name");
-
-//     if (tasks.length === 0) {
-//       return res.status(404).json({
-//         success: false,
-//         msg: "No tasks found for the specified project",
-//       });
-//     }
-
-//     res.json({
-//       success: true,
-//       data: tasks,
-//       totalCount,
-//       page,
-//       totalPages,
-//     });
-//   } catch (error) {
-//     console.error("Error in getTasksTable:", error);
-//     res.status(500).json({
-//       success: false,
-//       msg: "Server error occurred while retrieving tasks",
-//       error: error.message,
-//     });
-//   }
-// };
 
 exports.getTasksCalendar = async (req, res) => {
   try {
@@ -1128,9 +828,6 @@ exports.getTasksCalendar = async (req, res) => {
         endDate: { $lte: endOfDay(referenceDate) },
       };
     }
-
-    console.log("dateRange", dateRange);
-
     // Base condition to filter tasks
     const condition = {
       projectId: new mongoose.Types.ObjectId(projectId),
@@ -1140,13 +837,8 @@ exports.getTasksCalendar = async (req, res) => {
       ...dateRange,
     };
 
-    console.log("Calendar fetch condition:", condition);
-
     // Fetch tasks matching the condition
     const tasks = await Task.find(condition).lean().populate("userId", "name");
-
-    console.log("tasks", tasks);
-
     // Transform tasks to calendar events format
     const calendarEvents = tasks.map((task) => ({
       id: task._id,
@@ -1170,64 +862,8 @@ exports.getTasksCalendar = async (req, res) => {
   }
 };
 
-// exports.getTasksCalendar = async (req, res) => {
-//   try {
-//     const { projectId } = req.body;
-
-//     if (!projectId) {
-//       return res.status(400).json({
-//         success: false,
-//         msg: "Project ID is required to fetch tasks for the calendar",
-//       });
-//     }
-
-//     // Validate project ID format
-//     if (!mongoose.Types.ObjectId.isValid(projectId)) {
-//       return res
-//         .status(400)
-//         .json({ success: false, msg: "Invalid project ID format." });
-//     }
-
-//     // Base condition to filter tasks
-//     let condition = {
-//       projectId: new mongoose.Types.ObjectId(projectId),
-//       isDeleted: false,
-//       startDate: { $exists: true, $ne: null },
-//       endDate: { $exists: true, $ne: null },
-//     };
-
-//     console.log("Calendar fetch condition:", condition);
-
-//     // Fetch tasks matching the condition
-//     const tasks = await Task.find(condition).lean().populate("userId", "name");
-
-//     // Transform tasks to calendar events format
-//     const calendarEvents = tasks.map((task) => ({
-//       id: task._id,
-//       title: task.title,
-//       start: task.startDate,
-//       end: task.endDate,
-//       user: task.userId?.name || "Unassigned",
-//     }));
-
-//     res.json({
-//       success: true,
-//       data: calendarEvents,
-//     });
-//   } catch (error) {
-//     console.error("Error in getTasksCalendar:", error);
-//     res.status(500).json({
-//       success: false,
-//       msg: "Server error occurred while retrieving calendar data",
-//       error: error.message,
-//     });
-//   }
-// };
-
 exports.getTasksByProjectId = (req, res) => {
   logInfo(req.body, "getTasksByProjectId");
-  console.log(req.body, "getTasksByProjectId");
-
   let userRole = req.userInfo.userRole.toLowerCase();
   let userAccess = req.userInfo.userAccess;
   let viewAllTasks = false;
@@ -1338,9 +974,6 @@ exports.getTasksByProjectId = (req, res) => {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const skip = (page - 1) * limit;
-
-            console.log("selectedCategory", req.query.selectedCategory);
-
             if (req.query.selectedCategory) {
               // Split the selected categories into an array
               const selectedCategories = req.query.selectedCategory.split(",");
@@ -1417,9 +1050,6 @@ exports.deleteTask = (req, res) => {
           msg: "Task not found",
         });
       }
-
-      console.log(`Marked task ${taskId} as deleted`);
-
       // Insert an audit log for the task marked as deleted
       audit.insertAuditLog(
         "",
@@ -1447,11 +1077,7 @@ exports.deleteTask = (req, res) => {
     });
 };
 exports.deleteSelectedTasks = async (req, res) => {
-  console.log("testing purpose");
   const { taskIds, modifiedBy } = req.body;
-  console.log(req.body, "request bosy ");
-  console.log("Request Body:", req.body);
-
   // Validate input
   if (!Array.isArray(taskIds) || taskIds.length === 0 || !modifiedBy) {
     return res.status(400).json({
@@ -1513,7 +1139,6 @@ exports.deleteSelectedTasks = async (req, res) => {
 exports.updateTasksSubTasks = (req, res) => {
   logInfo("updateTasksSubTasks");
   let task = req.body.task;
-  // console.log("task",task);
   let projectId = req.body.projectId;
   let updatedTask = {
     _id: task._id,
@@ -1928,7 +1553,6 @@ getUsersTodaysOpenTasks = async (
     tasksUnwind,
     taskFilterCondition,
   ]);
-  //  console.log("result",result);
   let date = dateUtil.DateToString(new Date().toISOString());
   let tasks = result.map((p) => {
     let t = {};
@@ -2242,7 +1866,6 @@ gettodaysTasksChartData = async (userRole, userId, projectid, showArchive) => {
       }
     }
     let allTask = result.length;
-    //console.log("todaysTaskCount",todaysTaskCount)
     // countArray.push({ 'name': 'All', 'value': allTask })
     // countArray.push({ 'name': 'Delete', 'value': isDeleteCount })
     countArray.push({ name: "Overdue", value: overDueCount });
@@ -2594,7 +2217,6 @@ exports.getDashboardData = async (req, res) => {
 
 exports.assignUsers = async (req, res) => {
   try {
-    console.log("Assign Users Request:", req.body);
     const { taskId, assignedUsers } = req.body;
 
     // Validate input
@@ -2611,9 +2233,6 @@ exports.assignUsers = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
       return res.status(400).json({ error: "Invalid taskId format." });
     }
-
-    console.log("Looking for task with ID:", taskId);
-
     // Step 1: Find the project containing the task
     const project = await Project.findOne({
       "tasks._id": taskId,
@@ -2626,12 +2245,8 @@ exports.assignUsers = async (req, res) => {
     }
     const task = project.tasks.find((t) => t._id.toString() === taskId);
     if (!task) {
-      console.log("Task not found within project for taskId:", taskId);
       return res.status(404).json({ error: "Task not found" });
     }
-
-    console.log("Retrieved task:", task);
-
     const userId = assignedUsers[0];
     const user = project.projectUsers.find(
       (user) => user._id.toString() === userId
@@ -2643,9 +2258,6 @@ exports.assignUsers = async (req, res) => {
         .status(400)
         .json({ error: `User not found for ID: ${userId}` });
     }
-
-    console.log("userId", userId, "Users", user.userId);
-
     task.userId = user.userId;
     task.hiddenUserId = user.name;
     task.modifiedOn = new Date();
@@ -2693,9 +2305,6 @@ exports.assignUsers = async (req, res) => {
       ownerEmail: project.ownerEmail, // Assuming project has an ownerEmail field
       id: task._id, // Task ID
     };
-
-    console.log("updateTask", updateTask);
-
     // Step 8: Respond with the updated task information
     res.json({
       success: true,
@@ -2770,13 +2379,7 @@ exports.deleteTask = async (req, res) => {
 
 exports.getKanbanTasks = async (req, res) => {
   try {
-    console.log("IN GET KANBAN TASKS");
-
     const { filters, searchFilter, projectId, stageId } = req.body;
-
-    console.log(filters);
-
-    // console.log("req.body", req.body)
     let page = req.query.page;
 
     const limit = 10;
@@ -2863,9 +2466,6 @@ exports.getKanbanTasks = async (req, res) => {
           break;
       }
     });
-
-    // console.log(whereCondition)
-
     const tasks = await Task.find({
       ...whereCondition,
     })
@@ -2875,9 +2475,6 @@ exports.getKanbanTasks = async (req, res) => {
       .populate("userId")
       .populate("createdBy")
       .populate("subtasks");
-
-    console.log("tasksss", tasks);
-
     const totalPages = Math.ceil(
       (await Task.countDocuments({
         ...whereCondition,
@@ -2897,9 +2494,6 @@ exports.getKanbanTasks = async (req, res) => {
 
 exports.assignTasksToUser = async (req, res) => {
   const { taskIds, userId, modifiedBy, projectId } = req.body;
-
-  console.log("req body", req.body);
-
   // Validate input
   if (
     !Array.isArray(taskIds) ||
@@ -2970,14 +2564,9 @@ exports.assignTasksToUser = async (req, res) => {
     const emailOwner = assignedTaskUser ? assignedTaskUser.email : null;
     const assignedUser = await User.findById(userId);
     const email = assignedUser ? assignedUser.email : null;
-
-    //console.log("mainProject emailOwner", emailOwner, email);
-
     // Helper function for email notifications
     const auditTaskAndSendMail = async (taskId, emailOwner, email) => {
       try {
-        //console.log("mainProjectsss emailOwner", emailOwner, email);
-
         const updatedTask = await Task.findById(taskId);
         const updatedDescription = updatedTask.description
           .split("\n")
@@ -3044,9 +2633,6 @@ exports.assignTasksToUser = async (req, res) => {
 
 exports.assignTasksToProject = async (req, res) => {
   const { taskIds, targetProjectId, modifiedBy, sourceProjectId } = req.body;
-
-  console.log("Request Body:", req.body);
-
   // Validate input
   if (
     !Array.isArray(taskIds) ||
@@ -3137,20 +2723,14 @@ exports.assignTasksToProject = async (req, res) => {
     // Step 4: Send email notifications for copied tasks
     const mainProject = await Project.findById(sourceProjectId);
     const taskAssignedUser = mainProject ? mainProject.userid : null;
-    console.log("taskAssignedUser id", taskAssignedUser);
     const assignedTaskUser = taskAssignedUser
       ? await User.findById(taskAssignedUser)
       : null;
-    console.log("assignedTaskUser id", assignedTaskUser);
     const emailOwner = assignedTaskUser ? assignedTaskUser.email : null;
     const assignedUser = await User.findById(modifiedBy);
     const email = assignedUser ? assignedUser.email : null;
-
-    console.log("emailOwner", emailOwner, email);
-
     const auditTaskAndSendMail = async (task, emailOwner, email) => {
       try {
-        console.log("emailOwner in ", emailOwner, email);
         let updatedDescription = task.description
           .split("\n")
           .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
@@ -3220,10 +2800,6 @@ exports.assignTasksToProject = async (req, res) => {
 };
 exports.moveTasksToProject = async (req, res) => {
   const { taskIds, targetProjectId, modifiedBy } = req.body;
-
-  console.log("Request Body:", req.body);
-
-  // Validate input
   if (
     !Array.isArray(taskIds) ||
     taskIds.length === 0 ||
@@ -3298,7 +2874,6 @@ exports.moveTasksToProject = async (req, res) => {
 exports.getTasksKanbanData = async (req, res) => {
   try {
     const { projectId } = req.params;
-    console.log("projectId", projectId);
     const page = parseInt(req.query.page) || 0;
     let limit = 20;
     let skip = page * limit;
@@ -3309,11 +2884,6 @@ exports.getTasksKanbanData = async (req, res) => {
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
     }).sort({ sequence: "asc" });
-
-    console.log(taskStages);
-
-    console.log(taskStages);
-
     // Fetch paginated projects for each stage separately
     const stagesWithTasks = await Promise.all(
       taskStages.map(async (stage) => {
@@ -3326,7 +2896,6 @@ exports.getTasksKanbanData = async (req, res) => {
           .skip(skip)
           .limit(limit)
           .populate("subtasks");
-        console.log(tasks);
         const totalCount = await Task.countDocuments({
           taskStageId: stage._id,
           isDeleted: false,
@@ -3352,12 +2921,8 @@ exports.getTasksKanbanData = async (req, res) => {
 };
 
 exports.deleteFiltered = async (req, res) => {
-  console.log("in delete Filter");
-
   try {
     const { projectId, filters = [], searchFilter } = req.body;
-
-    console.log("req body data", req.body);
 
     if (!projectId) {
       return res.status(400).json({
