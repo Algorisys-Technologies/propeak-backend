@@ -33,12 +33,10 @@ exports.getContacts = async (req, res) => {
     return res.status(200).json({ success: true, contacts });
   } catch (error) {
     console.error("Error fetching contacts:", error.message);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Server error. Please try again later.",
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Server error. Please try again later.",
+    });
   }
 };
 
@@ -78,11 +76,11 @@ exports.getAllContact = async (req, res) => {
       },
       { companyId: companyId },
       { account_id: accountId },
-      { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }, 
+      { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
     ],
   })
     .skip(limit * currentPage)
-    .limit(limit);  
+    .limit(limit);
 
   const totalPages = Math.ceil(
     (await Contact.countDocuments({
@@ -100,7 +98,7 @@ exports.getAllContact = async (req, res) => {
         },
         { companyId: companyId },
         { account_id: accountId },
-        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }, 
+        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
       ],
     })) / limit
   );
@@ -150,6 +148,18 @@ exports.getAllContact = async (req, res) => {
 //     res.status(500).json({ success: false, msg: `Something went wrong. ${err}` });
 //   }
 // };
+
+exports.getContactFile = async (req, res) => {
+  try {
+    const { file_name } = req.body;
+    console.log(file_name, "file_name");
+  } catch (err) {
+    console.error("Error occurred:", err);
+    res
+      .status(500)
+      .json({ success: false, msg: `Something went wrong. ${err.message}` });
+  }
+};
 
 // Get Contact By ID
 exports.getContactById = async (req, res) => {
@@ -278,9 +288,38 @@ exports.createMultipleContacts = async (req, res) => {
   try {
     const { contacts, companyId } = req.body;
 
-    const newContact = await Contact.insertMany(contacts);
+    // Insert contacts into the Contact collection
+    const newContacts = await Contact.insertMany(contacts);
 
-    console.log("contact created successfully:", newContact);
+    // Find one matching uploaded file
+    const checkUploadFiles = await UploadRepositoryFile.find({
+      fileName: { $in: contacts.map((contact) => contact.file_name) },
+    });
+
+    console.log(checkUploadFiles, "checkUploadFiles");
+
+    if (checkUploadFiles.length > 0) {
+      for (const uploadFile of checkUploadFiles) {
+        // Find the corresponding contact
+        const checkContact = await Contact.findOne({
+          file_name: uploadFile.fileName, // Match the file_name
+        });
+
+        console.log(checkContact, "checkContact");
+
+        if (checkContact) {
+          // Update UploadRepositoryFile with the found contact's ID
+          const data = await UploadRepositoryFile.updateOne(
+            { _id: uploadFile._id },
+            { $set: { contactId: checkContact._id } }
+          );
+
+          console.log("Updated UploadRepositoryFile:", data);
+        }
+      }
+    }
+
+    console.log("contact created successfully:", newContacts);
     console.log(companyId, activeClients);
     const users = activeClients.get(companyId);
     console.log("live users", users);
@@ -296,7 +335,7 @@ exports.createMultipleContacts = async (req, res) => {
     res.json({
       success: true,
       message: "Successfully added!",
-      result: newContact,
+      result: newContacts,
     });
   } catch (err) {
     console.error("Error occurred while creating contact:", err);

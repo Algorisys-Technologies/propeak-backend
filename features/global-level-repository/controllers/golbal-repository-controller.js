@@ -139,7 +139,9 @@ exports.getVisitingCardsFolderWise = (req, res) => {
         companyId,
         vfolderId,
         path: "/contacts"
-    }).skip(limit*page).limit(limit)
+    })
+    .populate("contactId", "title")
+    .skip(limit*page).limit(limit)
         .then(async (result) => {
 
             console.log("resulttttt",result)
@@ -187,7 +189,7 @@ exports.getVisitingCardsFolderWise = (req, res) => {
                 if (result[i].path.toLowerCase().includes('/contacts')) {
                     let obj = {
                         "_id": result[i]._id,
-                        "title": result[i].title,
+                        "title": result[i].contactId?.title || "" ,
                         "fileName": result[i].fileName,
                         "description": result[i].description,
                         "path": result[i].path,

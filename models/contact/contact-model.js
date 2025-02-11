@@ -14,6 +14,9 @@ const ContactSchema = new mongoose.Schema({
     type: String,
     // required: true,
   },
+  file_name: {
+    type: String,
+  },
   email: {
     type: String,
   },
