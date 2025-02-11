@@ -76,8 +76,8 @@ exports.createTask = (req, res) => {
     isDeleted,
     createdByEmail,
     ownerEmail,
+    publishStatus
   } = task;
-  const publishStatus = req.body.publishStatus || "published";
 
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
@@ -175,7 +175,7 @@ exports.createTask = (req, res) => {
             { $push: { uploadFiles: uploadResult._id } }
           );
         }
-
+        console.log(req.files,uploadFile)
         try {
           if (!req.files.uploadFile) {
             res.send({ error: "No files were uploaded." });
@@ -183,6 +183,7 @@ exports.createTask = (req, res) => {
           }
 
           const uploadedFile = req.files.uploadFile;
+          console.log(uploadedFile, "uploadedFile");
           const fileUploaded = uploadedFile.name.split(".");
           const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
 
@@ -527,7 +528,7 @@ exports.updateTask = (req, res) => {
     userId,
     createdByEmail,
     ownerEmail,
-    publish_status,
+    publishStatus,
   } = task;
 
   console.log(depId, "depId");
@@ -562,7 +563,7 @@ exports.updateTask = (req, res) => {
       modifiedBy,
       modifiedOn: new Date(),
       userId, // Update the userId here
-      publish_status,
+      publish_status: publishStatus,
     },
     { new: true } // Options to return the updated document and run validators
   )
