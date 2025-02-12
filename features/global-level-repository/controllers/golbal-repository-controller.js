@@ -189,7 +189,7 @@ exports.getVisitingCardsFolderWise = (req, res) => {
                 if (result[i].path.toLowerCase().includes('/contacts')) {
                     let obj = {
                         "_id": result[i]._id,
-                        "title": result[i].contactId?.title || "" ,
+                        "title": result[i].title || result[i].contactId?.title || "" ,
                         "fileName": result[i].fileName,
                         "description": result[i].description,
                         "path": result[i].path,
@@ -236,7 +236,7 @@ exports.getAllContactsFile = (req, res) => {
         isDeleted: false,
         companyId,
           path: "/contacts"
-    }).skip(limit*page).limit(limit)
+    }).skip(limit*page).limit(limit).populate("contactId")
         .then(async (result) => {
 
             const totalPages = Math.ceil(await UploadRepositoryFile.countDocuments({
@@ -279,7 +279,7 @@ exports.getAllContactsFile = (req, res) => {
                 if (result[i].path.toLowerCase().includes('/contacts')) {
                     let obj = {
                         "_id": result[i]._id,
-                        "title": result[i].title,
+                        "title": result[i].contactId?.title ||  result[i].title,
                         "fileName": result[i].fileName,
                         "description": result[i].description,
                         "path": result[i].path,
