@@ -276,20 +276,51 @@ exports.createProject = async (req, res) => {
 
   logInfo(req.body, "createProject req.body");
   let userName = req.body.userName;
-  const { title, companyId } = req.body;
-  const existingProject = await Project.findOne({ title, companyId });
+  const { title, companyId, status, taskStages, group } = req.body;
+  const existingProject = await Project.findOne({ title, companyId, isDeleted: false });
 
   if (existingProject) {
-    // Fetch users associated with the existing project
     const projectUsers = await User.find(
-      { _id: { $in: existingProject.projectUsers } },
+      { _id: { $in: existingProject.userid } },
       "name email"
     );
+
+    const userName =
+      projectUsers.length > 0 ? projectUsers[0].name : "an unknown user";
+
+    return res.status(400).json({
+      error: `A project with the title "${existingProject.title}" is already in progress and is being worked on by "${userName}".`,
+    });
+  }
+
+  if (
+    !mongoose.Types.ObjectId.isValid(req.body.projectTypeId) ||
+    req.body.projectTypeId === ""
+  ) {
+    return res.status(400).json({ error: "Field Project Type Required" });
+  }
+
+  if (
+    !mongoose.Types.ObjectId.isValid(req.body.projectStageId) ||
+    req.body.projectStageId === ""
+  ) {
+    return res.status(400).json({ error: "Field Project Status Required" });
+  }
+
+  if (
+    !title ||
+    title.trim() === "" ||
+    !group ||
+    group.trim() === "" ||
+    !status ||
+    status.trim() === "" ||
+    !taskStages ||
+    !Array.isArray(taskStages) ||
+    taskStages.length === 0
+  ) {
     return res
       .status(400)
-      .send(
-        `A project with the title "${existingProject.title}" is already in progress and is being worked on by ${projectUsers[0].name}.`
-      );
+      .json({ error: "All fields marked with an asterisk (*) are mandatory." });
   }
 
   let newProject = new Project({
@@ -320,8 +351,6 @@ exports.createProject = async (req, res) => {
     projectTypeId: req.body.projectTypeId,
     group: req.body.group,
   });
-
-  console.log(newProject);
 
   newProject
     .save()
@@ -434,20 +463,29 @@ exports.createProject = async (req, res) => {
 
 // UPDATE
 exports.updateProject = async (req, res) => {
-  console.log("okay okay ")
+  console.log("okay okay ");
   // console.log("req.body updated",req.body);
   logInfo(req.body, "updateProject req.body");
   try {
     let userName = req.body.userName;
     const { _id, title, companyId, status } = req.body;
 
-    const existingProject = await Project.findOne({ title, companyId, _id: { $ne: _id } });
-    console.log(existingProject, "existingProject..............")
+    const existingProject = await Project.findOne({
+      title,
+      companyId,
+      _id: { $ne: _id },
+    });
+    console.log(existingProject, "existingProject..............");
     if (existingProject) {
-      const projectUsers = await User.find({ _id: { $in: existingProject.projectUsers } }, "name");
+      const projectUsers = await User.find(
+        { _id: { $in: existingProject.projectUsers } },
+        "name"
+      );
       return res.status(400).json({
         success: false,
-        msg: `A project with the title "${existingProject.title}" already exists and is being worked on by ${
+        msg: `A project with the title "${
+          existingProject.title
+        }" already exists and is being worked on by ${
           projectUsers[0]?.name || "someone"
         }.`,
       });
@@ -661,17 +699,26 @@ exports.updateProjectField = async (req, res) => {
   logInfo(req.body, "req.body in update fields");
   const { _id, title, companyId, status } = req.body;
 
-    const existingProject = await Project.findOne({ title, companyId, _id: { $ne: _id } });
-    console.log(existingProject, "existingProject..............")
-    if (existingProject) {
-      const projectUsers = await User.find({ _id: { $in: existingProject.projectUsers } }, "name");
-      return res.status(400).json({
-        success: false,
-        msg: `A project with the title "${existingProject.title}" already exists and is being worked on by ${
-          projectUsers[0]?.name || "someone"
-        }.`,
-      });
-    }
+  const existingProject = await Project.findOne({
+    title,
+    companyId,
+    _id: { $ne: _id },
+  });
+  console.log(existingProject, "existingProject..............");
+  if (existingProject) {
+    const projectUsers = await User.find(
+      { _id: { $in: existingProject.projectUsers } },
+      "name"
+    );
+    return res.status(400).json({
+      success: false,
+      msg: `A project with the title "${
+        existingProject.title
+      }" already exists and is being worked on by ${
+        projectUsers[0]?.name || "someone"
+      }.`,
+    });
+  }
 
   let updatedProject = new Project({
     _id: req.body._id,
