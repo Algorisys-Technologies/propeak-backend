@@ -124,6 +124,9 @@ const TaskSchema = new mongoose.Schema(
         negotiated_price: {
           type: Number,
         },
+        unit: {
+          type: String,
+        },
         total_value: {
           type: Number,
         },

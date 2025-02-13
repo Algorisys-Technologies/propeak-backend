@@ -142,13 +142,17 @@ try {
       .receiveMessageFromQueue("mul_contact_extraction_queue")
       .then(async (msg) => {
         if (msg !== "No messages in queue") {
-          const { files, companyId, accountId, filePath, visitingCardsIds, vfolderId } = msg;
+          const {
+            files,
+            companyId,
+            accountId,
+            filePath,
+            visitingCardsIds,
+            vfolderId,
+          } = msg;
 
           try {
-            
-
             const formDataToSend = new FormData();
-            const contacts = [];
 
             const promises = files.map(async (file) => {
               const filePathWithName = filePath + file.name;
@@ -194,7 +198,7 @@ try {
             );
 
             if (!extractResponse.ok) {
-              console.log(extractResponse)
+              console.log(extractResponse);
               await fetch(`http://142.93.222.95:5001/reset_usage`, {
                 method: "POST",
                 body: {},
@@ -229,52 +233,60 @@ try {
             }
 
             console.log("extractDetails", extractDetails);
-
+            const contacts = [];
             extractDetails.cards.forEach((extractDetail) => {
-              const contact = {
-                companyId,
-                first_name: extractDetail.first_name,
-                last_name: extractDetail.last_name,
-                email: extractDetail.email_address.join(","),
-                phone:
-                  typeof extractDetail.phone_numbers === "object"
-                    ? Object.keys(extractDetail.phone_numbers)
-                        .map((p) => `${p}:${extractDetail.phone_numbers[p]}`)
-                        .join(" ")
-                    : extractDetail.phone_numbers,
-                address: {
-                  street: extractDetail.street_address,
-                  city: extractDetail.city,
-                  state: extractDetail.state,
-                  postal_code: extractDetail.pincode,
-                  country: extractDetail.country,
-                },
-                secondary_address: extractDetail.secondary_address,
-                website: extractDetail.website_url,
-                title: extractDetail.company_name,
-                department: extractDetail.designation,
-                mobile:
-                  typeof extractDetail.phone_numbers === "object"
-                    ? Object.keys(extractDetail.phone_numbers)
-                        .map((p) => `${p}:${extractDetail.phone_numbers[p]}`)
-                        .join(" ")
-                    : extractDetail.phone_numbers,
-                account_id: accountId || null,
-                account_name: "",
-                contact_owner: {
-                  name: "",
-                  user_id: null,
-                },
-                lead_source: "",
-                description: "",
-                created_on: new Date().toISOString(),
-                modified_on: new Date().toISOString(),
-                isDeleted: false,
-                creationMode: "AUTO",
-                vfolderId
-              };
+              try {
+                const contact = {
+                  companyId,
+                  first_name: extractDetail.first_name,
+                  last_name: extractDetail.last_name,
+                  file_name: extractDetail.file_name,
+                  email: extractDetail.email_address.join(","),
+                  phone:
+                    typeof extractDetail.phone_numbers === "object"
+                      ? Object.keys(extractDetail.phone_numbers)
+                          .map((p) => `${p}:${extractDetail.phone_numbers[p]}`)
+                          .join(" ")
+                      : extractDetail.phone_numbers,
+                  address: {
+                    street: extractDetail.street_address,
+                    city: extractDetail.city,
+                    state: extractDetail.state,
+                    postal_code: extractDetail.pincode,
+                    country: extractDetail.country,
+                  },
+                  secondary_address: extractDetail.secondary_address,
+                  website: extractDetail.website_url,
+                  title: extractDetail.company_name,
+                  department: extractDetail.designation,
+                  mobile:
+                    typeof extractDetail.phone_numbers === "object"
+                      ? Object.keys(extractDetail.phone_numbers)
+                          .map((p) => `${p}:${extractDetail.phone_numbers[p]}`)
+                          .join(" ")
+                      : extractDetail.phone_numbers,
+                  account_id: accountId || null,
+                  account_name: "",
+                  contact_owner: {
+                    name: "",
+                    user_id: null,
+                  },
+                  lead_source: "",
+                  description: "",
+                  created_on: new Date().toISOString(),
+                  modified_on: new Date().toISOString(),
+                  isDeleted: false,
+                  creationMode: "AUTO",
+                  vfolderId,
+                };
 
-              contacts.push(contact);
+                contacts.push(contact);
+              } catch (error) {
+                console.error(
+                  "Error processing contact:",
+                  error
+                );
+              }
             });
 
             console.log("contacts created", contacts);
@@ -287,7 +299,6 @@ try {
                 headers: {
                   "Content-Type": "application/json",
                 },
-
               }
             );
 
@@ -300,10 +311,9 @@ try {
                   headers: {
                     "Content-Type": "application/json",
                   },
-  
                 }
               );
-              console.log(updateStatus)
+              console.log(updateStatus);
             }
 
             console.log(await contactResponse.json());

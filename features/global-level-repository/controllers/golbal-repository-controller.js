@@ -237,7 +237,7 @@ exports.getAllContactsFile = (req, res) => {
         isDeleted: false,
         companyId,
           path: "/contacts"
-    }).skip(limit*page).limit(limit)
+    }).skip(limit*page).limit(limit).populate("contactId")
         .then(async (result) => {
 
             const totalPages = Math.ceil(await UploadRepositoryFile.countDocuments({
@@ -280,7 +280,7 @@ exports.getAllContactsFile = (req, res) => {
                 if (result[i].path.toLowerCase().includes('/contacts')) {
                     let obj = {
                         "_id": result[i]._id,
-                        "title": result[i].title,
+                        "title": result[i].contactId?.title ||  result[i].title,
                         "fileName": result[i].fileName,
                         "description": result[i].description,
                         "path": result[i].path,
@@ -430,7 +430,7 @@ exports.postMultipleVisitingCards = async (req, res) => {
     let vFolder = await VFolder.findOne({name: req.body.folderName, companyId})
 
     if(!vFolder){
-        vFolder = await VFolder.create({name: req.body.folderName, companyId, created_on: new Date()})
+        vFolder = await VFolder.create({name: req.body.folderName, isDeleted:false, companyId, created_on: new Date()})
     }
 
     files.forEach((file)=>{
@@ -592,40 +592,24 @@ exports.postUploadFile = (req, res) => {
 }
 
 exports.editRepositoryFile = ((req, res) => {
-    //console.log("req.body", req.body);
-    let userRole = req.userInfo.userRole.toLowerCase();
-    let accessCheck = access.checkEntitlementsForUserRole(userRole);
-    if (accessCheck === false) {
-        res.json({ err: errors.NOT_AUTHORIZED });
-        return;
-    }
-    let pathName;
-    if (req.body.path === '/') {
-        pathName = '/'
-    }
-    else {
-        pathName = req.body.path
-    }
+    console.log("req.body in edit global", req.body);
+    
+    
     let updatedFile = {
         _id: req.body._id,
         title: req.body.title,
-        fileName: req.body.fileName,
-        description: req.body.description,
-        path: pathName,
-        isDeleted: false,
-        createdBy: req.userInfo.userId,
-        createdOn: req.body.createdOn,
+        description: req.body.description
     }
 
     UploadRepositoryFile.findOneAndUpdate({ "_id": req.body._id }, updatedFile)
         .then((result) => {
-            //console.log("result", result);
+            console.log("result", result);
             res.json({
                 success: true,
                 msg: `Document Updated Successfully!`,
                 result: req.body
             })
-        })
+        }) 
 })
 
 

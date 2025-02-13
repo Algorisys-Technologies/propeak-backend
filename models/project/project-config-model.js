@@ -47,6 +47,10 @@ const ConfigItemSchema = new mongoose.Schema({
     type: Boolean,
     required: true,
   },
+  customReport: {
+    type: Boolean,
+    required: true,
+  },
   defaultValue: {
     type: mongoose.Schema.Types.Mixed,
     default: null,

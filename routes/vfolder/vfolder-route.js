@@ -6,4 +6,6 @@ router.get("/getVFolders/:companyId" , vFolderController.getVFolders)
 
 router.post("/renameVFolder" , vFolderController.renameVFolder)
 
+router.post("/deleteVFolder", vFolderController.deleteVFolder)
+
 module.exports = router;
