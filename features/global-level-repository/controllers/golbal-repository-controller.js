@@ -119,11 +119,11 @@ exports.getVisitingCardsAccountWise = (req, res) => {
 
 
 
-exports.getVisitingCardsFolderWise = (req, res) => {
+exports.getVisitingCardsFolderWise = async (req, res) => {
     const companyId = req.body.companyId;
     const vfolderId = req.body.folderId;
-    const page = req.body.page
-    const limit = 10
+    const page = req.body.page;
+    const limit = 10;
 
     let pathName = req.body.pathData === 'root' ? '/' : req.body.pathData.toLowerCase();
     let itemArray = [];
@@ -134,83 +134,86 @@ exports.getVisitingCardsFolderWise = (req, res) => {
         fs.mkdirSync(companyContactsFolder, { recursive: true });
     }
 
-    UploadRepositoryFile.find({
-        isDeleted: false,
-        companyId,
-        vfolderId,
-        path: "/contacts"
-    }).skip(limit*page).limit(limit)
-        .then(async (result) => {
+    try {
+        let query = {
+            isDeleted: false,
+            companyId,
+            vfolderId,
+            path: "/contacts"
+        };
 
-            console.log("resulttttt",result)
+        let totalPages = 1;
+        let result;
 
-            const totalPages = Math.ceil(await UploadRepositoryFile.countDocuments({
-                isDeleted: false,
-                vfolderId,
-        companyId,
-        path: "/contacts"
-            }) / limit)
+        if (page === "All") {
+            // Fetch all records if page is "All"
+            result = await UploadRepositoryFile.find(query);
+        } else {
+            // Apply pagination
+            result = await UploadRepositoryFile.find(query)
+                .skip(limit * page)
+                .limit(limit);
 
-            let folderPath = req.body.pathData === 'root'
-                ? companyContactsFolder
-                : `${companyContactsFolder}${pathName}`;
+            totalPages = Math.ceil(await UploadRepositoryFile.countDocuments(query) / limit);
+        }
 
-            // Get directories in the specified folderPath
-            let dirs = fs.readdirSync(folderPath);
+        let folderPath = req.body.pathData === 'root'
+            ? companyContactsFolder
+            : `${companyContactsFolder}${pathName}`;
 
-            // Only process directories under the "contacts" folder
-            for (let x = 0; x < dirs.length; x++) {
-                let a_dir = path.resolve(folderPath, dirs[x]);
-                if (fs.statSync(a_dir).isDirectory()) {
-                    itemArray.push(`/${dirs[x]}`);
-                }
+        // Get directories in the specified folderPath
+        let dirs = fs.readdirSync(folderPath);
+
+        // Only process directories under the "contacts" folder
+        for (let x = 0; x < dirs.length; x++) {
+            let a_dir = path.resolve(folderPath, dirs[x]);
+            if (fs.statSync(a_dir).isDirectory()) {
+                itemArray.push(`/${dirs[x]}`);
             }
+        }
 
-            let dataArray = [];
+        let dataArray = [];
 
-            // Add directories under "contacts" to the dataArray
-            for (let j = 0; j < itemArray.length; j++) {
-                let name = itemArray[j].split('/');
-                let pathDt = pathName === '/' ? itemArray[j] : `${pathName}${itemArray[j]}`;
+        // Add directories under "contacts" to the dataArray
+        for (let j = 0; j < itemArray.length; j++) {
+            let name = itemArray[j].split('/');
+            let pathDt = pathName === '/' ? itemArray[j] : `${pathName}${itemArray[j]}`;
 
+            let obj = {
+                "title": name[1],
+                "path": pathDt,
+            };
+            dataArray.push(obj);
+        }
+
+        // Add files from the result that belong to the "contacts" folder
+        for (let i = 0; i < result.length; i++) {
+            if (result[i].path.toLowerCase().includes('/contacts')) {
                 let obj = {
-                    "title": name[1],
-                    "path": pathDt,
+                    "_id": result[i]._id,
+                    "title": result[i].title,
+                    "fileName": result[i].fileName,
+                    "description": result[i].description,
+                    "path": result[i].path,
+                    "isDeleted": result[i].isDeleted,
+                    "createdBy": result[i].createdBy,
+                    "createdOn": result[i].createdOn,
+                    "companyId": result[i].companyId,
+                    "accountId": result[i].accountId,
+                    "vfolderId": result[i].vfolderId
                 };
                 dataArray.push(obj);
             }
+        }
 
-            console.log("result", result)
-
-            // Add files from the result that belong to the "contacts" folder
-            for (let i = 0; i < result.length; i++) {
-                if (result[i].path.toLowerCase().includes('/contacts')) {
-                    let obj = {
-                        "_id": result[i]._id,
-                        "title": result[i].title,
-                        "fileName": result[i].fileName,
-                        "description": result[i].description,
-                        "path": result[i].path,
-                        "isDeleted": result[i].isDeleted,
-                        "createdBy": result[i].createdBy,
-                        "createdOn": result[i].createdOn,
-                        "companyId": result[i].companyId,
-                        "accountId": result[i].accountId,
-                        "vfolderId": result[i].vfolderId
-                    };
-                    dataArray.push(obj);
-                }
-            }
-
-            res.json({
-                result: dataArray,
-                totalPages
-            });
-        })
-        .catch((error) => {
-            console.error("Error fetching contacts files:", error);
-            res.status(500).json({ error: "An error occurred while fetching contacts files." });
+        res.json({
+            result: dataArray,
+            totalPages
         });
+    } catch (error) {
+        console.error("Error fetching contacts files:", error);
+        res.status(500).json({ error: "An error occurred while fetching contacts files." });
+    }
 };
 
 
