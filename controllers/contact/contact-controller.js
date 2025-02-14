@@ -308,10 +308,10 @@ exports.createMultipleContacts = async (req, res) => {
         console.log(checkContact, "checkContact");
 
         if (checkContact) {
-          // Update UploadRepositoryFile with the found contact's ID
+          // Update UploadRepositoryFile title with the found contact's ID
           const data = await UploadRepositoryFile.updateOne(
             { _id: uploadFile._id },
-            { $set: { contactId: checkContact._id } }
+            { title: checkContact.title }
           );
 
           console.log("Updated UploadRepositoryFile:", data);

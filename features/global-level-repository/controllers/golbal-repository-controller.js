@@ -10,8 +10,6 @@ const VFolder = require("../../../models/vfolder/vfolder-model");
 const vfolderModel = require("../../../models/vfolder/vfolder-model");
 let uploadFolder = config.UPLOAD_PATH;
 
-// let uploadFolder = './uploads';
-
 exports.getRepositoryFile = (req, res) => {
   let id = req.params.fileId;
   UploadRepositoryFile.find({ _id: id }).then((result) => {
@@ -163,14 +161,10 @@ exports.getVisitingCardsFolderWise = async (req, res) => {
 
     if (page === "All") {
       // Fetch all records if page is "All"
-      result = await UploadRepositoryFile.find(query).populate(
-        "contactId",
-        "title"
-      );
+      result = await UploadRepositoryFile.find(query)
     } else {
       // Get paginated results
       result = await UploadRepositoryFile.find(query)
-        .populate("contactId", "title")
         .skip(limit * page)
         .limit(limit);
 
