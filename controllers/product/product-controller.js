@@ -178,7 +178,8 @@ exports.uploadProductFile = async function (req, res) {
       category: product.category || '',
       base_price: product.base_price || 0,
       stock: product.stock || 0,
-      description: product.description || '',
+      // description: product.description || '',
+      description: product.description !== undefined ? product.description.trim() : '',
       created_on: new Date(),
       modified_on: new Date(),
     }));
