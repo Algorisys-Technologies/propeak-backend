@@ -1285,6 +1285,7 @@ exports.addCustomTaskField = async (req, res) => {
       key,
       projectId,
       level,
+      isDeleted: false,
     });
     if (existingField) {
       return res.status(409).json({ message: "Key already exists" });
@@ -1410,10 +1411,11 @@ exports.deleteCustomTaskField = async (req, res) => {
   // console.log("delete.......")
   try {
     const customFieldId = req.params.customFieldId;
-    const existingField = await CustomTaskField.findOneAndUpdate({
-      _id: customFieldId,
-      isDeleted: true,
-    });
+    const existingField = await CustomTaskField.findOneAndUpdate(
+      { _id: customFieldId },
+      { isDeleted: true },
+      { new: true }
+    );
     if (!existingField) {
       return res.status(404).json({ message: "Custom field not found" });
     }
