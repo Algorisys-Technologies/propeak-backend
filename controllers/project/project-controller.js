@@ -279,7 +279,7 @@ exports.createProject = async (req, res) => {
   const { title, companyId, status, taskStages, group } = req.body;
   const existingProject = await Project.findOne({ title, companyId });
 
-  console.log(existingProject, "existingProject")
+  console.log(existingProject, "existingProject");
 
   if (existingProject) {
     // Fetch users associated with the existing project
@@ -291,11 +291,7 @@ exports.createProject = async (req, res) => {
     return res
       .status(400)
       .send(
-        `A project with the title "${
-          existingProject.title
-        }" is already in progress and is being worked on by ${
-          projectUsers[0]?.name
-        }.`
+        `A project with the title "${existingProject.title}" is already in progress and is being worked on by ${projectUsers[0]?.name}.`
       );
   } else {
     if (
@@ -311,9 +307,7 @@ exports.createProject = async (req, res) => {
     ) {
       return res
         .status(400)
-        .send(
-          "All fields marked with an asterisk (*) are mandatory."
-        );
+        .send("All fields marked with an asterisk (*) are mandatory.");
     }
   }
 
@@ -1304,6 +1298,7 @@ exports.addCustomTaskField = async (req, res) => {
       projectId,
       level,
       isMandatory,
+      isDeleted: false,
     });
 
     // Save the custom field
@@ -1325,7 +1320,8 @@ exports.getCustomTasksField = async (req, res) => {
 
     const level = req.query.level;
 
-    let condition = projectId == "all" ? {} : { projectId: projectId };
+    let condition =
+      projectId == "all" ? {} : { projectId: projectId, isDeleted: false };
 
     if (level) {
       condition.level = level;
@@ -1414,9 +1410,10 @@ exports.deleteCustomTaskField = async (req, res) => {
   // console.log("delete.......")
   try {
     const customFieldId = req.params.customFieldId;
-    const existingField = await CustomTaskField.findByIdAndDelete(
-      customFieldId
-    );
+    const existingField = await CustomTaskField.findOneAndUpdate({
+      _id: customFieldId,
+      isDeleted: true,
+    });
     if (!existingField) {
       return res.status(404).json({ message: "Custom field not found" });
     }

@@ -125,7 +125,7 @@ router.put(
 );
 
 // Delete custom task field (assuming ID comes from URL parameter)
-router.delete(
+router.post(
   "/deleteCustomTaskField/:customFieldId",
   // verifyToken,
   projectController.deleteCustomTaskField
