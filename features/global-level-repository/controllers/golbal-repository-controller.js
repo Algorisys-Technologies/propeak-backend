@@ -211,7 +211,7 @@ exports.getVisitingCardsFolderWise = async (req, res) => {
       if (result[i].path.toLowerCase().includes("/contacts")) {
         let obj = {
           _id: result[i]._id,
-          title: result[i].title || result[i].contactId?.title || "",
+          title: result[i].title || "",
           fileName: result[i].fileName,
           description: result[i].description,
           path: result[i].path,
@@ -307,7 +307,7 @@ exports.getAllContactsFile = (req, res) => {
         if (result[i].path.toLowerCase().includes("/contacts")) {
           let obj = {
             _id: result[i]._id,
-            title: result[i].contactId?.title || result[i].title,
+            title: result[i].title || "",
             fileName: result[i].fileName,
             description: result[i].description,
             path: result[i].path,
