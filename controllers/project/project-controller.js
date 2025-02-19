@@ -1322,7 +1322,7 @@ exports.getCustomTasksField = async (req, res) => {
     const level = req.query.level;
 
     let condition =
-      projectId == "all" ? {} : { projectId: projectId, isDeleted: false };
+      projectId == "all" ? {} : { projectId: projectId, $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] };
 
     if (level) {
       condition.level = level;
