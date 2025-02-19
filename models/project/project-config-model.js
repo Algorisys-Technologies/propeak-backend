@@ -49,7 +49,7 @@ const ConfigItemSchema = new mongoose.Schema({
   },
   customReport: {
     type: Boolean,
-    required: true,
+    // required: true,
   },
   defaultValue: {
     type: mongoose.Schema.Types.Mixed,
