@@ -277,50 +277,38 @@ exports.createProject = async (req, res) => {
   logInfo(req.body, "createProject req.body");
   let userName = req.body.userName;
   const { title, companyId, status, taskStages, group } = req.body;
-  const existingProject = await Project.findOne({ title, companyId, isDeleted: false });
+  const existingProject = await Project.findOne({ title, companyId });
+
+  console.log(existingProject, "existingProject");
 
   if (existingProject) {
+    // Fetch users associated with the existing project
     const projectUsers = await User.find(
-      { _id: { $in: existingProject.userid } },
+      { _id: { $in: existingProject.createdBy } },
       "name email"
     );
 
-    const userName =
-      projectUsers.length > 0 ? projectUsers[0].name : "an unknown user";
-
-    return res.status(400).json({
-      error: `A project with the title "${existingProject.title}" is already in progress and is being worked on by "${userName}".`,
-    });
-  }
-
-  if (
-    !mongoose.Types.ObjectId.isValid(req.body.projectTypeId) ||
-    req.body.projectTypeId === ""
-  ) {
-    return res.status(400).json({ error: "Field Project Type Required" });
-  }
-
-  if (
-    !mongoose.Types.ObjectId.isValid(req.body.projectStageId) ||
-    req.body.projectStageId === ""
-  ) {
-    return res.status(400).json({ error: "Field Project Status Required" });
-  }
-
-  if (
-    !title ||
-    title.trim() === "" ||
-    !group ||
-    group.trim() === "" ||
-    !status ||
-    status.trim() === "" ||
-    !taskStages ||
-    !Array.isArray(taskStages) ||
-    taskStages.length === 0
-  ) {
     return res
       .status(400)
-      .json({ error: "All fields marked with an asterisk (*) are mandatory." });
+      .send(
+        `A project with the title "${existingProject.title}" is already in progress and is being worked on by ${projectUsers[0]?.name}.`
+      );
+  } else {
+    if (
+      !title ||
+      title.trim() === "" ||
+      !group ||
+      group.trim() === "" ||
+      !status ||
+      status.trim() === "" ||
+      !taskStages ||
+      !Array.isArray(taskStages) ||
+      taskStages.length === 0
+    ) {
+      return res
+        .status(400)
+        .send("All fields marked with an asterisk (*) are mandatory.");
+    }
   }
 
   let newProject = new Project({
@@ -351,6 +339,8 @@ exports.createProject = async (req, res) => {
     projectTypeId: req.body.projectTypeId,
     group: req.body.group,
   });
+
+  console.log(newProject);
 
   newProject
     .save()
@@ -1295,6 +1285,7 @@ exports.addCustomTaskField = async (req, res) => {
       key,
       projectId,
       level,
+      isDeleted: false,
     });
     if (existingField) {
       return res.status(409).json({ message: "Key already exists" });
@@ -1308,6 +1299,7 @@ exports.addCustomTaskField = async (req, res) => {
       projectId,
       level,
       isMandatory,
+      isDeleted: false,
     });
 
     // Save the custom field
@@ -1329,7 +1321,8 @@ exports.getCustomTasksField = async (req, res) => {
 
     const level = req.query.level;
 
-    let condition = projectId == "all" ? {} : { projectId: projectId };
+    let condition =
+      projectId == "all" ? {} : { projectId: projectId, $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] };
 
     if (level) {
       condition.level = level;
@@ -1418,8 +1411,10 @@ exports.deleteCustomTaskField = async (req, res) => {
   // console.log("delete.......")
   try {
     const customFieldId = req.params.customFieldId;
-    const existingField = await CustomTaskField.findByIdAndDelete(
-      customFieldId
+    const existingField = await CustomTaskField.findOneAndUpdate(
+      { _id: customFieldId },
+      { isDeleted: true },
+      { new: true }
     );
     if (!existingField) {
       return res.status(404).json({ message: "Custom field not found" });
