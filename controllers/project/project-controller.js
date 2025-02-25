@@ -1502,7 +1502,7 @@ exports.getProjectsKanbanData = async (req, res) => {
     const archive = req.query.archive == "true";
 
     // Fetch all project stages
-    const projectStages = await ProjectStage.find({ companyId }).sort({
+    const projectStages = await ProjectStage.find({ companyId, isDeleted: false }).sort({
       sequence: "asc",
     });
 
