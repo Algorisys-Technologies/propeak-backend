@@ -222,6 +222,18 @@ exports.updateVisitingCardsStatus = async (req, res) => {
 //   }
 // };
 
+const generateUniqueAccountNumber = async () => {
+  const lastAccount = await Account.findOne({}, { account_number: 1 })
+    .sort({ account_number: -1 }) 
+    .lean();
+
+  let newNumber = lastAccount && lastAccount.account_number
+    ? parseInt(lastAccount.account_number, 10) + 1 
+    : 1; 
+
+  return newNumber.toString().padStart(9, "0");
+};
+
 exports.convertToAccount = async (req, res) => {
   try {
     const { id } = req.body;
@@ -232,7 +244,7 @@ exports.convertToAccount = async (req, res) => {
       account_name: `${contact.first_name || ""} ${contact.last_name || ""} ${
         contact.title || ""
       }`.trim(),
-      account_number: null, // No equivalent in contact; set to null or generate dynamically if needed
+      account_number: await generateUniqueAccountNumber(), // genreate unique account number
       industry: contact.title || null, // No equivalent in contact
       website: contact.email || null, // No equivalent in contact
       phone: contact.phone || contact.mobile || null,
