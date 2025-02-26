@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const TaskStage = require("../../models/task-stages/task-stages-model");
 const audit = require("../audit-log/audit-log-controller");
+const Task = require("../../models/task/task-model");
 
 // Create a new task stage
 exports.create_task_stage = async (req, res) => {
@@ -127,9 +128,47 @@ exports.get_task_stages_by_company = async (req, res) => {
       isDeleted: { $ne: true },
     });
 
-    console.log(stages, "stages");
+    const stagesWithTaskCount = await TaskStage.aggregate([
+  {
+    $match: {
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true } // Exclude deleted task stages
+    }
+  },
+  {
+    $lookup: {
+      from: "tasks",
+      let: { stageId: "$_id" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ["$taskStageId", "$$stageId"] },
+                { $ne: ["$isDeleted", true] } // Exclude deleted tasks
+              ]
+            }
+          }
+        }
+      ],
+      as: "tasks"
+    }
+  },
+  {
+    $addFields: {
+      taskCount: { $size: "$tasks" } // Count only non-deleted tasks
+    }
+  },
+  {
+    $project: {
+      _id: 1,
+      taskCount: 1
+    }
+  }
+]);
 
-    return res.status(200).json({ success: true, stages });
+
+    return res.status(200).json({ success: true, stages, stagesWithTaskCount });
   } catch (error) {
     console.error("Error fetching task stages:", error);
     return res
@@ -247,6 +286,13 @@ exports.delete_task_stage = async (req, res) => {
       { new: true }
     );
 
+    if (deletedStage) {
+      await Task.updateMany(
+        { taskStageId: deletedStage._id },
+        { $set: { isDeleted: true } }
+      );
+    }
+    
     if (!deletedStage) {
       return res
         .status(404)

@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
+const Project = require("../../models/project/project-model");
+const Task = require("../../models/task/task-model");
 const audit = require("../audit-log/audit-log-controller");
 
 exports.create_project_stage = async (req, res) => {
@@ -74,13 +76,71 @@ exports.get_project_stages_by_company = async (req, res) => {
       isDeleted: { $ne: true },
     });
 
+    const stagesWithProjectAndTaskCount = await ProjectStage.aggregate([
+      {
+        $match: { 
+          companyId: new mongoose.Types.ObjectId(companyId), 
+          isDeleted: { $ne: true } 
+        }
+      },
+      {
+        $lookup: {
+          from: "projects",
+          let: { stageId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $and: [
+              { $eq: ["$projectStageId", "$$stageId"] },
+              { $ne: ["$isDeleted", true] } // Exclude deleted projects
+            ] } } },
+            {
+              $lookup: {
+                from: "tasks",
+                let: { projectId: "$_id" },
+                pipeline: [
+                  { $match: { $expr: { $and: [
+                    { $eq: ["$projectId", "$$projectId"] },
+                    { $ne: ["$isDeleted", true] } // Exclude deleted tasks
+                  ] } } }
+                ],
+                as: "tasks"
+              }
+            }
+          ],
+          as: "projects"
+        }
+      },
+      {
+        $addFields: {
+          projectCount: { $size: "$projects" }, // Count only non-deleted projects
+          totalTasks: {
+            $sum: {
+              $map: {
+                input: "$projects",
+                as: "proj",
+                in: { $size: "$$proj.tasks" } // Count only non-deleted tasks
+              }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          projectCount: 1,
+          totalTasks: 1
+        }
+      }
+    ]);
+    
+    
+
     if (stages.length === 0) {
       return res
         .status(404)
         .json({ error: "No project stages found for this company." });
     }
 
-    return res.status(200).json({ success: true, stages });
+    return res.status(200).json({ success: true, stages, stagesWithProjectAndTaskCount });
   } catch (error) {
     console.error("Error fetching project stages:", error);
     return res
@@ -140,6 +200,27 @@ exports.delete_project_stage = async (req, res) => {
       { new: true }
     );
 
+    // if (deletedStage) {
+    //   await Project.updateMany(
+    //     { projectStageId: deletedStage._id },
+    //     { $set: { isDeleted: true } }
+    //   );
+    // }
+
+    if (deletedStage) {  
+      await Project.updateMany(
+        { projectStageId: deletedStage._id },
+        { $set: { isDeleted: true } }
+      );
+      const projectIdArray = await Project.distinct("_id", { projectStageId: deletedStage._id });
+      console.log(projectIdArray, "project array")
+      if (projectIdArray.length > 0) {
+        await Task.updateMany(
+          { projectId: { $in: projectIdArray } },
+          { $set: { isDeleted: true } }
+        );
+      }
+    }
     if (!deletedStage) {
       return res
         .status(404)
