@@ -23,7 +23,12 @@ exports.list = async function (req, res) {
         companyId: req.params.companyId,
       }).countDocuments()) / limit
     );
-    res.json({ success: true, result: products, totalPages: totalPages });
+    const totalProduct = Math.ceil(
+      (await Product.find({
+        companyId: req.params.companyId,
+      }).countDocuments())
+    )
+    res.json({ success: true, result: products, totalPages: totalPages, totalProduct: totalProduct });
   } catch (error) {
     res.json({
       message: "Failed Listing Products",
