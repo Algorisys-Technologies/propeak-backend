@@ -102,6 +102,26 @@ exports.getAllContact = async (req, res) => {
       ],
     })) / limit
   );
+
+  const totalContact = Math.ceil(
+    (await Contact.countDocuments({
+      account_id: accountId,
+      $and: [
+        {
+          $or: [
+            { first_name: { $regex: regex } },
+            { last_name: { $regex: regex } },
+            { phone: { $regex: regex } },
+            { email: { $regex: regex } },
+            { title: { $regex: regex } },
+            { vfolderId },
+          ],
+        },
+        { companyId: companyId },
+        { account_id: accountId },
+        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
+      ],
+    })))
   if (!contacts || contacts.length === 0) {
     return res.status(404).json({
       success: false,
@@ -112,7 +132,7 @@ exports.getAllContact = async (req, res) => {
     });
   }
 
-  res.json({ contacts, totalPages, currentPage });
+  res.json({ contacts, totalPages, currentPage, totalContact });
 };
 
 // exports.getAllContact = async (req, res) => {

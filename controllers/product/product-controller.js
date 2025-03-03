@@ -25,6 +25,7 @@ exports.list = async function (req, res) {
     );
     const totalProduct = Math.ceil(
       (await Product.find({
+        name: { $regex: regex },
         companyId: req.params.companyId,
       }).countDocuments())
     )

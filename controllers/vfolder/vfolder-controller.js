@@ -4,12 +4,26 @@ const VFolder = require("../../models/vfolder/vfolder-model");
 exports.getVFolders = async (req, res) => {
   try {
     const { companyId } = req.params;
+    const { q } = req.query;
+
+    const searchFilter = q
+      ? { name: { $regex: new RegExp(q, "i") } }
+      : {};
+
     const vFolders = await VFolder.find({ 
       companyId, 
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] 
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      ...searchFilter,
     });
 
-    return res.json({ success: true, result: vFolders });
+    const totalVFolder = Math.ceil(
+        (await VFolder.countDocuments({
+          companyId,
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+          ...searchFilter
+        }))
+      );
+    return res.json({ success: true, result: vFolders, totalVFolder: totalVFolder });
   } catch (e) {
     console.log(e);
     return res.json({ success: false, result: "" });
