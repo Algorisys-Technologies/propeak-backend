@@ -2336,6 +2336,31 @@ exports.getTasksStagesByProjectId = async (req, res) => {
             as: "populatedProjectUsers", // Name of the output field for the populated array
           },
         },
+        {
+          $lookup: {
+            from: "products",
+            let: { companyId: "$companyId"},
+            pipeline: [
+              { $match: { $expr: { $eq: ["$companyId", { $toObjectId: companyId }] } } }
+            ],
+            as: "companyProducts"
+          }
+        },
+        {
+          $lookup : {
+            from: "uploadfiles",
+            let: { projectId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$projectId", "$$projectId"] },
+                  isDeleted: { $ne: true } 
+                }
+              }
+            ],
+            as: "uploadedFiles"
+          }
+        }
       ])
     )[0];
     const taskStagesTitles = project.taskStages; // ["todo", "inProgress", "completed"]
@@ -2371,6 +2396,7 @@ exports.deleteTask = async (req, res) => {
     const { taskId } = req.body;
 
     await Task.findByIdAndUpdate({ _id: taskId }, { isDeleted: true });
+    await UploadFile.findOneAndUpdate({ taskId }, { $set: { isDeleted: true } }, { new: true });
 
     return res.json({ success: true });
   } catch (error) {
@@ -2408,7 +2434,7 @@ exports.getKanbanTasks = async (req, res) => {
     filters.forEach((filter) => {
       const { field, value, isSystem } = filter;
 
-      if (!field || value === undefined) return; // Skip if field or value is missing
+      if (!field || value === undefined) return;
 
       if (isSystem == "false") {
         const regex = new RegExp(value, "i");
@@ -2462,6 +2488,15 @@ exports.getKanbanTasks = async (req, res) => {
         }
         case "selectUsers": {
           whereCondition["userId"] = value;
+          break;
+        }
+        case "interested_products": {
+          whereCondition["interested_products.product_id"] = value;
+          break;
+        }
+        case "uploadFiles": {
+          whereCondition["_id"] = value;
+          
         }
         default:
           break;
