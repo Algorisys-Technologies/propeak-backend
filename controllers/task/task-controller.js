@@ -2342,7 +2342,7 @@ exports.getTasksStagesByProjectId = async (req, res) => {
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       companyId: companyId,
-      isDeleted: false,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }]
     }).sort({ sequence: "asc" });
     return res.json({ success: true, taskStages, project });
   } catch (error) {
