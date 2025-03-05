@@ -1511,7 +1511,7 @@ exports.getProjectsKanbanData = async (req, res) => {
       projectStages.map(async (stage) => {
         let projectWhereCondition = {
           projectStageId: stage._id,
-          isDeleted: false,
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
           companyId,
           archive,
         };
