@@ -2342,7 +2342,7 @@ exports.getTasksStagesByProjectId = async (req, res) => {
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       companyId: companyId,
-      isDeleted: false,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }]
     }).sort({ sequence: "asc" });
     return res.json({ success: true, taskStages, project });
   } catch (error) {
@@ -2884,14 +2884,15 @@ exports.getTasksKanbanData = async (req, res) => {
     // Find documents where the title is in the taskStagesTitles array and sort them by 'order' in ascending order
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }]
     }).sort({ sequence: "asc" });
     // Fetch paginated projects for each stage separately
     const stagesWithTasks = await Promise.all(
       taskStages.map(async (stage) => {
         const tasks = await Task.find({
           taskStageId: stage._id,
-          isDeleted: false,
           projectId,
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         })
           .sort({ modifiedOn: -1, createdOn: -1 })
           .skip(skip)
@@ -2899,7 +2900,7 @@ exports.getTasksKanbanData = async (req, res) => {
           .populate("subtasks");
         const totalCount = await Task.countDocuments({
           taskStageId: stage._id,
-          isDeleted: false,
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
           projectId,
         });
         const totalPages = Math.ceil(totalCount / limit);

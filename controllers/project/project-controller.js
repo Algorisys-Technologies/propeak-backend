@@ -1502,7 +1502,7 @@ exports.getProjectsKanbanData = async (req, res) => {
     const archive = req.query.archive == "true";
 
     // Fetch all project stages
-    const projectStages = await ProjectStage.find({ companyId, isDeleted: false }).sort({
+    const projectStages = await ProjectStage.find({ companyId, $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }).sort({
       sequence: "asc",
     });
 
@@ -1511,7 +1511,7 @@ exports.getProjectsKanbanData = async (req, res) => {
       projectStages.map(async (stage) => {
         let projectWhereCondition = {
           projectStageId: stage._id,
-          isDeleted: false,
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
           companyId,
           archive,
         };
