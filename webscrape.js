@@ -4,43 +4,39 @@ const moment = require("moment");
 require("dotenv").config();
 
 function extractISODate(details) {
-  const dateRegex = /\b(\d{1,2} \w{3}'\d{2}|\d{2} \w{3}'\d{2}|\w+\sday|yesterday)\b/i;
+  const dateRegex =
+    /\b(\d{1,2} \w{3}'\d{2}|\d{2} \w{3}'\d{2}|\w+\sday|yesterday)\b/i;
   const timeRegex = /\b\d{1,2}:\d{2} (AM|PM)\b/i;
-  
+
   const matchDate = details.match(dateRegex);
   const matchTime = details.match(timeRegex);
   const currentDate = new Date();
-  
+
   let extractedDate = currentDate;
-  
+
   if (matchDate) {
-      const datePart = matchDate[0].toLowerCase();
-      
-      if (datePart === 'yesterday') {
-          extractedDate.setDate(currentDate.getDate() - 1);
-      } else if (/\d{1,2} \w{3}'\d{2}/.test(datePart)) {
-          extractedDate = new Date(datePart.replace("'", "20"));
-      }
+    const datePart = matchDate[0].toLowerCase();
+
+    if (datePart === "yesterday") {
+      extractedDate.setDate(currentDate.getDate() - 1);
+    } else if (/\d{1,2} \w{3}'\d{2}/.test(datePart)) {
+      extractedDate = new Date(datePart.replace("'", "20"));
+    }
   }
-  
+
   // Combine extracted date with the time if available
   if (matchTime) {
-      const timePart = matchTime[0];
-      const [hours, minutes] = timePart.split(/[: ]/).map(Number);
-      const isPM = timePart.includes('PM');
-      
-      extractedDate.setHours(isPM ? hours + 12 : hours, minutes);
+    const timePart = matchTime[0];
+    const [hours, minutes] = timePart.split(/[: ]/).map(Number);
+    const isPM = timePart.includes("PM");
+
+    extractedDate.setHours(isPM ? hours + 12 : hours, minutes);
   }
-  
+
   return extractedDate.toISOString();
 }
 
-
-
-
 async function scrollToLoadAllLeads(page) {
-
-
   const scrollableContainerSelector = ".ReactVirtualized__Grid";
   const leadsSelector = ".list .row";
   const leadsData = [];
@@ -66,23 +62,33 @@ async function scrollToLoadAllLeads(page) {
         const leads = document.querySelectorAll(leadsSelector);
 
         return Array.from(leads).map((lead) => {
-          const dateTimeElement = lead.querySelector(".fr .fs12.clr77"); 
-          const dateTime = dateTimeElement ? dateTimeElement.innerText.trim() : "N/A"; 
-          
+          const dateTimeElement = lead.querySelector(".fr .fs12.clr77");
+          const dateTime = dateTimeElement
+            ? dateTimeElement.innerText.trim()
+            : "N/A";
+
           // Clone the element and remove the date/time to avoid including it in details
           const detailsClone = lead.cloneNode(true);
           if (dateTimeElement) {
             dateTimeElement.remove();
           }
-          
+
           return {
-            id: lead.getAttribute("data-id") || lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A",
+            id:
+              lead.getAttribute("data-id") ||
+              lead.querySelector(".wrd_elip")?.innerText?.trim() ||
+              "N/A",
             name: lead.querySelector(".wrd_elip")?.innerText?.trim() || "N/A",
-            productName: lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() || "N/A",
-            startDate: "N/A",  // Storing extracted date/time separately
+            productName:
+              lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
+              "N/A",
+            startDate: "N/A", // Storing extracted date/time separately
             dateTime,
-            details: detailsClone.innerText.trim().replace(dateTime, "") || "N/A", // Excluding date/time from details
-            elementIndex: [...container.querySelectorAll(leadsSelector)].indexOf(lead),
+            details:
+              detailsClone.innerText.trim().replace(dateTime, "") || "N/A", // Excluding date/time from details
+            elementIndex: [
+              ...container.querySelectorAll(leadsSelector),
+            ].indexOf(lead),
           };
         });
       },
@@ -104,7 +110,9 @@ async function scrollToLoadAllLeads(page) {
 
       try {
         // Click the lead using a robust locator
-        const leadElement = await page.locator(`.wrd_elip:has-text("${lead.name}")`).first();
+        const leadElement = await page
+          .locator(`.wrd_elip:has-text("${lead.name}")`)
+          .first();
         await leadElement.scrollIntoViewIfNeeded(); // Scroll to make it visible
         await leadElement.click();
         console.log(`Clicked on lead: ${lead.name}`);
@@ -112,9 +120,13 @@ async function scrollToLoadAllLeads(page) {
 
         // Fetch label
         try {
-          const labelLocator = page.locator("#splitviewlabelheader .wrd_elip").first();
+          const labelLocator = page
+            .locator("#splitviewlabelheader .wrd_elip")
+            .first();
           if ((await labelLocator.count()) > 0) {
-            lead.label = await labelLocator.innerText().then((text) => text.trim());
+            lead.label = await labelLocator
+              .innerText()
+              .then((text) => text.trim());
             console.log(`Fetched label: ${lead.label}`);
           } else {
             lead.label = "N/A";
@@ -141,7 +153,10 @@ async function scrollToLoadAllLeads(page) {
             }
           }
         } catch (error) {
-          console.error(`Error fetching mobile number for ${lead.name}:`, error);
+          console.error(
+            `Error fetching mobile number for ${lead.name}:`,
+            error
+          );
         }
 
         leadsData.push(lead);
@@ -155,11 +170,15 @@ async function scrollToLoadAllLeads(page) {
       noNewLeadsCounter = 0; // Reset counter if new leads were found
     } else {
       noNewLeadsCounter++;
-      console.log(`No new leads found. Attempt ${noNewLeadsCounter} of ${maxNoNewLeadsScrolls}.`);
+      console.log(
+        `No new leads found. Attempt ${noNewLeadsCounter} of ${maxNoNewLeadsScrolls}.`
+      );
     }
 
     if (noNewLeadsCounter >= maxNoNewLeadsScrolls) {
-      console.log("Max scroll attempts with no new leads reached. Stopping scroll.");
+      console.log(
+        "Max scroll attempts with no new leads reached. Stopping scroll."
+      );
       break;
     }
 
@@ -172,7 +191,11 @@ async function scrollToLoadAllLeads(page) {
         }
         const previousScrollTop = container.scrollTop;
         container.scrollBy(0, 10); // Scroll down by 10px
-        return { scrollTop: container.scrollTop, maxScrollHeight: container.scrollHeight, previousScrollTop };
+        return {
+          scrollTop: container.scrollTop,
+          maxScrollHeight: container.scrollHeight,
+          previousScrollTop,
+        };
       },
       scrollableContainerSelector
     );
@@ -198,16 +221,20 @@ async function scrollToLoadAllLeads(page) {
   return leadsData;
 }
 
-
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-
-const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_monthToSelect, start_yearToSelect,
-  end_dayToSelect, end_monthToSelect, end_yearToSelect
+const fetchLeads = async ({
+  mobileNumber,
+  password,
+  start_dayToSelect,
+  start_monthToSelect,
+  start_yearToSelect,
+  end_dayToSelect,
+  end_monthToSelect,
+  end_yearToSelect,
 }) => {
   console.log("In fetchLeads");
   const browser = await chromium.launch({ headless: true });
- 
 
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
@@ -220,22 +247,22 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
     console.log("Navigated to IndiaMART");
     await delay(2000); // Wait for 2 seconds
 
-    // Login process
-    await page.locator("#user_sign_in").click();
-    console.log("Clicked on Sign In");
-    await delay(1000); // Wait for 1 second
+    // // Login process
+    // await page.locator("#user_sign_in").click();
+    // console.log("Clicked on Sign In");
+    // await delay(1000); // Wait for 1 second
 
-  
+    // await page.getByPlaceholder("Enter Your Mobile Number").fill(mobileNumber);
+    // console.log("Filled mobile number");
+    // await delay(2000); // Wait for 1 second
 
-    await page.getByPlaceholder("Enter Your Mobile Number").fill(mobileNumber);
-    console.log("Filled mobile number");
-    await delay(2000); // Wait for 1 second
-
-    await page.getByRole("button", { name: "Submit" }).click();
+    // await page.getByRole("button", { name: "Submit" }).click();
     await delay(2000);
-    await page.getByPlaceholder("Enter 10 digit mobile number").fill(mobileNumber);
+    await page
+      .getByPlaceholder("Enter 10 digit mobile number")
+      .fill(mobileNumber);
     await delay(1000);
-    await page.getByRole('button', { name: 'Start Selling' }).click();
+    await page.getByRole("button", { name: "Start Selling" }).click();
     await delay(2000); // Wait for 2 seconds
 
     await page.getByRole("button", { name: "Enter Password" }).click();
@@ -301,27 +328,41 @@ const fetchLeads = async ({mobileNumber, password,start_dayToSelect, start_month
 
     // Select the desired day
 
-    await page.locator(`.rdrDay:not(.rdrDayPassive):not(.rdrDayDisabled)`).filter({
-      hasText: `${start_dayToSelect}`
-  }).first().click();
+    await page
+      .locator(`.rdrDay:not(.rdrDayPassive):not(.rdrDayDisabled)`)
+      .filter({
+        hasText: `${start_dayToSelect}`,
+      })
+      .first()
+      .click();
     console.log("Selected day");
     await delay(2000);
 
-    if(start_yearToSelect !== end_yearToSelect || start_monthToSelect !== end_monthToSelect || start_dayToSelect !== end_dayToSelect) {
-    await page.locator(".rdrYearPicker select").selectOption(`${end_yearToSelect}`);
-    console.log("Selected year for end date");
-    await delay(1000);
-    await page
-      .locator(".rdrMonthPicker select")
-      .selectOption(`${end_monthToSelect}`);
-    console.log("Selected month for end date");
-    await delay(1000);
-    await page.locator(`.rdrDay:not(.rdrDayPassive):not(.rdrDayDisabled)`).filter({
-      hasText: `${end_dayToSelect}`
-  }).first().click();
-    
-    console.log("Selected day for end date");
-    await delay(1000);
+    if (
+      start_yearToSelect !== end_yearToSelect ||
+      start_monthToSelect !== end_monthToSelect ||
+      start_dayToSelect !== end_dayToSelect
+    ) {
+      await page
+        .locator(".rdrYearPicker select")
+        .selectOption(`${end_yearToSelect}`);
+      console.log("Selected year for end date");
+      await delay(1000);
+      await page
+        .locator(".rdrMonthPicker select")
+        .selectOption(`${end_monthToSelect}`);
+      console.log("Selected month for end date");
+      await delay(1000);
+      await page
+        .locator(`.rdrDay:not(.rdrDayPassive):not(.rdrDayDisabled)`)
+        .filter({
+          hasText: `${end_dayToSelect}`,
+        })
+        .first()
+        .click();
+
+      console.log("Selected day for end date");
+      await delay(1000);
     }
     // Apply the filter
     await page
