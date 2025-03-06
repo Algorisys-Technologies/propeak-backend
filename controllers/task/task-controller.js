@@ -169,8 +169,17 @@ exports.createTask = (req, res) => {
         if (taskId) {
           await Task.findOneAndUpdate(
             { _id: taskId },
-            { $push: { uploadFiles: uploadResult._id } }
+            { 
+              $push: { 
+                uploadFiles: { 
+                  _id: uploadResult._id, 
+                  fileName: uploadResult.fileName 
+                } 
+              } 
+            },
+            { new: true } 
           );
+          
         } else {
           await Project.findOneAndUpdate(
             { _id: projectId },
@@ -2347,23 +2356,50 @@ exports.getTasksStagesByProjectId = async (req, res) => {
           }
         },
         {
-          $lookup : {
+          $lookup: {
             from: "uploadfiles",
             let: { projectId: "$_id" },
             pipeline: [
               {
                 $match: {
                   $expr: { $eq: ["$projectId", "$$projectId"] },
-                  isDeleted: { $ne: true } 
-                }
+                  isDeleted: { $ne: true },
+                },
+              },
+              {
+                $group: {
+                  _id: "$fileName",
+                },
+              },
+            ],
+            as: "uploadedFiles",
+          },
+        },
+        {
+          $lookup: {
+            from: "tasks",
+            let: { projectId: "$_id" }, 
+            pipeline: [
+              { 
+                $match: { 
+                  $expr: { $eq: ["$projectId", "$$projectId"] } } 
+              },
+              { 
+                $unwind: "$tag" 
+              },
+              { 
+                $group: { 
+                  _id: "$tag", // Group by tag
+                  // count: { $sum: 1 } // Count occurrences of each tag
+                } 
               }
             ],
-            as: "uploadedFiles"
+            as: "taskTags"
           }
         }
       ])
     )[0];
-    const taskStagesTitles = project.taskStages; // ["todo", "inProgress", "completed"]
+    const taskStagesTitles = project.taskStages; 
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       companyId: companyId,
@@ -2495,8 +2531,7 @@ exports.getKanbanTasks = async (req, res) => {
           break;
         }
         case "uploadFiles": {
-          whereCondition["_id"] = value;
-          
+          whereCondition["uploadFiles.fileName"] = value;
         }
         default:
           break;
