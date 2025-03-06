@@ -22,6 +22,7 @@ exports.searchByTasksAndProjects = async (req, res) => {
       $or: [
         { title: { $regex: searchQuery } },
         { tag: { $regex: searchQuery } },
+        { "customFieldValues.company_name": { $regex: searchQuery } },
       ],
     };
 
@@ -67,6 +68,8 @@ exports.searchByTasksAndProjects = async (req, res) => {
       $or: [
         { title: { $regex: searchQuery } },
         { tag: { $regex: searchQuery } },
+        { first_name: { $regex: searchQuery } },
+        { last_name: { $regex: searchQuery } },
       ],
     };
 
@@ -80,21 +83,28 @@ exports.searchByTasksAndProjects = async (req, res) => {
       isDeleted: false,
       path: "/contacts",
       $or: [
-        {  fileName: { $regex: searchQuery } },
+        { fileName: { $regex: searchQuery } },
         { title: { $regex: searchQuery } },
       ],
-    }
-    const visitingCards = await UploadRepositoryFile.find(visitingCardsQuery).skip(limit * page)
-    .limit(limit);
+    };
+    const visitingCards = await UploadRepositoryFile.find(visitingCardsQuery)
+      .skip(limit * page)
+      .limit(limit);
 
     // Count total tasks, projects, accounts, and contacts
     const totalTasks = await Task.countDocuments(taskQuery);
     const totalProjects = await Project.countDocuments(projectQuery);
     const totalAccounts = await Account.countDocuments(accountQuery);
     const totalContacts = await Contact.countDocuments(contactQuery);
-    const totalVisitingCards = await UploadRepositoryFile.countDocuments(visitingCardsQuery);
+    const totalVisitingCards = await UploadRepositoryFile.countDocuments(
+      visitingCardsQuery
+    );
     const totalResults =
-      totalTasks + totalProjects + totalAccounts + totalContacts + totalVisitingCards;
+      totalTasks +
+      totalProjects +
+      totalAccounts +
+      totalContacts +
+      totalVisitingCards;
 
     // Calculate total pages
     const totalPages = Math.ceil(totalResults / limit);
@@ -106,7 +116,7 @@ exports.searchByTasksAndProjects = async (req, res) => {
       accounts,
       contacts,
       totalPages,
-      visitingCards
+      visitingCards,
     });
   } catch (error) {
     console.error("Error in searchByTasksProjectsAccountsContacts", error);
