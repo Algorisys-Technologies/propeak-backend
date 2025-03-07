@@ -76,7 +76,7 @@ exports.createTask = (req, res) => {
     isDeleted,
     createdByEmail,
     ownerEmail,
-    publishStatus
+    publishStatus,
   } = task;
 
   let assignedUsers = [];
@@ -175,7 +175,7 @@ exports.createTask = (req, res) => {
             { $push: { uploadFiles: uploadResult._id } }
           );
         }
-        console.log(req.files,uploadFile)
+        console.log(req.files, uploadFile);
         try {
           if (!req.files.uploadFile) {
             res.send({ error: "No files were uploaded." });
@@ -220,6 +220,7 @@ exports.createTask = (req, res) => {
             });
           } else {
             res.send({
+              _id: result._id,
               error:
                 "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS', 'PPTX')",
             });
