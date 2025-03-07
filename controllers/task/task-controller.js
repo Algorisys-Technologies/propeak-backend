@@ -755,6 +755,17 @@ exports.getTasksTable = async (req, res) => {
               condition[field] = value;
               break;
             }
+            case "selectUsers": {
+              condition["userId"] = value;
+              break;
+            }
+            case "interested_products": {
+              condition["interested_products.product_id"] = value;
+              break;
+            }
+            case "uploadFiles": {
+              condition["uploadFiles.fileName"] = value;
+            }
             default:
               break;
           }
@@ -1052,38 +1063,46 @@ exports.deleteTask = (req, res) => {
 
   // Update the task to set isDeleted to true
   Task.findByIdAndUpdate(taskId, { $set: { isDeleted: true } }, { new: true })
-    .then((result) => {
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          msg: "Task not found",
-        });
-      }
-      // Insert an audit log for the task marked as deleted
-      audit.insertAuditLog(
-        "",
-        "Task deletion",
-        "Task",
-        "delete",
-        taskId,
-        req.body.userName || "unknown",
-        taskId
-      );
-
-      res.json({
-        success: true,
-        msg: "Task marked as deleted successfully!",
-        task: result,
-      });
-    })
-    .catch((err) => {
-      console.error("DELETE_TASK ERROR", err);
-      res.status(400).json({
+  .then(async (task) => {
+    if (!task) {
+      return res.status(404).json({
         success: false,
-        msg: "Failed to mark task as deleted",
-        error: err.message,
+        msg: "Task not found",
       });
+    }
+
+    // Update all upload files related to this task
+    await UploadFile.updateOne(
+      { _id: { $in: task.uploadFiles._id } },
+      { $set: { isDeleted: true } }
+    );
+
+    // Insert an audit log for the task marked as deleted
+    audit.insertAuditLog(
+      "",
+      "Task deletion",
+      "Task",
+      "delete",
+      taskId,
+      req.body.userName || "unknown",
+      taskId
+    );
+
+    res.json({
+      success: true,
+      msg: "Task and related files marked as deleted successfully!",
+      task,
     });
+  })
+  .catch((err) => {
+    console.error("DELETE_TASK ERROR", err);
+    res.status(400).json({
+      success: false,
+      msg: "Failed to mark task as deleted",
+      error: err.message,
+    });
+  });
+
 };
 exports.deleteSelectedTasks = async (req, res) => {
   const { taskIds, modifiedBy } = req.body;
@@ -3096,7 +3115,7 @@ exports.deleteFiltered = async (req, res) => {
       }
     }
 
-    await Task.deleteMany(condition);
+    await Task.updateMany(condition, { $set: { isDeleted: true } });
 
     res.json({ success: true, message: "Filtered Tasks Deleted" });
   } catch (e) {
