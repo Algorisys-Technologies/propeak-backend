@@ -77,8 +77,8 @@ exports.createTask = (req, res) => {
     isDeleted,
     createdByEmail,
     ownerEmail,
+    publishStatus,
   } = task;
-  const publishStatus = req.body.publishStatus || "draft";
 
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
@@ -177,7 +177,7 @@ exports.createTask = (req, res) => {
             { $push: { uploadFiles: uploadResult._id } }
           );
         }
-
+        console.log(req.files, uploadFile);
         try {
           if (!req.files.uploadFile) {
             res.send({ error: "No files were uploaded." });
@@ -185,6 +185,7 @@ exports.createTask = (req, res) => {
           }
 
           const uploadedFile = req.files.uploadFile;
+          console.log(uploadedFile, "uploadedFile");
           const fileUploaded = uploadedFile.name.split(".");
           const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
 
@@ -221,6 +222,7 @@ exports.createTask = (req, res) => {
             });
           } else {
             res.send({
+              _id: result._id,
               error:
                 "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS', 'PPTX')",
             });
@@ -339,7 +341,7 @@ exports.createTask = (req, res) => {
 
 exports.updateTask = (req, res) => {
   console.log("is it coming th task update");
-  console.log(req.body, "request body of update task ")
+  console.log(req.body, "request body of update task ");
   const { taskId } = req.body;
   const { projectId, task } = req.body;
 
@@ -365,6 +367,7 @@ exports.updateTask = (req, res) => {
     userId,
     createdByEmail,
     ownerEmail,
+    publishStatus,
   } = task;
 
   Task.findByIdAndUpdate(
@@ -398,6 +401,7 @@ exports.updateTask = (req, res) => {
       modifiedBy,
       modifiedOn: new Date(),
       userId, // Update the userId here
+      publish_status: publishStatus,
     },
     { new: true } // Options to return the updated document and run validators
   )
@@ -517,6 +521,73 @@ exports.updateTask = (req, res) => {
         error: err.message,
       });
     });
+};
+
+exports.autoSaveTask = async (req, res) => {
+  try {
+    const { _id, projectId, ...taskData } = req.body;
+
+    console.log("req body", req.body);
+
+    if (!Array.isArray(taskData.uploadFiles)) {
+      taskData.uploadFiles = [];
+    }
+
+    // Ensure that interested_products is an array
+    if (!Array.isArray(taskData.interested_products)) {
+      taskData.interested_products = [];
+    }
+
+    // Handle other potential empty fields as arrays or objects
+    taskData.subtasks = taskData.subtasks || [];
+    taskData.messages = taskData.messages || [];
+
+    if (taskData.startDate) {
+      taskData.startDate = new Date(taskData.startDate);
+    }
+    if (taskData.endDate) {
+      taskData.endDate = new Date(taskData.endDate);
+    }
+
+    let task;
+    if (_id) {
+      if (taskData.selectUsers) {
+        taskData.userId = taskData.selectUsers;
+      }
+
+      // If task exists, update it
+      task = await Task.findByIdAndUpdate(
+        _id,
+        { ...taskData, modifiedOn: new Date(), publish_status: "draft" },
+        { new: true }
+      );
+    } else {
+      // Check if a draft task with the same title and projectId already exists
+      task = await Task.findOne({
+        title: taskData.title,
+        projectId,
+        publish_status: "draft",
+        creation_mode: "MANUAL",
+      });
+
+      if (!task) {
+        // If no draft exists, create a new one
+        task = new Task({
+          ...taskData,
+          projectId,
+          publish_status: "draft",
+          creation_mode: "MANUAL",
+          createdOn: new Date(),
+        });
+        await task.save();
+      }
+    }
+
+    return res.json(task);
+  } catch (error) {
+    console.error("Autosave error:", error);
+    res.status(500).json({ error: "Failed to autosave" });
+  }
 };
 
 exports.getTaskByTaskId = (req, res) => {
@@ -2342,7 +2413,7 @@ exports.getTasksStagesByProjectId = async (req, res) => {
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       companyId: companyId,
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }]
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
     return res.json({ success: true, taskStages, project });
   } catch (error) {
@@ -2884,7 +2955,7 @@ exports.getTasksKanbanData = async (req, res) => {
     // Find documents where the title is in the taskStagesTitles array and sort them by 'order' in ascending order
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }]
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
     // Fetch paginated projects for each stage separately
     const stagesWithTasks = await Promise.all(

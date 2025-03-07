@@ -54,6 +54,8 @@ router.post(
   taskController.updateTask
 );
 
+router.post("/autoSaveTask", taskController.autoSaveTask);
+
 router.post(
   "/updateSubTasks",
   verifyToken,
