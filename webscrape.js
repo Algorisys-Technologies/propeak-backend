@@ -158,6 +158,24 @@ async function scrollToLoadAllLeads(page) {
             error
           );
         }
+        // **New Email Fetching Logic**
+        try {
+          const emailElement = page.locator("#headerEmail");
+          if ((await emailElement.count()) > 0) {
+            await emailElement.click();
+            const email = await page.evaluate(
+              async () => await navigator.clipboard.readText()
+            );
+            lead.email = email && email.includes("@") ? email : "N/A";
+            console.log(`Fetched email: ${lead.email}`);
+          } else {
+            lead.email = "N/A";
+            console.log(`No email found for ${lead.name}`);
+          }
+        } catch (error) {
+          console.error(`Error fetching email for ${lead.name}:`, error);
+          lead.email = "N/A";
+        }
 
         leadsData.push(lead);
       } catch (error) {
@@ -167,7 +185,7 @@ async function scrollToLoadAllLeads(page) {
     }
 
     if (newLeadsAdded) {
-      noNewLeadsCounter = 0; // Reset counter if new leads were found
+      noNewLeadsCounter = 0;
     } else {
       noNewLeadsCounter++;
       console.log(
