@@ -265,17 +265,17 @@ const fetchLeads = async ({
     console.log("Navigated to IndiaMART");
     await delay(2000); // Wait for 2 seconds
 
-    // Login process
-    await page.locator("#user_sign_in").click();
-    console.log("Clicked on Sign In");
-    await delay(1000); // Wait for 1 second
+    // // Login process
+    // await page.locator("#user_sign_in").click();
+    // console.log("Clicked on Sign In");
+    // await delay(1000); // Wait for 1 second
 
-    await page.getByPlaceholder("Enter Your Mobile Number").fill(mobileNumber);
-    console.log("Filled mobile number");
-    await delay(2000); // Wait for 1 second
+    // await page.getByPlaceholder("Enter Your Mobile Number").fill(mobileNumber);
+    // console.log("Filled mobile number");
+    // await delay(2000); // Wait for 1 second
 
-    await page.getByRole("button", { name: "Submit" }).click();
-    await delay(2000);
+    // await page.getByRole("button", { name: "Submit" }).click();
+    // await delay(2000);
     await page
       .getByPlaceholder("Enter 10 digit mobile number")
       .fill(mobileNumber);
