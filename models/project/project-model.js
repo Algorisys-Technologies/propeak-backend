@@ -63,6 +63,9 @@ const ProjectSchema = new mongoose.Schema(
     group: {
       type: String,
     },
+    projectType: {
+      type: String,
+    },
     isDeleted: {
       type: Boolean,
     },

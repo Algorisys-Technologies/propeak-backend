@@ -250,6 +250,10 @@ try {
     "/api/product",
     require("./routes/product/product-route")
   );
+  app.use(
+    "/api/stages",
+    require("./routes/stages/default-stages-route")
+  );
 } catch (e) {
   console.log(e);
 }
