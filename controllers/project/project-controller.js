@@ -211,6 +211,7 @@ exports.getProjectByProjectId = (req, res) => {
         customFieldValues: result.customFieldValues,
         projectTypeId: result.projectTypeId,
         tag: result.tag,
+        projectType: result.projectType,
       };
       // logInfo("getProjectByProjectId before return response");
       res.json({
@@ -1498,7 +1499,6 @@ exports.getProjectsByCompanyId = async (req, res) => {
     });
   }
 };
-
 exports.getProjectsKanbanData = async (req, res) => {
   try {
     const { companyId, userId } = req.params;
@@ -1508,9 +1508,7 @@ exports.getProjectsKanbanData = async (req, res) => {
     const projectStages = await ProjectStage.find({
       companyId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-    }).sort({
-      sequence: "asc",
-    });
+    }).sort({ sequence: "asc" });
 
     // Fetch paginated projects for each stage separately
     const stagesWithProjects = await Promise.all(
@@ -1520,16 +1518,21 @@ exports.getProjectsKanbanData = async (req, res) => {
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
           companyId,
           archive,
-          projectType: { $ne: "Exhibition" }, 
-
+          projectType: { $ne: "Exhibition" },
         };
+
         if (userId !== "ALL") {
           projectWhereCondition.projectUsers = { $in: [userId] };
         }
+
         let iprojects = await Project.find(projectWhereCondition);
 
         let projects = await Promise.all(
           iprojects.map(async (p) => {
+            const users = await User.find({
+              _id: { $in: p.projectUsers },
+            }).select("name");
+
             const tasksCount = await Task.countDocuments({
               projectId: p._id,
               isDeleted: false,
@@ -1539,13 +1542,16 @@ exports.getProjectsKanbanData = async (req, res) => {
               projectId: p._id,
               userId: userId,
             });
+
             return {
               ...p.toObject(),
               tasksCount,
-              isFavourite: isFavourite ? true : false,
+              isFavourite: !!isFavourite,
+              projectUsers: users.map((user) => user.name), // Replace IDs with names
             };
           })
         );
+
         return { ...stage.toObject(), projects };
       })
     );
@@ -1555,6 +1561,7 @@ exports.getProjectsKanbanData = async (req, res) => {
       companyId,
       archive,
     });
+
     return res.json({
       success: true,
       projectStages: stagesWithProjects,
@@ -1568,6 +1575,7 @@ exports.getProjectsKanbanData = async (req, res) => {
     });
   }
 };
+
 exports.getExhibitionKanbanData = async (req, res) => {
   try {
     const { companyId, userId } = req.params;
@@ -1584,7 +1592,7 @@ exports.getExhibitionKanbanData = async (req, res) => {
           projectStageId: stage._id,
           companyId,
           archive,
-          projectType: "Exhibition", // Filter by projectType
+          projectType: "Exhibition",
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         };
 
@@ -1596,6 +1604,9 @@ exports.getExhibitionKanbanData = async (req, res) => {
 
         let projects = await Promise.all(
           iprojects.map(async (p) => {
+            const users = await User.find({
+              _id: { $in: p.projectUsers },
+            }).select("name");
             const tasksCount = await Task.countDocuments({
               projectId: p._id,
               isDeleted: false,
@@ -1610,10 +1621,10 @@ exports.getExhibitionKanbanData = async (req, res) => {
               ...p.toObject(),
               tasksCount,
               isFavourite: !!isFavourite,
+              projectUsers: users.map((user) => user.name),
             };
           })
         );
-
         return { ...stage.toObject(), projects };
       })
     );
@@ -1621,9 +1632,10 @@ exports.getExhibitionKanbanData = async (req, res) => {
     const totalCount = await Project.countDocuments({
       companyId,
       archive,
-      projectType: "Exhibition", // Count only Exhibition projects
+      projectType: "Exhibition",
       isDeleted: false,
     });
+    console.log(totalCount, "totalCount");
 
     return res.json({
       success: true,
