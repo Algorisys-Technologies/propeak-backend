@@ -607,8 +607,7 @@ exports.projectFileUpload = async (req, res) => {
               return dateStr;
             };
             if (Array.isArray(project.userGroups)) {
-              project.userGroups = project.userGroups.map((userGroup) => {
-              });
+              project.userGroups = project.userGroups.map((userGroup) => {});
             } else {
               console.warn(
                 "userGroups is not an array, defaulting to empty array"

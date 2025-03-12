@@ -338,6 +338,8 @@ exports.createProject = async (req, res) => {
     customFieldValues: req.body.customFieldValues,
     projectTypeId: req.body.projectTypeId,
     group: req.body.group,
+    creation_mode: "MANUAL",
+    lead_source: "USER",
   });
 
   console.log(newProject);
@@ -511,6 +513,8 @@ exports.updateProject = async (req, res) => {
       archive: req.body.archive,
       customFieldValues: req.body.customFieldValues,
       projectTypeId: req.body.projectTypeId,
+      creation_mode: "MANUAL",
+      lead_source: "USER",
     };
 
     let projectUpdate = () => {
@@ -1322,7 +1326,12 @@ exports.getCustomTasksField = async (req, res) => {
     const level = req.query.level;
 
     let condition =
-      projectId == "all" ? {} : { projectId: projectId, $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] };
+      projectId == "all"
+        ? {}
+        : {
+            projectId: projectId,
+            $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+          };
 
     if (level) {
       condition.level = level;
@@ -1502,7 +1511,10 @@ exports.getProjectsKanbanData = async (req, res) => {
     const archive = req.query.archive == "true";
 
     // Fetch all project stages
-    const projectStages = await ProjectStage.find({ companyId, $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }).sort({
+    const projectStages = await ProjectStage.find({
+      companyId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    }).sort({
       sequence: "asc",
     });
 

@@ -15,7 +15,7 @@ const ProjectSchema = new mongoose.Schema(
     },
     tag: [
       {
-        type: String, 
+        type: String,
       },
     ],
     enddate: {
@@ -24,11 +24,9 @@ const ProjectSchema = new mongoose.Schema(
     status: {
       type: String,
     },
-    projectStageId : {
-      
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "projectStage",
-      
+    projectStageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "projectStage",
     },
     taskStages: {
       type: Array,
@@ -117,6 +115,14 @@ const ProjectSchema = new mongoose.Schema(
     projectTypeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "projecttype",
+    },
+    creation_mode: {
+      type: String,
+      enum: ["AUTO", "MANUAL"],
+    },
+    lead_source: {
+      type: String,
+      enum: ["INDIAMART", "EMAIL", "USER", "EXCEL", "OTHERS"],
     },
   },
   { versionKey: false }
