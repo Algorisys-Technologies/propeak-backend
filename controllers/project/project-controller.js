@@ -1532,6 +1532,9 @@ exports.getProjectsKanbanData = async (req, res) => {
             const users = await User.find({
               _id: { $in: p.projectUsers },
             }).select("name");
+            const createdByUser = await User.findById(p.createdBy).select(
+              "name"
+            );
 
             const tasksCount = await Task.countDocuments({
               projectId: p._id,
@@ -1547,7 +1550,8 @@ exports.getProjectsKanbanData = async (req, res) => {
               ...p.toObject(),
               tasksCount,
               isFavourite: !!isFavourite,
-              projectUsers: users.map((user) => user.name), // Replace IDs with names
+              projectUsers: users.map((user) => user.name),
+              createdBy: createdByUser ? createdByUser.name : "Unknown",
             };
           })
         );
@@ -1607,6 +1611,9 @@ exports.getExhibitionKanbanData = async (req, res) => {
             const users = await User.find({
               _id: { $in: p.projectUsers },
             }).select("name");
+            const createdByUser = await User.findById(p.createdBy).select(
+              "name"
+            );
             const tasksCount = await Task.countDocuments({
               projectId: p._id,
               isDeleted: false,
@@ -1622,6 +1629,7 @@ exports.getExhibitionKanbanData = async (req, res) => {
               tasksCount,
               isFavourite: !!isFavourite,
               projectUsers: users.map((user) => user.name),
+              createdBy: createdByUser ? createdByUser.name : "Unknown",
             };
           })
         );
