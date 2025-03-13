@@ -169,8 +169,17 @@ exports.createTask = (req, res) => {
         if (taskId) {
           await Task.findOneAndUpdate(
             { _id: taskId },
-            { $push: { uploadFiles: uploadResult._id } }
+            { 
+              $push: { 
+                uploadFiles: { 
+                  _id: uploadResult._id, 
+                  fileName: uploadResult.fileName 
+                } 
+              } 
+            },
+            { new: true } 
           );
+          
         } else {
           await Project.findOneAndUpdate(
             { _id: projectId },
@@ -817,6 +826,18 @@ exports.getTasksTable = async (req, res) => {
               condition[field] = value;
               break;
             }
+            case "selectUsers": {
+              condition["userId"] = value;
+              break;
+            }
+            case "interested_products": {
+              condition["interested_products.product_id"] = value;
+              break;
+            }
+            case "uploadFiles": {
+              condition["uploadFiles.fileName"] = value;
+              break;
+            }
             default:
               break;
           }
@@ -1114,38 +1135,46 @@ exports.deleteTask = (req, res) => {
 
   // Update the task to set isDeleted to true
   Task.findByIdAndUpdate(taskId, { $set: { isDeleted: true } }, { new: true })
-    .then((result) => {
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          msg: "Task not found",
-        });
-      }
-      // Insert an audit log for the task marked as deleted
-      audit.insertAuditLog(
-        "",
-        "Task deletion",
-        "Task",
-        "delete",
-        taskId,
-        req.body.userName || "unknown",
-        taskId
-      );
-
-      res.json({
-        success: true,
-        msg: "Task marked as deleted successfully!",
-        task: result,
-      });
-    })
-    .catch((err) => {
-      console.error("DELETE_TASK ERROR", err);
-      res.status(400).json({
+  .then(async (task) => {
+    if (!task) {
+      return res.status(404).json({
         success: false,
-        msg: "Failed to mark task as deleted",
-        error: err.message,
+        msg: "Task not found",
       });
+    }
+
+    // Update all upload files related to this task
+    await UploadFile.updateOne(
+      { _id: { $in: task.uploadFiles._id } },
+      { $set: { isDeleted: true } }
+    );
+
+    // Insert an audit log for the task marked as deleted
+    audit.insertAuditLog(
+      "",
+      "Task deletion",
+      "Task",
+      "delete",
+      taskId,
+      req.body.userName || "unknown",
+      taskId
+    );
+
+    res.json({
+      success: true,
+      msg: "Task and related files marked as deleted successfully!",
+      task,
     });
+  })
+  .catch((err) => {
+    console.error("DELETE_TASK ERROR", err);
+    res.status(400).json({
+      success: false,
+      msg: "Failed to mark task as deleted",
+      error: err.message,
+    });
+  });
+
 };
 exports.deleteSelectedTasks = async (req, res) => {
   const { taskIds, modifiedBy } = req.body;
@@ -1168,6 +1197,8 @@ exports.deleteSelectedTasks = async (req, res) => {
   try {
     // Step 1: Fetch the tasks to be deleted
     const tasksToDelete = await Task.find({ _id: { $in: taskIds } });
+    // const fileIds = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.id)); 
+    const fileNames = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.fileName));
 
     if (!tasksToDelete || tasksToDelete.length === 0) {
       return res.status(404).json({
@@ -1177,7 +1208,22 @@ exports.deleteSelectedTasks = async (req, res) => {
     }
 
     // Step 2: Delete tasks
-    const deletedTasks = await Task.deleteMany({ _id: { $in: taskIds } });
+    const deletedTasks = await Task.updateMany(
+      { _id: { $in: taskIds } }, 
+      { $set: { isDeleted: true } }
+    );
+
+    const deleteFile = await UploadFile.find({ fileName: { $in: fileNames } });
+
+    // const uploadFileIds = deleteFile.map(file => file._id);
+
+    if(deleteFile)
+      if (fileNames.length > 0) {
+        await UploadFile.updateMany(
+          { fileName: { $in: fileNames } }, 
+          { $set: { isDeleted: true } }
+        );
+      }
 
     if (deletedTasks.deletedCount === 0) {
       return res.status(500).json({
@@ -2407,9 +2453,61 @@ exports.getTasksStagesByProjectId = async (req, res) => {
             as: "populatedProjectUsers", // Name of the output field for the populated array
           },
         },
+        {
+          $lookup: {
+            from: "products",
+            let: { companyId: "$companyId"},
+            pipeline: [
+              { $match: { $expr: { $eq: ["$companyId", { $toObjectId: companyId }] } } }
+            ],
+            as: "companyProducts"
+          }
+        },
+        {
+          $lookup: {
+            from: "uploadfiles",
+            let: { projectId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$projectId", "$$projectId"] },
+                  isDeleted: { $ne: true },
+                },
+              },
+              {
+                $group: {
+                  _id: "$fileName",
+                },
+              },
+            ],
+            as: "uploadedFiles",
+          },
+        },
+        {
+          $lookup: {
+            from: "tasks",
+            let: { projectId: "$_id" }, 
+            pipeline: [
+              { 
+                $match: { 
+                  $expr: { $eq: ["$projectId", "$$projectId"] } } 
+              },
+              { 
+                $unwind: "$tag" 
+              },
+              { 
+                $group: { 
+                  _id: "$tag", // Group by tag
+                  // count: { $sum: 1 } // Count occurrences of each tag
+                } 
+              }
+            ],
+            as: "taskTags"
+          }
+        }
       ])
     )[0];
-    const taskStagesTitles = project.taskStages; // ["todo", "inProgress", "completed"]
+    const taskStagesTitles = project.taskStages; 
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       companyId: companyId,
@@ -2442,6 +2540,7 @@ exports.deleteTask = async (req, res) => {
     const { taskId } = req.body;
 
     await Task.findByIdAndUpdate({ _id: taskId }, { isDeleted: true });
+    await UploadFile.findOneAndUpdate({ taskId }, { $set: { isDeleted: true } }, { new: true });
 
     return res.json({ success: true });
   } catch (error) {
@@ -2479,7 +2578,7 @@ exports.getKanbanTasks = async (req, res) => {
     filters.forEach((filter) => {
       const { field, value, isSystem } = filter;
 
-      if (!field || value === undefined) return; // Skip if field or value is missing
+      if (!field || value === undefined) return;
 
       if (isSystem == "false") {
         const regex = new RegExp(value, "i");
@@ -2533,6 +2632,15 @@ exports.getKanbanTasks = async (req, res) => {
         }
         case "selectUsers": {
           whereCondition["userId"] = value;
+          break;
+        }
+        case "interested_products": {
+          whereCondition["interested_products.product_id"] = value;
+          break;
+        }
+        case "uploadFiles": {
+          whereCondition["uploadFiles.fileName"] = value;
+          break;
         }
         default:
           break;
@@ -3091,6 +3199,14 @@ exports.deleteFiltered = async (req, res) => {
               condition[field] = value;
               break;
             }
+            case "uploadFiles": {
+              condition["uploadFiles.fileName"] = value;
+              break;
+            }
+            case "interested_products": {
+              condition["interested_products.product_id"] = value;
+              break;
+            } 
             default:
               break;
           }
@@ -3098,7 +3214,14 @@ exports.deleteFiltered = async (req, res) => {
       }
     }
 
-    await Task.deleteMany(condition);
+    await Task.updateMany(condition, { $set: { isDeleted: true } });
+
+    if (condition["uploadFiles.fileName"]) {
+      await UploadFile.updateMany(
+        { fileName: condition["uploadFiles.fileName"] }, 
+        { $set: { isDeleted: true } }
+      );
+    }
 
     res.json({ success: true, message: "Filtered Tasks Deleted" });
   } catch (e) {
