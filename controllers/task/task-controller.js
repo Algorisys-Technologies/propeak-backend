@@ -765,6 +765,7 @@ exports.getTasksTable = async (req, res) => {
             }
             case "uploadFiles": {
               condition["uploadFiles.fileName"] = value;
+              break;
             }
             default:
               break;
@@ -1125,6 +1126,8 @@ exports.deleteSelectedTasks = async (req, res) => {
   try {
     // Step 1: Fetch the tasks to be deleted
     const tasksToDelete = await Task.find({ _id: { $in: taskIds } });
+    // const fileIds = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.id)); 
+    const fileNames = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.fileName));
 
     if (!tasksToDelete || tasksToDelete.length === 0) {
       return res.status(404).json({
@@ -1134,7 +1137,22 @@ exports.deleteSelectedTasks = async (req, res) => {
     }
 
     // Step 2: Delete tasks
-    const deletedTasks = await Task.deleteMany({ _id: { $in: taskIds } });
+    const deletedTasks = await Task.updateMany(
+      { _id: { $in: taskIds } }, 
+      { $set: { isDeleted: true } }
+    );
+
+    const deleteFile = await UploadFile.find({ fileName: { $in: fileNames } });
+
+    // const uploadFileIds = deleteFile.map(file => file._id);
+
+    if(deleteFile)
+      if (fileNames.length > 0) {
+        await UploadFile.updateMany(
+          { fileName: { $in: fileNames } }, 
+          { $set: { isDeleted: true } }
+        );
+      }
 
     if (deletedTasks.deletedCount === 0) {
       return res.status(500).json({
@@ -2551,6 +2569,7 @@ exports.getKanbanTasks = async (req, res) => {
         }
         case "uploadFiles": {
           whereCondition["uploadFiles.fileName"] = value;
+          break;
         }
         default:
           break;
@@ -3108,6 +3127,14 @@ exports.deleteFiltered = async (req, res) => {
               condition[field] = value;
               break;
             }
+            case "uploadFiles": {
+              condition["uploadFiles.fileName"] = value;
+              break;
+            }
+            case "interested_products": {
+              condition["interested_products.product_id"] = value;
+              break;
+            } 
             default:
               break;
           }
@@ -3116,6 +3143,13 @@ exports.deleteFiltered = async (req, res) => {
     }
 
     await Task.updateMany(condition, { $set: { isDeleted: true } });
+
+    if (condition["uploadFiles.fileName"]) {
+      await UploadFile.updateMany(
+        { fileName: condition["uploadFiles.fileName"] }, 
+        { $set: { isDeleted: true } }
+      );
+    }
 
     res.json({ success: true, message: "Filtered Tasks Deleted" });
   } catch (e) {
