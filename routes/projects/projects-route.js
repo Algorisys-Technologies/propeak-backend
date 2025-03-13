@@ -204,7 +204,11 @@ router.get(
   // verifyToken,
   projectController.getProjectsKanbanData
 );
-
+router.get(
+  "/kanbane/:companyId/:userId",
+  // verifyToken,
+  projectController.getExhibitionKanbanData
+);
 router.put("/updateStage", projectController.updateStage);
 
 module.exports = router;
