@@ -67,13 +67,12 @@ uwsApp
           ws.userId = userId; // Assign companyId to WebSocket
           activeClients.get(companyId).add(ws);
         }
-      
-        ws.companyId = companyId;
-        ws.userId = userId // Assign companyId to WebSocket
-        activeClients.get(companyId).add(ws);
-       
 
-       console.log(activeClients)
+        ws.companyId = companyId;
+        ws.userId = userId; // Assign companyId to WebSocket
+        activeClients.get(companyId).add(ws);
+
+        console.log(activeClients);
       }
       if (data.event === "update-location") {
         // PERFORM YOUR OPERATION HERE
@@ -119,10 +118,7 @@ try {
     "/api/location-history",
     require("./routes/location-history/location-history-route")
   );
-  app.use(
-    "/api/vfolder",
-    require("./routes/vfolder/vfolder-route")
-  );
+  app.use("/api/vfolder", require("./routes/vfolder/vfolder-route"));
   app.use("/api/projects", require("./routes/projects/projects-route"));
   app.use("/api/tasks", require("./routes/tasks/tasks-route"));
   app.use("/api/subTasks", require("./routes/sub-tasks/subtasks-route"));
@@ -246,14 +242,9 @@ try {
     "/api/indiamartLeads",
     require("./routes/indiamart-config/indiamart-config-route")
   );
-  app.use(
-    "/api/product",
-    require("./routes/product/product-route")
-  );
-  app.use(
-    "/api/stages",
-    require("./routes/stages/default-stages-route")
-  );
+  app.use("/api/product", require("./routes/product/product-route"));
+  app.use("/api/stages", require("./routes/stages/default-stages-route"));
+  app.use("/api/meeting", require("./routes/meeting/meeting-route"));
 } catch (e) {
   console.log(e);
 }

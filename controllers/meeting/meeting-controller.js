@@ -3,12 +3,16 @@ const nodemailer = require("nodemailer");
 
 const activeClients = new Map();
 
-// Create Meeting
 exports.createMeeting = async (req, res) => {
-  console.log("is this coming here or not ???")
-  console.log("request coming what ??", req.body)
   try {
-    const { projectId, userId, startLocation, meetingDescription, createdBy, companyId } = req.body;
+    const {
+      projectId,
+      userId,
+      startLocation,
+      meetingDescription,
+      createdBy,
+      companyId,
+    } = req.body;
 
     const newMeeting = await Meeting.create({
       projectId,
@@ -18,17 +22,20 @@ exports.createMeeting = async (req, res) => {
       meetingDescription,
       createdBy,
       companyId,
+      status: "LIVE",
     });
 
     const companyClients = activeClients.get(companyId);
     if (companyClients) {
       companyClients.forEach((client) => {
-        client.send(JSON.stringify({
-          event: "start-meeting",
-          userId,
-          companyId,
-          status: "LIVE",
-        }));
+        client.send(
+          JSON.stringify({
+            event: "start-meeting",
+            userId,
+            companyId,
+            status: "LIVE",
+          })
+        );
       });
     }
 
@@ -46,7 +53,6 @@ exports.createMeeting = async (req, res) => {
   }
 };
 
-// End Meeting
 exports.endMeeting = async (req, res) => {
   try {
     const { id } = req.params;
@@ -54,12 +60,14 @@ exports.endMeeting = async (req, res) => {
 
     const meeting = await Meeting.findByIdAndUpdate(
       id,
-      { endTime: new Date(), endLocation },
+      { endTime: new Date(), endLocation, status: "COMPLETED" },
       { new: true }
     );
 
     if (!meeting) {
-      return res.status(404).json({ success: false, message: "Meeting not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Meeting not found" });
     }
 
     await sendMeetingEmail(meeting);
@@ -67,12 +75,14 @@ exports.endMeeting = async (req, res) => {
     const companyClients = activeClients.get(meeting.companyId);
     if (companyClients) {
       companyClients.forEach((client) => {
-        client.send(JSON.stringify({
-          event: "end-meeting",
-          userId: meeting.userId,
-          companyId: meeting.companyId,
-          status: "COMPLETED",
-        }));
+        client.send(
+          JSON.stringify({
+            event: "end-meeting",
+            userId: meeting.userId,
+            companyId: meeting.companyId,
+            status: "COMPLETED",
+          })
+        );
       });
     }
 
@@ -83,7 +93,9 @@ exports.endMeeting = async (req, res) => {
     });
   } catch (error) {
     console.error("Error ending meeting:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -115,4 +127,29 @@ const sendMeetingEmail = async (meeting) => {
   };
 
   await transporter.sendMail(mailOptions);
+};
+
+exports.getMeetings = async (req, res) => {
+  try {
+    console.log("Received Query Params:", req.query);
+
+    const meetings = await Meeting.find({
+      companyId: req.query.companyId,
+      projectId: req.query.projectId,
+    }).lean();
+
+    console.log("Meetings Found:", meetings);
+
+    return res.status(200).json({
+      success: true,
+      message: "Meetings fetched successfully",
+      data: meetings,
+    });
+  } catch (error) {
+    console.error("Error fetching meetings:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
