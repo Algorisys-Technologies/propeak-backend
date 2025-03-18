@@ -416,7 +416,7 @@ exports.projectFileUpload = async (req, res) => {
       const projectTypeData = await ProjectType.findOne({
         projectType: projectType.trim(),
         companyId: companyId.trim(),
-        isDeleted: false,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       });
 
       if (!projectTypeData) {
@@ -443,7 +443,7 @@ exports.projectFileUpload = async (req, res) => {
       const groupData = await Group.findOne({
         groupName: groupName.trim(),
         companyId: companyId.trim(),
-        isDeleted: false,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       });
 
       if (
@@ -481,6 +481,7 @@ exports.projectFileUpload = async (req, res) => {
       const projectStage = await ProjectStage.findOne({
         title: statusTitle,
         companyId: companyId,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       });
       console.log(projectStage, "projectStage...........");
       return projectStage ? projectStage._id.toString() : null;
@@ -492,7 +493,11 @@ exports.projectFileUpload = async (req, res) => {
 
   async function getUserIdByName(name, companyId) {
     try {
-      const user = await User.findOne({ name: name, companyId, isDeleted: false});
+      const user = await User.findOne({ 
+        name: name, 
+        companyId, 
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      });
       return user ? user._id : null;
     } catch (err) {
       console.error("Error fetching user ID:", err);
@@ -637,6 +642,7 @@ exports.projectFileUpload = async (req, res) => {
               const users = await User.find({
                 name: { $in: userNames },
                 companyId,
+                isDeleted: false,
               }).select("_id");
               project.projectUsers = users.map((user) => user._id);
             }
@@ -647,6 +653,7 @@ exports.projectFileUpload = async (req, res) => {
               const users = await User.find({
                 name: { $in: userNames },
                 companyId,
+                isDeleted: false,
               }).select("_id");
               project.notifyUsers = users.map((user) => user._id);
             }
