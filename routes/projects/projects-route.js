@@ -163,7 +163,10 @@ router.get(
 // UPDATE project config
 router.put("/updateConfig/:id", projectConfigController.updateProjectConfig);
 
-router.get("/getGlobalTaskConfig/:companyId", projectConfigController.getGlobalTaskConfig);
+router.get(
+  "/getGlobalTaskConfig/:companyId",
+  projectConfigController.getGlobalTaskConfig
+);
 
 // Route to create comapny project configuration
 router.post(
@@ -208,6 +211,10 @@ router.get(
   "/kanbane/:companyId/:userId",
   // verifyToken,
   projectController.getExhibitionKanbanData
+);
+router.get(
+  "/kanban-groupMaster/:companyId/:userId/:groupId",
+  projectController.getProjectKanbanDataByGroupId
 );
 router.put("/updateStage", projectController.updateStage);
 
