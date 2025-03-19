@@ -56,11 +56,16 @@ exports.createMeeting = async (req, res) => {
 exports.endMeeting = async (req, res) => {
   try {
     const { id } = req.params;
-    const { endLocation } = req.body;
+    const { endLocation, meetingDescription } = req.body;
 
     const meeting = await Meeting.findByIdAndUpdate(
       id,
-      { endTime: new Date(), endLocation, status: "COMPLETED" },
+      {
+        endTime: new Date(),
+        endLocation,
+        meetingDescription,
+        status: "COMPLETED",
+      },
       { new: true }
     );
 
