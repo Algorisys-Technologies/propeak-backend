@@ -9,5 +9,5 @@ router.post("/start", meetingController.createMeeting);
 // End a meeting
 router.post("/end/:id", meetingController.endMeeting);
 router.get("/getmeetings", meetingController.getMeetings);
-
+router.post("/companyId", meetingController.getAllMeetings);
 module.exports = router;
