@@ -577,6 +577,8 @@ exports.projectFileUpload = async (req, res) => {
 
             for (let field in row) {
               let normalizedField = normalizeFieldName(field);
+              console.log(field, "from field")
+              console.log(normalizedField, "form normalizedField")
               let mappedField = mapArray[normalizedField];
 
               if (mappedField) {
@@ -586,7 +588,6 @@ exports.projectFileUpload = async (req, res) => {
                     row[field]?.toLowerCase() === "yes" ||
                     row[field]?.toLowerCase() === "true";
                 }
-
                 hasValidFields = true;
               } else {
                 if(normalizedField === "projectusers") continue;
@@ -747,6 +748,7 @@ exports.projectFileUpload = async (req, res) => {
             }
 
             // Convert projectowner to ID
+            let userID;
             if (project.projectOwnerId) {
               const projectOwnerId = await getUserIdByName(
                 project.projectOwnerId,
@@ -754,6 +756,7 @@ exports.projectFileUpload = async (req, res) => {
               );
               if (projectOwnerId) {
                 project.projectOwnerId = projectOwnerId;
+                userID = projectOwnerId;
               } else {
                 console.warn(
                   `User not found for name: ${project.projectOwnerId}, skipping projectOwnerId.`
@@ -786,7 +789,7 @@ exports.projectFileUpload = async (req, res) => {
 
             project.status = project.status || "todo";
             project.category = project.category || "todo";
-            project.userid = userId;
+            project.userid = userID || userId;
             project.completed = false;
             project.isDeleted = false;
             project.archive = false;
