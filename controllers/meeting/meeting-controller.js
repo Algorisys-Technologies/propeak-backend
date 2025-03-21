@@ -181,6 +181,14 @@ exports.getMeetings = async (req, res) => {
     const meetings = await Meeting.find({
       companyId: req.query.companyId,
       // projectId: req.query.projectId,
+    })
+    .populate({
+      path: "userId",
+      select: "name", 
+    })
+    .populate({
+      path: "projectId",
+      select: "title", 
     }).lean();
 
     return res.status(200).json({
@@ -198,7 +206,8 @@ exports.getMeetings = async (req, res) => {
 };
 exports.getAllMeetings = async (req, res) => {
   try {
-    const { companyId, currentPage = 1, limit = 5 } = req.body;
+    const { companyId, limit = 5 } = req.body;
+    const page = req.query.page ? req.query.page : 0;
     console.log(companyId, "is this company id is coming ");
 
     if (!companyId) {
@@ -208,8 +217,8 @@ exports.getAllMeetings = async (req, res) => {
       });
     }
 
-    const page = Math.max(Number(currentPage), 1); // Ensure page is at least 1
-    const skip = (page - 1) * limit;
+    // const page = Math.max(Number(currentPage), 1); 
+    // const skip = (page - 1) * limit;
 
     // const meetings = await Meeting.find({ companyId })
     //   .skip(skip)
@@ -224,10 +233,10 @@ exports.getAllMeetings = async (req, res) => {
         path: "projectId",
         select: "title", // Fetch only the title field of the project
       })
-      .skip(skip)
+      .skip(limit * page)
       .limit(Number(limit))
       .lean();
-    const totalMeetings = await Meeting.countDocuments({ companyId });
+    const totalMeetings = await Meeting.countDocuments({ companyId }); 
     const totalPages = Math.ceil(totalMeetings / limit);
 
     return res.status(200).json({
