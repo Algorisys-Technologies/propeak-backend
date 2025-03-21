@@ -68,7 +68,6 @@ exports.createMeeting = async (req, res) => {
     });
   }
 };
-
 exports.endMeeting = async (req, res) => {
   try {
     const { id } = req.params;
@@ -87,49 +86,54 @@ exports.endMeeting = async (req, res) => {
     );
 
     if (!meeting) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Meeting not found" });
+      return res.status(404).json({ success: false, message: "Meeting not found" });
     }
 
     // Fetch the owner (ADMIN) of the company
     const owner = await User.findOne({
       role: "ADMIN",
-
       companyId: meeting.companyId,
     });
 
+    // Fetch the meeting creator's user details
+    const currentUser = await User.findOne({
+      _id: meeting.userId,
+    });
+
+    console.log(currentUser, "currentUser is here ............");
+
+    let reportingManager = null;
+    if (currentUser?.reportingManagerId) {
+      reportingManager = await User.findOne({
+        _id: currentUser.reportingManagerId,
+      });
+
+      console.log(reportingManager, "reportingManager..............");
+    }
+
     if (!owner || !owner.email) {
-      console.error("owner not found for company:", meeting.companyId);
-    } else {
+      console.error("Owner not found for company:", meeting.companyId);
+    }
+
+    if (reportingManager?.email) {
       console.log("Publishing meeting email job to RabbitMQ...");
 
       const mailOptions = {
         from: config.from,
-        to: owner.email,
+        to: reportingManager.email, // Send email to Reporting Manager
         subject: "ProPeak Management System - Meeting Summary",
         html: `
-          <p>Dear ${owner.name || "Sir"},</p>
+          <p>Dear ${reportingManager.name || "Sir"},</p>
       
           <p>The meeting has been successfully completed in the <strong>ProPeak Management System</strong>.</p>
       
           <p><strong>Meeting Details:</strong></p>
           <ul>
-            <li><strong>Start Time:</strong> ${new Date(
-              meeting.startTime
-            ).toLocaleString()}</li>
-            <li><strong>Start Location:</strong> ${
-              meeting.startLocation || "Not provided"
-            }</li>
-            <li><strong>End Time:</strong> ${new Date(
-              meeting.endTime
-            ).toLocaleString()}</li>
-            <li><strong>End Location:</strong> ${
-              meeting.endLocation || "Not provided"
-            }</li>
-            <li><strong>Description:</strong> ${
-              meeting.meetingDescription || "No description provided"
-            }</li>
+            <li><strong>Start Time:</strong> ${new Date(meeting.startTime).toLocaleString()}</li>
+            <li><strong>Start Location:</strong> ${meeting.startLocation || "Not provided"}</li>
+            <li><strong>End Time:</strong> ${new Date(meeting.endTime).toLocaleString()}</li>
+            <li><strong>End Location:</strong> ${meeting.endLocation || "Not provided"}</li>
+            <li><strong>Description:</strong> ${meeting.meetingDescription || "No description provided"}</li>
           </ul>
       
           <p>If you have any questions, please contact your administrator.</p>
@@ -140,13 +144,11 @@ exports.endMeeting = async (req, res) => {
       };
 
       // Publish email job to RabbitMQ
-      await rabbitMQ.sendMessageToQueue(
-        mailOptions,
-        "message_queue",
-        "msgRoute"
-      );
+      await rabbitMQ.sendMessageToQueue(mailOptions, "message_queue", "msgRoute");
 
       console.log("Meeting email job published to RabbitMQ");
+    } else {
+      console.error("Reporting Manager not found or missing email.");
     }
 
     // Notify active clients about meeting completion
@@ -171,11 +173,142 @@ exports.endMeeting = async (req, res) => {
     });
   } catch (error) {
     console.error("Error ending meeting:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+// exports.endMeeting = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { endLocation, meetingDescription } = req.body;
+
+//     // Update meeting details
+//     const meeting = await Meeting.findByIdAndUpdate(
+//       id,
+//       {
+//         endTime: new Date(),
+//         endLocation,
+//         meetingDescription,
+//         status: "COMPLETED",
+//       },
+//       { new: true }
+//     );
+
+//     if (!meeting) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Meeting not found" });
+//     }
+
+//     // Fetch the owner (ADMIN) of the company
+//     const owner = await User.findOne({
+//       role: "ADMIN",
+//       companyId: meeting.companyId,
+//     });
+
+//     const currentUser = await User.findOne({
+//       _id: meeting.userId, // Assuming 'meeting.userId' holds the meeting creator's ID
+//     });
+//     console.log(currentUser, "currentUser is here ............")
+
+//     if (!currentUser || !currentUser.reportingManagerId) {
+//       console.error(
+//         "User or Reporting Manager ID not found for meeting:",
+//         meeting._id
+//       );
+//     } else {
+//       // Fetch the reporting manager details using the reportingManagerId
+//       const reportingManager = await User.findOne({
+//         _id: currentUser.reportingManagerId,
+//       });
+//       console.log(reportingManager, "reportingManager..............")
+//       if (!reportingManager || !reportingManager.email) {
+//         console.error(
+//           "Reporting Manager not found for ID:",
+//           currentUser.reportingManagerId
+//         );
+//       } else {
+//         console.log("Publishing meeting email job to RabbitMQ...");
+//       }
+//     }
+
+//     if (!owner || !owner.email) {
+//       console.error("owner not found for company:", meeting.companyId);
+//     } else {
+//       console.log("Publishing meeting email job to RabbitMQ...");
+
+//       const mailOptions = {
+//         from: config.from,
+//         to: reportingManager.email,
+//         subject: "ProPeak Management System - Meeting Summary",
+//         html: `
+//           <p>Dear ${owner.name || "Sir"},</p>
+      
+//           <p>The meeting has been successfully completed in the <strong>ProPeak Management System</strong>.</p>
+      
+//           <p><strong>Meeting Details:</strong></p>
+//           <ul>
+//             <li><strong>Start Time:</strong> ${new Date(
+//               meeting.startTime
+//             ).toLocaleString()}</li>
+//             <li><strong>Start Location:</strong> ${
+//               meeting.startLocation || "Not provided"
+//             }</li>
+//             <li><strong>End Time:</strong> ${new Date(
+//               meeting.endTime
+//             ).toLocaleString()}</li>
+//             <li><strong>End Location:</strong> ${
+//               meeting.endLocation || "Not provided"
+//             }</li>
+//             <li><strong>Description:</strong> ${
+//               meeting.meetingDescription || "No description provided"
+//             }</li>
+//           </ul>
+      
+//           <p>If you have any questions, please contact your administrator.</p>
+      
+//           <p>Best Regards,</p>
+//           <p><strong>ProPeak Team</strong></p>
+//         `,
+//       };
+
+//       // Publish email job to RabbitMQ
+//       await rabbitMQ.sendMessageToQueue(
+//         mailOptions,
+//         "message_queue",
+//         "msgRoute"
+//       );
+
+//       console.log("Meeting email job published to RabbitMQ");
+//     }
+
+//     // Notify active clients about meeting completion
+//     const companyClients = activeClients.get(meeting.companyId);
+//     if (companyClients) {
+//       companyClients.forEach((client) => {
+//         client.send(
+//           JSON.stringify({
+//             event: "end-meeting",
+//             userId: meeting.userId,
+//             companyId: meeting.companyId,
+//             status: "COMPLETED",
+//           })
+//         );
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Meeting ended successfully",
+//       data: meeting,
+//     });
+//   } catch (error) {
+//     console.error("Error ending meeting:", error);
+//     return res
+//       .status(500)
+//       .json({ success: false, message: "Internal server error" });
+//   }
+// };
 
 exports.getMeetings = async (req, res) => {
   try {
@@ -183,14 +316,15 @@ exports.getMeetings = async (req, res) => {
       companyId: req.query.companyId,
       // projectId: req.query.projectId,
     })
-    .populate({
-      path: "userId",
-      select: "name", 
-    })
-    .populate({
-      path: "projectId",
-      select: "title", 
-    }).lean();
+      .populate({
+        path: "userId",
+        select: "name",
+      })
+      .populate({
+        path: "projectId",
+        select: "title",
+      })
+      .lean();
 
     return res.status(200).json({
       success: true,
@@ -239,7 +373,7 @@ exports.getAllMeetings = async (req, res) => {
       });
     }
 
-    // const page = Math.max(Number(currentPage), 1); 
+    // const page = Math.max(Number(currentPage), 1);
     // const skip = (page - 1) * limit;
 
     // const meetings = await Meeting.find({ companyId })
