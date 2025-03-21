@@ -16,13 +16,14 @@ mongoose
   .then(() => console.log("Connected to the database.", "DB"));
 
 const ProjectSetting = require("./models/indiamart-integration/project-setting-model");
+const GroupSetting = require("./models/indiamart-integration/group-setting-model");
 const { fetchEmailScheduleEveryHour } = require("./config");
 const fetchLeads = require("./webscrape");
 schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
-    const settings = await ProjectSetting.find({
+    const settings = await GroupSetting.find({
       enabled: true,
       isDeleted: false,
       fetchFrequetly: true,
@@ -37,8 +38,9 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
       if (setting.method == "API") {
         const {
           companyId,
-          projectId,
-          taskStageId,
+          groupId,
+          //taskStageId,
+          projectStageId,
           authKey,
           startDate,
           endDate,
@@ -82,45 +84,104 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
           console.log("leadsData final...", leadsData);
 
           for (const lead of leadsData) {
-            // Check for existing tasks to avoid duplicates
-            const existingTask = await Task.findOne({
-              projectId,
-              taskStageId,
-              title: lead.SUBJECT,
-              startDate: lead.QUERY_TIME,
+            // Check if a project already exists for the same SENDER_NAME
+            let existingProject = await Project.findOne({
+              companyId,
+              title: lead.SENDER_NAME,
               isDeleted: false,
             });
 
+            console.log("Existing Project:", existingProject);
+
+            if (!existingProject) {
+              existingProject = new Project({
+                companyId,
+                title: lead.SENDER_NAME, // Use lead name as project title
+                description: "",
+                startdate: new Date(),
+                enddate: new Date(),
+                status: "todo",
+                projectStageId,
+                taskStages: ["todo", "inprogress", "completed"],
+                userid: new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+                createdBy: new mongoose.Types.ObjectId(
+                  "6697895d67a0c74106a26a13"
+                ),
+                createdOn: new Date(),
+                modifiedOn: new Date(),
+                sendnotification: false,
+                group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+                isDeleted: false,
+                miscellaneous: false,
+                archive: false,
+                customFieldValues: {},
+                projectUsers: [
+                  new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+                ],
+                notifyUsers: [
+                  new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+                ],
+                messages: [],
+                uploadFiles: [],
+                tasks: [],
+                customTaskFields: [],
+                projectTypeId: new mongoose.Types.ObjectId(
+                  "673202c115c8e180c21e9ac7"
+                ),
+                creation_mode: "AUTO",
+                lead_source: "INDIAMART",
+              });
+
+              await existingProject.save();
+              console.log(`Project created: ${lead.SENDER_NAME}`);
+            } else {
+              console.log(
+                `Project already exists: ${lead.SENDER_NAME} - Skipping.`
+              );
+            }
+
+            // Prevent duplicate tasks within the project
+            const existingTask = await Task.findOne({
+              projectId: existingProject._id,
+              title: lead.SUBJECT, // Using SUBJECT as task title
+              isDeleted: false,
+            });
+
+            console.log("Existing Task:", existingTask);
+
             if (existingTask) {
               console.log(
-                `Task already exists for lead: ${lead.SUBJECT} - Skipping.`
+                `Task already exists for subject: ${lead.SUBJECT} - Skipping.`
               );
               continue;
             }
 
-            // Create new task for the lead
+            // Create new task inside the project
             const newTask = new Task({
-              projectId,
-              taskStageId,
+              projectId: existingProject._id,
+              //taskStageId,
+              taskStageId: new mongoose.Types.ObjectId(
+                "6732031b15c8e180c21e9aee"
+              ),
               companyId,
-              title: lead.SUBJECT,
+              title: lead.SUBJECT, // Use lead subject as task title
               description: `
-                  Address: ${lead.SENDER_ADDRESS}, 
-                  City: ${lead.SENDER_CITY}, 
-                  State: ${lead.SENDER_STATE}, 
-                  Pincode: ${lead.SENDER_PINCODE}, 
-                  Country: ${lead.SENDER_COUNTRY_ISO}, 
-                  Mobile: ${lead.SENDER_MOBILE_ALT},`,
+                          Address: ${lead.SENDER_ADDRESS}, 
+                          City: ${lead.SENDER_CITY}, 
+                          State: ${lead.SENDER_STATE}, 
+                          Pincode: ${lead.SENDER_PINCODE}, 
+                          Country: ${lead.SENDER_COUNTRY_ISO}, 
+                          Mobile: ${lead.SENDER_MOBILE_ALT}`,
               startDate: lead.QUERY_TIME,
               createdOn: new Date(),
               modifiedOn: new Date(),
               creation_mode: "AUTO",
+              tag: [lead.label],
               lead_source: "INDIAMART",
               customFieldValues: {
                 date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
                 name: lead.SENDER_NAME,
                 mobile_number: lead.SENDER_MOBILE,
-                email: lead.SENDER_EMAIL,
                 company_name: lead.SENDER_COMPANY,
               },
               isDeleted: false,
@@ -130,7 +191,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             console.log(`Task created for lead: ${lead.SUBJECT}`);
           }
 
-          await ProjectSetting.updateOne(
+          await GroupSetting.updateOne(
             { _id: setting._id },
             { lastFetched: new Date() }
           );
@@ -145,8 +206,9 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
         // Web scraping code goes here
         const {
           companyId,
-          projectId,
-          taskStageId,
+          groupId,
+          //taskStageId,
+          projectStageId,
           authKey,
           startDate,
           endDate,
@@ -197,58 +259,113 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
           );
 
           for (const lead of leadsData) {
-            // Check for existing tasks to avoid duplicates
-            const existingTask = await Task.findOne({
-              projectId,
-              taskStageId,
-              title: lead.productName,
-              description: lead.details,
+            // Check if a project already exists for the same SENDER_NAME
+            let existingProject = await Project.findOne({
+              companyId,
+              title: lead.name,
               isDeleted: false,
             });
 
+            console.log("existingProject", existingProject);
+
+            if (!existingProject) {
+              existingProject = new Project({
+                companyId,
+                title: lead.name,
+                description: "",
+                startdate: new Date(),
+                enddate: new Date(),
+                status: "todo",
+                projectStageId,
+                // projectStageId: new mongoose.Types.ObjectId(
+                //   "673202d015c8e180c21e9acf"
+                // ),
+                taskStages: ["todo", "inprogress", "completed"],
+                userid: new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+                createdBy: new mongoose.Types.ObjectId(
+                  "6697895d67a0c74106a26a13"
+                ),
+                createdOn: new Date(),
+                modifiedOn: new Date(),
+                sendnotification: false,
+                group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+                isDeleted: false,
+                miscellaneous: false,
+                archive: false,
+                customFieldValues: {},
+                projectUsers: [
+                  new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+                ],
+                notifyUsers: [
+                  new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+                ],
+                messages: [],
+                uploadFiles: [],
+                tasks: [],
+                customTaskFields: [],
+                projectTypeId: new mongoose.Types.ObjectId(
+                  "673202c115c8e180c21e9ac7"
+                ),
+                creation_mode: "MANUAL",
+                lead_source: "INDIAMART",
+              });
+
+              console.log("existingProject creation", existingProject);
+
+              await existingProject.save();
+              console.log(`Project created: ${lead.name}`);
+            } else {
+              console.log(`Project already exists: ${lead.name} - Skipping.`);
+            }
+
+            // Prevent duplicate tasks
+            const existingTask = await Task.findOne({
+              projectId: existingProject._id,
+              title: lead.productName,
+              isDeleted: false,
+            });
+
+            console.log("existingTask", existingTask);
+
             if (existingTask) {
               console.log(
-                `Task already exists for lead: ${lead.SUBJECT} - Skipping.`
+                `Task already exists for product: ${lead.productName} - Skipping.`
               );
               continue;
             }
 
-            const regex = new RegExp(lead.label, "i");
-
-            const users = await User.find({
-              name: { $regex: regex },
-              companyId,
-            });
-
-            // Create new task for the lead
+            // Create new task
             const newTask = new Task({
-              projectId,
-              taskStageId,
+              projectId: existingProject._id,
+              //taskStageId,
+              taskStageId: new mongoose.Types.ObjectId(
+                "6732031b15c8e180c21e9aee"
+              ),
               companyId,
               title: lead.productName,
-              description: lead.details,
+              description: `Comapany: ${lead.name}\nContact: ${lead.mobile}\nDetails: ${lead.details}`,
               startDate: lead.startDate,
               createdOn: new Date(),
               modifiedOn: new Date(),
               creation_mode: "AUTO",
               tag: [lead.label],
               lead_source: "INDIAMART",
-              userId: users[0]?._id || null,
               customFieldValues: {
                 date: new Date(startDate).toLocaleDateString("IN"),
                 name: lead.name,
                 mobile_number: lead.mobile,
-                email: lead.email,
                 company_name: lead.name,
               },
               isDeleted: false,
             });
 
+            console.log("newTask", newTask);
+
             await newTask.save();
             console.log(`Task created for lead: ${lead.productName}`);
           }
 
-          await ProjectSetting.updateOne(
+          await GroupSetting.updateOne(
             { _id: setting._id },
             { lastFetched: new Date() }
           );

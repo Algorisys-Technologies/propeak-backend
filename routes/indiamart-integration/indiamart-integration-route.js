@@ -22,7 +22,6 @@ router.delete(
   integrationController.deleteIntegrationSettings
 );
 
-
 router.post("/addProjectSetting", projectSettings.createProjectSetting);
 
 router.post("/projectSetting", projectSettings.getAllProjectSetting);
@@ -30,4 +29,13 @@ router.post("/projectSetting", projectSettings.getAllProjectSetting);
 router.put("/updateProjectSetting", projectSettings.updateProjectSetting);
 
 router.post("/createFetch", projectSettings.fetchIndiaMartSettings);
+
+router.post("/addGroupSetting", projectSettings.createGroupSetting);
+
+router.post("/groupSetting", projectSettings.getAllGroupSetting);
+
+router.put("/updateGroupSetting", projectSettings.updateGroupSetting);
+
+router.post("/createFetchGroup", projectSettings.fetchIndiaMartSettingsGroup);
+
 module.exports = router;
