@@ -6,6 +6,7 @@ const Task = require("./models/task/task-model");
 const User = require("./models/user/user-model");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const Project = require("./models/project/project-model");
 
 dotenv.config();
 
@@ -17,7 +18,10 @@ mongoose
 
 const ProjectSetting = require("./models/indiamart-integration/project-setting-model");
 const GroupSetting = require("./models/indiamart-integration/group-setting-model");
-const { fetchEmailScheduleEveryHour } = require("./config");
+const {
+  fetchEmailScheduleEveryHour,
+  fetchEmailScheduleEvery10Min,
+} = require("./config");
 const fetchLeads = require("./webscrape");
 schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
@@ -28,6 +32,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
       isDeleted: false,
       fetchFrequetly: true,
     });
+
+    console.log("setting check", settings);
 
     if (!settings.length) {
       console.log("No IndiaMART integration settings found.");
@@ -87,6 +93,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             // Check if a project already exists for the same SENDER_NAME
             let existingProject = await Project.findOne({
               companyId,
+              group: new mongoose.Types.ObjectId(groupId),
               title: lead.SENDER_NAME,
               isDeleted: false,
             });
@@ -110,7 +117,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 sendnotification: false,
-                group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+                //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+                group: new mongoose.Types.ObjectId(groupId),
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
@@ -130,6 +138,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 ),
                 creation_mode: "AUTO",
                 lead_source: "INDIAMART",
+                tag: [lead.label],
               });
 
               await existingProject.save();
@@ -262,6 +271,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             // Check if a project already exists for the same SENDER_NAME
             let existingProject = await Project.findOne({
               companyId,
+              group: new mongoose.Types.ObjectId(groupId),
               title: lead.name,
               isDeleted: false,
             });
@@ -288,7 +298,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 sendnotification: false,
-                group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+                //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+                group: new mongoose.Types.ObjectId(groupId),
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
@@ -308,6 +319,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 ),
                 creation_mode: "MANUAL",
                 lead_source: "INDIAMART",
+                tag: [lead.label],
               });
 
               console.log("existingProject creation", existingProject);

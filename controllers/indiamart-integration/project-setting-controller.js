@@ -510,6 +510,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           // Check if a project already exists for the same SENDER_NAME
           let existingProject = await Project.findOne({
             companyId,
+            group: new mongoose.Types.ObjectId(groupId),
             title: lead.SENDER_NAME,
             isDeleted: false,
           });
@@ -533,7 +534,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               createdOn: new Date(),
               modifiedOn: new Date(),
               sendnotification: false,
-              group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+              //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+              group: new mongoose.Types.ObjectId(groupId),
               isDeleted: false,
               miscellaneous: false,
               archive: false,
@@ -553,6 +555,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               ),
               creation_mode: "AUTO",
               lead_source: "INDIAMART",
+              tag: [lead.label],
             });
 
             await existingProject.save();
@@ -671,6 +674,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         // Check if a project already exists for the same SENDER_NAME
         let existingProject = await Project.findOne({
           companyId,
+          group: new mongoose.Types.ObjectId(groupId),
           title: lead.name,
           isDeleted: false,
         });
@@ -695,7 +699,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             createdOn: new Date(),
             modifiedOn: new Date(),
             sendnotification: false,
-            group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+            //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
+            group: new mongoose.Types.ObjectId(groupId),
             isDeleted: false,
             miscellaneous: false,
             archive: false,
@@ -715,6 +720,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             ),
             creation_mode: "MANUAL",
             lead_source: "INDIAMART",
+            tag: [lead.label],
           });
 
           console.log("existingProject creation", existingProject);
