@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Meeting = require("../../models/meeting/meeting-model");
 const rabbitMQ = require("../../rabbitmq");
 const nodemailer = require("nodemailer");
@@ -206,9 +207,30 @@ exports.getMeetings = async (req, res) => {
 };
 exports.getAllMeetings = async (req, res) => {
   try {
-    const { companyId, limit = 5 } = req.body;
-    const page = req.query.page ? req.query.page : 0;
-    console.log(companyId, "is this company id is coming ");
+    const { companyId, currentPage, projectIdData, userIdData } = req.body;
+    console.log(userIdData, "from projectId")
+    let selectedProjectId, companyIdData, selectedUserId = null;
+    const projectId = projectIdData;
+    const userId = userIdData;
+    if (mongoose.Types.ObjectId.isValid(companyId)) {
+      companyIdData = new mongoose.Types.ObjectId(companyId);
+    }
+    if (mongoose.Types.ObjectId.isValid(projectId)) {
+      selectedProjectId = new mongoose.Types.ObjectId(projectId);
+    }
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      selectedUserId = new mongoose.Types.ObjectId(userId);
+    }
+    const limit = 5
+    const queryConditions = [{ companyId }];
+    if (selectedProjectId) {
+      queryConditions.push({ projectId: selectedProjectId._id });
+    }
+
+    if (selectedUserId) {
+      queryConditions.push({ userId: selectedUserId._id });
+    }
+    // console.log(companyId, "is this company id is coming ");
 
     if (!companyId) {
       return res.status(400).json({
@@ -224,7 +246,10 @@ exports.getAllMeetings = async (req, res) => {
     //   .skip(skip)
     //   .limit(Number(limit))
     //   .lean();
-    const meetings = await Meeting.find({ companyId })
+    // console.log(selectedProjectId, "from select project Id")
+    const meetings = await Meeting.find({
+      $and: queryConditions,
+    })
       .populate({
         path: "userId",
         select: "name", // Fetch only the name field of the user
@@ -233,18 +258,22 @@ exports.getAllMeetings = async (req, res) => {
         path: "projectId",
         select: "title", // Fetch only the title field of the project
       })
-      .skip(limit * page)
+      .skip(limit * currentPage)
       .limit(Number(limit))
-      .lean();
-    const totalMeetings = await Meeting.countDocuments({ companyId }); 
-    const totalPages = Math.ceil(totalMeetings / limit);
+    const totalMeetings = await Meeting.countDocuments({ $and: queryConditions }); 
+    const totalPages = Math.ceil(
+      await Meeting.countDocuments({
+        $and: queryConditions
+      }) / limit
+    );
 
+    console.log(totalPages, "from total project")
     return res.status(200).json({
       success: true,
       message: "Meetings fetched successfully",
       data: meetings,
       totalPages,
-      currentPage: page,
+      currentPage,
       totalMeetings,
     });
   } catch (error) {
