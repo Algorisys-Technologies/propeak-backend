@@ -180,7 +180,6 @@ exports.getMeetings = async (req, res) => {
   try {
     const meetings = await Meeting.find({
       companyId: req.query.companyId,
-      projectId: req.query.projectId
       // projectId: req.query.projectId,
     })
     .populate({
