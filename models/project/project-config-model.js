@@ -71,15 +71,18 @@ const ProjectConfigSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "project",
   },
-  level: {
-    type: String
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "groupMaster",
   },
-  companyId:{
+  level: {
+    type: String,
+  },
+  companyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "company",
   },
   config: [ConfigItemSchema],
-
 });
 
 module.exports = {

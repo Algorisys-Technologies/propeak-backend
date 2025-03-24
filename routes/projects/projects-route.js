@@ -168,6 +168,11 @@ router.get(
   projectConfigController.getGlobalTaskConfig
 );
 
+router.get(
+  "/getGroupTaskConfig/:companyId/:groupId",
+  projectConfigController.getGroupTaskConfig
+);
+
 // Route to create comapny project configuration
 router.post(
   "/createCompanyProjectConfig",
