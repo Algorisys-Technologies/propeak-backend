@@ -1279,30 +1279,32 @@ exports.archiveProject = async (req, res) => {
 exports.addCustomTaskField = async (req, res) => {
   try {
     console.log(req.body);
-    const { key, label, type, projectId, level, isMandatory } = req.body;
-
-    // Check for required fields
+    const { key, label, type, projectId, groupId, level, isMandatory } =
+      req.body;
+    if (!projectId && !groupId) {
+      return res
+        .status(400)
+        .json({ message: "Either projectId or groupId is required" });
+    }
     if (!key || !label || !type || !level) {
       return res.status(400).json({ message: "Missing required fields" });
     }
-
-    // Check for unique key
     const existingField = await CustomTaskField.findOne({
       key,
-      projectId,
+      $or: [{ projectId }, { groupId }],
       level,
       isDeleted: false,
     });
+
     if (existingField) {
       return res.status(409).json({ message: "Key already exists" });
     }
-
-    // Create a new custom field
     const newField = new CustomTaskField({
       key,
       label,
       type,
       projectId,
+      groupId,
       level,
       isMandatory,
       isDeleted: false,
@@ -1343,6 +1345,39 @@ exports.getCustomTasksField = async (req, res) => {
       "projectId"
     );
 
+    return res.json({
+      customTasksField,
+    });
+  } catch (e) {
+    return res.json({
+      error: e,
+    });
+  }
+};
+
+exports.getCustomTasksFieldGroup = async (req, res) => {
+  try {
+    // console.log("in request");
+    const groupId = req.params.groupId;
+    console.log(groupId, "groupId.......");
+    const level = req.query.level;
+
+    let condition =
+      groupId == "all"
+        ? {}
+        : {
+            groupId: groupId,
+            $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+          };
+
+    if (level) {
+      condition.level = level;
+    }
+
+    let customTasksField = await CustomTaskField.find(condition).populate(
+      "groupId"
+    );
+    console.log(customTasksField, "customTasksField...............")
     return res.json({
       customTasksField,
     });
