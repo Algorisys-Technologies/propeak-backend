@@ -17,6 +17,11 @@ const groupSettingSchema = new mongoose.Schema(
       ref: "ProjectStage",
       required: true,
     },
+    taskStageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TaskStage",
+      required: true,
+    },
     integrationProvider: {
       type: String,
       // required: true

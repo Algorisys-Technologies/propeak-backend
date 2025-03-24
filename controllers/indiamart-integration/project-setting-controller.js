@@ -458,7 +458,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     authKey,
     enabled,
     groupId,
-    // taskStageId,
+    taskStageId,
     projectStageId,
     companyId,
     integrationProvider,
@@ -585,10 +585,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           // Create new task inside the project
           const newTask = new Task({
             projectId: existingProject._id,
-            //taskStageId,
-            taskStageId: new mongoose.Types.ObjectId(
-              "6732031b15c8e180c21e9aee"
-            ),
+            taskStageId,
+            // taskStageId: new mongoose.Types.ObjectId(
+            //   "6732031b15c8e180c21e9aee"
+            // ),
             companyId,
             title: lead.SUBJECT, // Use lead subject as task title
             description: `
@@ -630,8 +630,14 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
   }
 
   if (groupSetting.method == "Web-Scrape") {
-    const { companyId, projectStageId, authKey, startDate, endDate } =
-      groupSetting;
+    const {
+      companyId,
+      projectStageId,
+      taskStageId,
+      authKey,
+      startDate,
+      endDate,
+    } = groupSetting;
 
     console.log("GroupID check", groupId);
 
@@ -750,8 +756,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         // Create new task
         const newTask = new Task({
           projectId: existingProject._id,
-          //taskStageId,
-          taskStageId: new mongoose.Types.ObjectId("6732031b15c8e180c21e9aee"),
+          taskStageId,
+          //taskStageId: new mongoose.Types.ObjectId("6732031b15c8e180c21e9aee"),
           companyId,
           title: lead.productName,
           description: `Comapany: ${lead.name}\nContact: ${lead.mobile}\nDetails: ${lead.details}`,
