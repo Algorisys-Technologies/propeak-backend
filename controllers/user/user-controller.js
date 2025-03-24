@@ -133,17 +133,26 @@ exports.getUsers = async (req, res) => {
   try {
     console.log("get Usersssss")
     const { companyId } = req.body;
+    const { q } = req.query;
 
+    const searchFilter = q
+    ? {  $or: [
+      { role: { $regex: new RegExp(q, "i") } },
+      { name: { $regex: new RegExp(q, "i") } },
+      { email: { $regex: new RegExp(q, "i") } },
+    ], }
+    : {};
     // Check if companyId is provided
     let query;
     
     if (!companyId) {
       query = {
         isDeleted: false,
+        ...searchFilter
       };
     }
     else{
-       query = { isDeleted: false, companyId };
+       query = { isDeleted: false, companyId, ...searchFilter };
     }
 
     // Define the query to fetch users based on the provided companyId
