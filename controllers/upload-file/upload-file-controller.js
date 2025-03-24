@@ -577,8 +577,6 @@ exports.projectFileUpload = async (req, res) => {
 
             for (let field in row) {
               let normalizedField = normalizeFieldName(field);
-              console.log(field, "from field")
-              console.log(normalizedField, "form normalizedField")
               let mappedField = mapArray[normalizedField];
 
               if (mappedField) {
@@ -684,7 +682,6 @@ exports.projectFileUpload = async (req, res) => {
             }
 
             if (project.projecttype) {
-              console.log(project.projecttype, "from project type")
               const projectTypeId = await getProjectTypeIdByTitle(
                 project.projecttype,
                 companyId
@@ -807,7 +804,30 @@ exports.projectFileUpload = async (req, res) => {
             if (!project.status) missingFields.push("status");
 
             if (missingFields.length === 0) {
-              projects.push(project);
+              const existingProject = await Project.findOne({
+                title: project.title,
+                companyId: project.companyId
+              });
+
+              if (!existingProject) {
+                // If no project with the same title exists, proceed with creation
+                projects.push(project);
+              }
+
+              // Loop through projects to process further
+              for (const proj of projects) {
+                
+                // Check again in case new projects are processed dynamically
+                const existingProj = await Project.findOne({
+                  title: proj.title,
+                  companyId: proj.companyId
+                });
+
+                if (!existingProj) {
+                  await Project.create(proj);
+                }
+              }
+              
             } else {
               console.log(
                 `project at row ${index + 1} missing required fields:`,
@@ -825,7 +845,7 @@ exports.projectFileUpload = async (req, res) => {
 
           if (projects.length > 0) {
             try {
-             await Project.insertMany(projects);
+            //  await Project.insertMany(projects);
               let missingFieldsSummary = failedRecords
                 .map(
                   (fail) =>
@@ -848,7 +868,8 @@ exports.projectFileUpload = async (req, res) => {
             }
           } else {
             res.json({
-              error: "Uploaded file is not in correct format",
+              title: "Duplicate company created!",
+              description: "some project have duplicate project title"
             });
           }
         }
