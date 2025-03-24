@@ -462,6 +462,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     projectStageId,
     projectTypeId,
     companyId,
+    userId,
     integrationProvider,
     method,
   } = req.body;
@@ -477,6 +478,13 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       message: "companyId is missing. Please provide a valid companyId.",
     });
   }
+
+  if (!userId) {
+    return res.status(400).json({
+      message: "userId is missing. Please provide a valid userId.",
+    });
+  }
+
   const now = moment();
   const defaultStartDate = now.startOf("day").format("DD-MMM-YYYYHH:mm:ss");
   const defaultEndDate = now.endOf("day").format("DD-MMM-YYYYHH:mm:ss");
@@ -528,10 +536,9 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               status: "todo",
               projectStageId,
               taskStages: ["todo", "inprogress", "completed"],
-              userid: new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
-              createdBy: new mongoose.Types.ObjectId(
-                "6697895d67a0c74106a26a13"
-              ),
+              //userid: new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+              userid: new mongoose.Types.ObjectId(userId),
+              createdBy: new mongoose.Types.ObjectId(userId),
               createdOn: new Date(),
               modifiedOn: new Date(),
               sendnotification: false,
@@ -541,12 +548,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               miscellaneous: false,
               archive: false,
               customFieldValues: {},
-              projectUsers: [
-                new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
-              ],
-              notifyUsers: [
-                new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
-              ],
+              projectUsers: [new mongoose.Types.ObjectId(userId)],
+              notifyUsers: [new mongoose.Types.ObjectId(userId)],
               messages: [],
               uploadFiles: [],
               tasks: [],
@@ -634,6 +637,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
   if (groupSetting.method == "Web-Scrape") {
     const {
       companyId,
+      userId,
       projectStageId,
       taskStageId,
       projectTypeId,
@@ -703,8 +707,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             //   "673202d015c8e180c21e9acf"
             // ),
             taskStages: ["todo", "inprogress", "completed"],
-            userid: new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
-            createdBy: new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+            userid: new mongoose.Types.ObjectId(userId),
+            createdBy: new mongoose.Types.ObjectId(userId),
             createdOn: new Date(),
             modifiedOn: new Date(),
             sendnotification: false,
@@ -714,12 +718,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             miscellaneous: false,
             archive: false,
             customFieldValues: {},
-            projectUsers: [
-              new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
-            ],
-            notifyUsers: [
-              new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
-            ],
+            projectUsers: [new mongoose.Types.ObjectId(userId)],
+            notifyUsers: [new mongoose.Types.ObjectId(userId)],
             messages: [],
             uploadFiles: [],
             tasks: [],
