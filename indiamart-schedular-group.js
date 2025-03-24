@@ -45,8 +45,9 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
         const {
           companyId,
           groupId,
-          //taskStageId,
+          taskStageId,
           projectStageId,
+          projectTypeId,
           authKey,
           startDate,
           endDate,
@@ -103,8 +104,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             if (!existingProject) {
               existingProject = new Project({
                 companyId,
-                title: lead.SENDER_NAME, // Use lead name as project title
-                description: "",
+                title: lead.SENDER_NAME,
+                description: lead.SENDER_NAME,
                 startdate: new Date(),
                 enddate: new Date(),
                 status: "todo",
@@ -133,9 +134,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 uploadFiles: [],
                 tasks: [],
                 customTaskFields: [],
-                projectTypeId: new mongoose.Types.ObjectId(
-                  "673202c115c8e180c21e9ac7"
-                ),
+                projectTypeId: new mongoose.Types.ObjectId(projectTypeId),
                 creation_mode: "AUTO",
                 lead_source: "INDIAMART",
                 tag: [lead.label],
@@ -168,10 +167,10 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             // Create new task inside the project
             const newTask = new Task({
               projectId: existingProject._id,
-              //taskStageId,
-              taskStageId: new mongoose.Types.ObjectId(
-                "6732031b15c8e180c21e9aee"
-              ),
+              taskStageId,
+              // taskStageId: new mongoose.Types.ObjectId(
+              //   "6732031b15c8e180c21e9aee"
+              // ),
               companyId,
               title: lead.SUBJECT, // Use lead subject as task title
               description: `
@@ -216,8 +215,9 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
         const {
           companyId,
           groupId,
-          //taskStageId,
+          taskStageId,
           projectStageId,
+          projectTypeId,
           authKey,
           startDate,
           endDate,
@@ -282,7 +282,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               existingProject = new Project({
                 companyId,
                 title: lead.name,
-                description: "",
+                description: lead.name,
                 startdate: new Date(),
                 enddate: new Date(),
                 status: "todo",
@@ -314,9 +314,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 uploadFiles: [],
                 tasks: [],
                 customTaskFields: [],
-                projectTypeId: new mongoose.Types.ObjectId(
-                  "673202c115c8e180c21e9ac7"
-                ),
+                projectTypeId: new mongoose.Types.ObjectId(projectTypeId),
                 creation_mode: "MANUAL",
                 lead_source: "INDIAMART",
                 tag: [lead.label],
@@ -349,10 +347,10 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             // Create new task
             const newTask = new Task({
               projectId: existingProject._id,
-              //taskStageId,
-              taskStageId: new mongoose.Types.ObjectId(
-                "6732031b15c8e180c21e9aee"
-              ),
+              taskStageId,
+              // taskStageId: new mongoose.Types.ObjectId(
+              //   "6732031b15c8e180c21e9aee"
+              // ),
               companyId,
               title: lead.productName,
               description: `Comapany: ${lead.name}\nContact: ${lead.mobile}\nDetails: ${lead.details}`,

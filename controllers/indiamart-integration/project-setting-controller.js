@@ -460,6 +460,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     groupId,
     taskStageId,
     projectStageId,
+    projectTypeId,
     companyId,
     integrationProvider,
     method,
@@ -520,8 +521,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           if (!existingProject) {
             existingProject = new Project({
               companyId,
-              title: lead.SENDER_NAME, // Use lead name as project title
-              description: "",
+              title: lead.SENDER_NAME,
+              description: lead.SENDER_NAME,
               startdate: new Date(),
               enddate: new Date(),
               status: "todo",
@@ -550,9 +551,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               uploadFiles: [],
               tasks: [],
               customTaskFields: [],
-              projectTypeId: new mongoose.Types.ObjectId(
-                "673202c115c8e180c21e9ac7"
-              ),
+              projectTypeId: new mongoose.Types.ObjectId(projectTypeId),
+              // projectTypeId: new mongoose.Types.ObjectId(
+              //   "673202c115c8e180c21e9ac7"
+              // ),
               creation_mode: "AUTO",
               lead_source: "INDIAMART",
               tag: [lead.label],
@@ -590,7 +592,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             //   "6732031b15c8e180c21e9aee"
             // ),
             companyId,
-            title: lead.SUBJECT, // Use lead subject as task title
+            title: lead.SUBJECT,
             description: `
                         Address: ${lead.SENDER_ADDRESS}, 
                         City: ${lead.SENDER_CITY}, 
@@ -634,6 +636,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       companyId,
       projectStageId,
       taskStageId,
+      projectTypeId,
       authKey,
       startDate,
       endDate,
@@ -691,7 +694,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           existingProject = new Project({
             companyId,
             title: lead.name,
-            description: "",
+            description: lead.name,
             startdate: new Date(),
             enddate: new Date(),
             status: "todo",
@@ -721,9 +724,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             uploadFiles: [],
             tasks: [],
             customTaskFields: [],
-            projectTypeId: new mongoose.Types.ObjectId(
-              "673202c115c8e180c21e9ac7"
-            ),
+            projectTypeId: new mongoose.Types.ObjectId(projectTypeId),
             creation_mode: "MANUAL",
             lead_source: "INDIAMART",
             tag: [lead.label],
