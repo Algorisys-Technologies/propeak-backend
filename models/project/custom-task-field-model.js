@@ -9,6 +9,10 @@ const CustomTaskFieldSchema = new mongoose.Schema({
   // projectId :{
   //   type: String
   // },
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "groupMaster",
+  },
   projectId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "project",

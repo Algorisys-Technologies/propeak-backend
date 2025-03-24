@@ -97,18 +97,17 @@ router.post(
   // verifyToken,
   projectController.addCustomTaskField
 );
-// getCustomTasksFields
-
-// router.get(
-//   "/getCustomTasksField/:projectId",
-//   verifyToken,
-//   projectController.getCustomTasksField
-// );
 
 router.get(
   "/getCustomTasksField/:projectId",
   // verifyToken,
   projectController.getCustomTasksField
+);
+
+router.get(
+  "/getCustomTasksFields/:groupId",
+  // verifyToken,
+  projectController.getCustomTasksFieldGroup
 );
 
 router.get(
