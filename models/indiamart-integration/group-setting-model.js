@@ -48,6 +48,8 @@ const groupSettingSchema = new mongoose.Schema(
       // required
     },
     enabled: { type: Boolean, default: false },
+    fetchNow: { type: Boolean, default: false },
+
     fetchFrequetly: { type: Boolean, default: false },
     startDate: {
       type: Date,

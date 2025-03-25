@@ -273,11 +273,12 @@ exports.getProjectDataByProjectId = (req, res) => {
 
 // CREATE
 exports.createProject = async (req, res) => {
-  console.log("req.body", req.body);
+  console.log("req.body for creating project", req.body);
 
   logInfo(req.body, "createProject req.body");
   let userName = req.body.userName;
   const { title, companyId, status, taskStages, group } = req.body;
+  console.log(group, "group is here.........");
   const existingProject = await Project.findOne({ title, companyId });
 
   console.log(existingProject, "existingProject");
@@ -325,7 +326,7 @@ exports.createProject = async (req, res) => {
     projectUsers: req.body.projectUsers?.map((userId) => userId),
     tag: req.body.tag,
     userid: req.body.userid,
-    // group:  req.body.group?.map((groupId) =>  groupId),
+    groupId: req.body.groupId,
     companyId: req.body.companyId,
     userGroups: req.body.userGroups,
     sendnotification: req.body.sendnotification,
@@ -1377,7 +1378,7 @@ exports.getCustomTasksFieldGroup = async (req, res) => {
     let customTasksField = await CustomTaskField.find(condition).populate(
       "groupId"
     );
-    console.log(customTasksField, "customTasksField...............")
+    console.log(customTasksField, "customTasksField...............");
     return res.json({
       customTasksField,
     });
