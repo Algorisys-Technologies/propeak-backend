@@ -28,7 +28,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
 
   try {
     const settings = await GroupSetting.find({
-      enabled: false,
+      enabled: true,
       isDeleted: false,
       fetchFrequetly: true,
     });
