@@ -251,7 +251,13 @@ exports.postAddUser = async (req, res) => {
     const companyId = req.body.companyId;
     const company = await Company.findById(companyId);
 
-    const isUserExists = await User.findOne({email: req.body.email, companyId})
+    if(req.body.name == "" || req.body.email == "" || req.body.password == "" || req.body.dob == ""){
+      return res
+        .status(400)
+        .send("All fields marked with an asterisk (*) are mandatory.");
+    }
+
+    const isUserExists = await User.findOne({email: req.body.email, companyId, isDeleted: false})
 
     if(isUserExists){
       return res.json({success: false, message: "User Already Exists" })
@@ -265,7 +271,6 @@ exports.postAddUser = async (req, res) => {
         err: "User limit reached or company not found.",
       });
     }
-    console.log(req.body);
     const password = req.body.password;
     let hashedPassword = await bcrypt.hash(password, 10);
 
@@ -440,6 +445,12 @@ exports.updateUser = async (req, res) => {
   try {
     const updatedUser = req.body;
     console.log(updatedUser, "updatedUser.................");
+
+    if(req.body.name == "" || req.body.email == "" || req.body.password == "" || req.body.dob == ""){
+      return res
+        .status(400)
+        .send("All fields marked with an asterisk (*) are mandatory.");
+    }
 
     const oldResult = await User.findOneAndUpdate(
       { _id: updatedUser.id },
