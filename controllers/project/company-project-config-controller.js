@@ -4,10 +4,16 @@ const {
 
 // Create Project Configuration
 const createProjectConfig = async (req, res) => {
-  const { companyId, projectId, level, config } = req.body;
-  console.log("In Create")
+  const { companyId, groupId, projectId, level, config } = req.body;
+  console.log("In Create");
   try {
-    const projectConfig = new CompanyProjectConfig({ companyId, projectId, level, config });
+    const projectConfig = new CompanyProjectConfig({
+      companyId,
+      groupId,
+      projectId,
+      level,
+      config,
+    });
     await projectConfig.save();
     return res.status(201).json({ success: true, projectConfig });
   } catch (error) {
@@ -22,21 +28,59 @@ const getProjectConfig = async (req, res) => {
 
   try {
     let projectConfig;
-    if(projectId == "global"){
-      projectConfig = await CompanyProjectConfig.findOne({ companyId, level: "global" });
-    }
-    else{
-      projectConfig = await CompanyProjectConfig.findOne({ companyId, projectId });
-    if (!projectConfig) {
-      projectConfig = await CompanyProjectConfig.findOne({ companyId, level: "global" });
-      if(!projectConfig){
-        return res
-        .status(404)
-        .json({ success: false, message: "Configuration not found" });
+    if (projectId == "global") {
+      projectConfig = await CompanyProjectConfig.findOne({
+        companyId,
+        level: "global",
+      });
+    } else {
+      projectConfig = await CompanyProjectConfig.findOne({
+        companyId,
+        projectId,
+      });
+      if (!projectConfig) {
+        projectConfig = await CompanyProjectConfig.findOne({
+          companyId,
+          level: "global",
+        });
+        if (!projectConfig) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Configuration not found" });
+        }
       }
     }
+
+    return res.status(200).json({ success: true, projectConfig });
+  } catch (error) {
+    console.error("Error fetching project configuration:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getGroupProjectConfig = async (req, res) => {
+  const { companyId, groupId } = req.params;
+
+  try {
+    let projectConfig;
+
+    projectConfig = await CompanyProjectConfig.findOne({
+      companyId,
+      groupId,
+    });
+    if (!projectConfig) {
+      projectConfig = await CompanyProjectConfig.findOne({
+        companyId,
+        groupId,
+        level: "group",
+      });
+      if (!projectConfig) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Configuration not found" });
+      }
     }
-    
+
     return res.status(200).json({ success: true, projectConfig });
   } catch (error) {
     console.error("Error fetching project configuration:", error);
@@ -98,4 +142,5 @@ module.exports = {
   getProjectConfig,
   updateProjectConfig,
   deleteProjectConfig,
+  getGroupProjectConfig,
 };

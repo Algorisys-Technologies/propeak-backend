@@ -183,6 +183,11 @@ router.get(
   companyProjectConfigController.getProjectConfig
 );
 
+router.get(
+  "/getGroupProjectConfig/:companyId/:groupId",
+  companyProjectConfigController.getGroupProjectConfig
+);
+
 router.put(
   "/updateCompanyProjectConfig/:id",
   companyProjectConfigController.updateProjectConfig

@@ -63,13 +63,17 @@ const CompanyProjectConfigSchema = new mongoose.Schema({
     ref: "company",
     required: true,
   },
-  level:{
+  level: {
     type: String,
-    enum: ["global", "project"]
+    enum: ["global", "project", "group"],
   },
   projectId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "project",
+  },
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "groupMaster",
   },
   config: [ProjectFieldConfigSchema],
 });
