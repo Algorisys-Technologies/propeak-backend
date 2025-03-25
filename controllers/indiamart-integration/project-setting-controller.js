@@ -524,6 +524,14 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
           });
 
+          const regex = new RegExp(lead.label, "i");
+
+          console.log("regex", regex, "lead.label", lead.label);
+
+          const users = await User.find({ name: { $regex: regex }, companyId });
+
+          console.log("users...", users);
+
           console.log("Existing Project:", existingProject);
 
           if (!existingProject) {
@@ -548,7 +556,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               miscellaneous: false,
               archive: false,
               customFieldValues: {},
-              projectUsers: [new mongoose.Types.ObjectId(userId)],
+              projectUsers: [
+                new mongoose.Types.ObjectId(userId),
+                users[0]?._id || null,
+              ],
               notifyUsers: [new mongoose.Types.ObjectId(userId)],
               messages: [],
               uploadFiles: [],
@@ -609,6 +620,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             creation_mode: "AUTO",
             tag: [lead.label],
             lead_source: "INDIAMART",
+            userId: users[0]?._id || null,
             customFieldValues: {
               date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
               name: lead.SENDER_NAME,
@@ -692,6 +704,12 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           isDeleted: false,
         });
 
+        const regex = new RegExp(lead.label, "i");
+
+        const users = await User.find({ name: { $regex: regex }, companyId });
+
+        console.log("users...", users);
+
         console.log("existingProject", existingProject);
 
         if (!existingProject) {
@@ -718,7 +736,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             miscellaneous: false,
             archive: false,
             customFieldValues: {},
-            projectUsers: [new mongoose.Types.ObjectId(userId)],
+            projectUsers: [
+              new mongoose.Types.ObjectId(userId),
+              users[0]?._id || null,
+            ],
             notifyUsers: [new mongoose.Types.ObjectId(userId)],
             messages: [],
             uploadFiles: [],
@@ -768,6 +789,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           creation_mode: "AUTO",
           tag: [lead.label],
           lead_source: "INDIAMART",
+          userId: users[0]?._id || null,
           customFieldValues: {
             date: new Date(startDate).toLocaleDateString("IN"),
             name: lead.name,

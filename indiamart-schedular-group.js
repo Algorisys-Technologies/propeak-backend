@@ -100,6 +100,13 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               isDeleted: false,
             });
 
+            const regex = new RegExp(lead.label, "i");
+
+            const users = await User.find({
+              name: { $regex: regex },
+              companyId,
+            });
+
             console.log("Existing Project:", existingProject);
 
             if (!existingProject) {
@@ -123,7 +130,10 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 miscellaneous: false,
                 archive: false,
                 customFieldValues: {},
-                projectUsers: [new mongoose.Types.ObjectId(userId)],
+                projectUsers: [
+                  new mongoose.Types.ObjectId(userId),
+                  users[0]?._id || null,
+                ],
                 notifyUsers: [new mongoose.Types.ObjectId(userId)],
                 messages: [],
                 uploadFiles: [],
@@ -181,6 +191,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               creation_mode: "AUTO",
               tag: [lead.label],
               lead_source: "INDIAMART",
+              userId: users[0]?._id || null,
               customFieldValues: {
                 date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
                 name: lead.SENDER_NAME,
@@ -272,6 +283,13 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               isDeleted: false,
             });
 
+            const regex = new RegExp(lead.label, "i");
+
+            const users = await User.find({
+              name: { $regex: regex },
+              companyId,
+            });
+
             console.log("existingProject", existingProject);
 
             if (!existingProject) {
@@ -298,7 +316,10 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 miscellaneous: false,
                 archive: false,
                 customFieldValues: {},
-                projectUsers: [new mongoose.Types.ObjectId(userId)],
+                projectUsers: [
+                  new mongoose.Types.ObjectId(userId),
+                  users[0]?._id || null,
+                ],
                 notifyUsers: [new mongoose.Types.ObjectId(userId)],
                 messages: [],
                 uploadFiles: [],
@@ -350,6 +371,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               creation_mode: "AUTO",
               tag: [lead.label],
               lead_source: "INDIAMART",
+              userId: users[0]?._id || null,
               customFieldValues: {
                 date: new Date(startDate).toLocaleDateString("IN"),
                 name: lead.name,
