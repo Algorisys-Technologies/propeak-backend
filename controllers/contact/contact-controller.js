@@ -25,12 +25,13 @@ exports.getContacts = async (req, res) => {
         .json({ success: false, message: "Company ID is required" });
     }
 
+    const accountName = await Account.findOne({_id: accountId});
     const contacts = await Contact.find({
       companyId: companyId,
       account_id: accountId,
       isDeleted: false,
     });
-    return res.status(200).json({ success: true, contacts });
+    return res.status(200).json({ success: true, contacts, accountName: accountName.account_name });
   } catch (error) {
     console.error("Error fetching contacts:", error.message);
     return res.status(500).json({
@@ -62,19 +63,22 @@ exports.getAllContact = async (req, res) => {
   }
   console.log("in contacts");
 
+  const orConditions = [
+    { first_name: { $regex: regex } },
+    { last_name: { $regex: regex } },
+    { phone: { $regex: regex } },
+    { email: { $regex: regex } },
+    { title: { $regex: regex } }
+  ];
+
+  if (vfolderId) {
+    orConditions.push({ vfolderId });
+  }
+
   const contacts = await Contact.find({
     $and: [
-      {
-        $or: [
-          { first_name: { $regex: regex } },
-          { last_name: { $regex: regex } },
-          { phone: { $regex: regex } },
-          { email: { $regex: regex } },
-          { title: { $regex: regex } },
-          { vfolderId },
-        ],
-      },
-      { companyId: companyId },
+      { $or: orConditions },
+      { companyId },
       { account_id: accountId },
       { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
     ],
@@ -86,17 +90,8 @@ exports.getAllContact = async (req, res) => {
     (await Contact.countDocuments({
       account_id: accountId,
       $and: [
-        {
-          $or: [
-            { first_name: { $regex: regex } },
-            { last_name: { $regex: regex } },
-            { phone: { $regex: regex } },
-            { email: { $regex: regex } },
-            { title: { $regex: regex } },
-            { vfolderId },
-          ],
-        },
-        { companyId: companyId },
+        { $or: orConditions },
+        { companyId },
         { account_id: accountId },
         { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
       ],
@@ -107,17 +102,8 @@ exports.getAllContact = async (req, res) => {
     (await Contact.countDocuments({
       account_id: accountId,
       $and: [
-        {
-          $or: [
-            { first_name: { $regex: regex } },
-            { last_name: { $regex: regex } },
-            { phone: { $regex: regex } },
-            { email: { $regex: regex } },
-            { title: { $regex: regex } },
-            { vfolderId },
-          ],
-        },
-        { companyId: companyId },
+        { $or: orConditions },
+        { companyId },
         { account_id: accountId },
         { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
       ],
@@ -389,6 +375,12 @@ exports.createContact = async (req, res) => {
         success: false,
         msg: "Company ID is required to create a contact.",
       });
+    }
+
+    if(contactData.first_name == "" || contactData.last_name == "" || contactData.email == ""){
+      return res
+        .status(400)
+        .send("All fields marked with an asterisk (*) are mandatory.");
     }
 
     // if(contactData.creationMode == "AUTO"){
