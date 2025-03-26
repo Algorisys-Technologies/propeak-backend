@@ -115,7 +115,8 @@ exports.create_task_stage = async (req, res) => {
 // };
 exports.get_task_stages_by_company = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    const { companyId, query } = req.body;
+    const regex = new RegExp(query, "i");
 
     // Validate companyId
     if (!companyId) {
@@ -124,6 +125,10 @@ exports.get_task_stages_by_company = async (req, res) => {
 
     // Find task stages where isDeleted is false
     const stages = await TaskStage.find({
+      $or: [
+        { title: { $regex: regex } },
+        { displayName: { $regex: regex } },
+      ],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
     });

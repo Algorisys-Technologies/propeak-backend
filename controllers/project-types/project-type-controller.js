@@ -69,7 +69,8 @@ exports.create_project_type = async (req, res) => {
 // Get project types by company
 exports.get_project_types_by_company = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    const { companyId, query } = req.body;
+    const regex = new RegExp(query, "i");
 
     // Validate companyId
     if (!companyId) {
@@ -78,6 +79,9 @@ exports.get_project_types_by_company = async (req, res) => {
 
     // Fetch project types where isDeleted is not true
     const projectTypes = await ProjectType.find({
+      $or: [
+        { projectType: { $regex: regex} },
+      ],
       companyId,
       isDeleted: { $ne: true },
     });

@@ -65,13 +65,18 @@ exports.create_project_stage = async (req, res) => {
 
 exports.get_project_stages_by_company = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    const { companyId, query } = req.body;
+    const regex = new RegExp(query, "i");
 
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required." });
     }
 
     const stages = await ProjectStage.find({
+      $or:[
+        { title: { $regex: regex} },
+        { displayName: { $regex: regex} },
+      ],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
     });
