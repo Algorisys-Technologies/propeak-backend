@@ -15,6 +15,7 @@ const { logError, logInfo } = require("../../common/logger");
 const TaskType = require("../../models/task/task-type-model");
 const ProjectType = require("../../models/project-types/project-types-model");
 const Group = require("../../models/group/group-model");
+const GroupMaster = require("../../models/project/group-master-model");
 const access = require("../../check-entitlements");
 let uploadFolder = config.UPLOAD_PATH;
 const objectId = require("../../common/common");
@@ -496,6 +497,32 @@ exports.projectFileUpload = async (req, res) => {
     }
   }
 
+  async function getGroupMasterIdByName(groupName, companyId) {
+    try {
+      console.log(
+        `Searching for GroupMaster: ${groupName}, companyId: ${companyId}`
+      );
+
+      const groupMasterData = await GroupMaster.findOne({
+        name: groupName.trim(),
+        companyId: companyId.trim(),
+      });
+
+      if (!groupMasterData) {
+        console.warn(`No GroupMaster found for group: ${groupName}`);
+        return null;
+      }
+
+      console.log(
+        `GroupMaster found: ${groupMasterData.name}, ID: ${groupMasterData._id}`
+      );
+      return groupMasterData._id; // Return the ObjectId
+    } catch (err) {
+      console.error("Error fetching GroupMaster ID:", err);
+      return null;
+    }
+  }
+
   async function parseFile(uploadFolder, filename, companyId) {
     const exceltojson = filename.endsWith(".xlsx") ? xlsxtojson : xlstojson;
 
@@ -640,6 +667,7 @@ exports.projectFileUpload = async (req, res) => {
               }).select("_id");
               project.notifyUsers = users.map((user) => user._id);
             }
+
             if (project.groupName) {
               const groupMembers = await getUserIdsByGroupName(
                 project.groupName,
@@ -697,6 +725,12 @@ exports.projectFileUpload = async (req, res) => {
               project.enddate = project.enddate
                 ? convertDate(project.enddate)
                 : "";
+            }
+            if (project.group) {
+              project.group = await getGroupMasterIdByName(
+                project.group,
+                companyId
+              );
             }
 
             if (project.userid) {

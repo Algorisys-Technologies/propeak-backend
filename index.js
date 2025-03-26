@@ -245,6 +245,7 @@ try {
   app.use("/api/product", require("./routes/product/product-route"));
   app.use("/api/stages", require("./routes/stages/default-stages-route"));
   app.use("/api/meeting", require("./routes/meeting/meeting-route"));
+  app.use("/api/groupmasters", require("./routes/projects/group-master-route"));
 } catch (e) {
   console.log(e);
 }

@@ -58,8 +58,12 @@ const ProjectSchema = new mongoose.Schema(
         ref: "userGroup",
       },
     ],
+    // group: {
+    //   type: String,
+    // },
     group: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "groupMaster",
     },
     projectType: {
       type: String,

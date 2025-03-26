@@ -97,18 +97,17 @@ router.post(
   // verifyToken,
   projectController.addCustomTaskField
 );
-// getCustomTasksFields
-
-// router.get(
-//   "/getCustomTasksField/:projectId",
-//   verifyToken,
-//   projectController.getCustomTasksField
-// );
 
 router.get(
   "/getCustomTasksField/:projectId",
   // verifyToken,
   projectController.getCustomTasksField
+);
+
+router.get(
+  "/getCustomTasksFields/:groupId",
+  // verifyToken,
+  projectController.getCustomTasksFieldGroup
 );
 
 router.get(
@@ -163,7 +162,15 @@ router.get(
 // UPDATE project config
 router.put("/updateConfig/:id", projectConfigController.updateProjectConfig);
 
-router.get("/getGlobalTaskConfig/:companyId", projectConfigController.getGlobalTaskConfig);
+router.get(
+  "/getGlobalTaskConfig/:companyId",
+  projectConfigController.getGlobalTaskConfig
+);
+
+router.get(
+  "/getGroupTaskConfig/:companyId/:groupId",
+  projectConfigController.getGroupTaskConfig
+);
 
 // Route to create comapny project configuration
 router.post(
@@ -174,6 +181,11 @@ router.post(
 router.get(
   "/getCompanyProjectConfig/:companyId/:projectId",
   companyProjectConfigController.getProjectConfig
+);
+
+router.get(
+  "/getGroupProjectConfig/:companyId/:groupId",
+  companyProjectConfigController.getGroupProjectConfig
 );
 
 router.put(
@@ -208,6 +220,10 @@ router.get(
   "/kanbane/:companyId/:userId",
   // verifyToken,
   projectController.getExhibitionKanbanData
+);
+router.get(
+  "/kanban-groupMaster/:companyId/:userId/:groupId",
+  projectController.getProjectKanbanDataByGroupId
 );
 router.put("/updateStage", projectController.updateStage);
 

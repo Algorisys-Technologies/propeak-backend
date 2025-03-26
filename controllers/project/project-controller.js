@@ -1279,30 +1279,32 @@ exports.archiveProject = async (req, res) => {
 exports.addCustomTaskField = async (req, res) => {
   try {
     console.log(req.body);
-    const { key, label, type, projectId, level, isMandatory } = req.body;
-
-    // Check for required fields
+    const { key, label, type, projectId, groupId, level, isMandatory } =
+      req.body;
+    if (!projectId && !groupId) {
+      return res
+        .status(400)
+        .json({ message: "Either projectId or groupId is required" });
+    }
     if (!key || !label || !type || !level) {
       return res.status(400).json({ message: "Missing required fields" });
     }
-
-    // Check for unique key
     const existingField = await CustomTaskField.findOne({
       key,
-      projectId,
+      $or: [{ projectId }, { groupId }],
       level,
       isDeleted: false,
     });
+
     if (existingField) {
       return res.status(409).json({ message: "Key already exists" });
     }
-
-    // Create a new custom field
     const newField = new CustomTaskField({
       key,
       label,
       type,
       projectId,
+      groupId,
       level,
       isMandatory,
       isDeleted: false,
@@ -1343,6 +1345,39 @@ exports.getCustomTasksField = async (req, res) => {
       "projectId"
     );
 
+    return res.json({
+      customTasksField,
+    });
+  } catch (e) {
+    return res.json({
+      error: e,
+    });
+  }
+};
+
+exports.getCustomTasksFieldGroup = async (req, res) => {
+  try {
+    // console.log("in request");
+    const groupId = req.params.groupId;
+    console.log(groupId, "groupId.......");
+    const level = req.query.level;
+
+    let condition =
+      groupId == "all"
+        ? {}
+        : {
+            groupId: groupId,
+            $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+          };
+
+    if (level) {
+      condition.level = level;
+    }
+
+    let customTasksField = await CustomTaskField.find(condition).populate(
+      "groupId"
+    );
+    console.log(customTasksField, "customTasksField...............")
     return res.json({
       customTasksField,
     });
@@ -1659,6 +1694,101 @@ exports.getExhibitionKanbanData = async (req, res) => {
     return res.json({
       success: false,
       message: "Error fetching exhibition project kanban",
+    });
+  }
+};
+
+exports.getProjectKanbanDataByGroupId = async (req, res) => {
+  try {
+    const { companyId, userId, groupId } = req.params;
+    const archive = req.query.archive === "true";
+
+    console.log("groupId", groupId, "companyId", companyId, "userId", userId);
+
+    const groupObjectId = mongoose.Types.ObjectId.isValid(groupId)
+      ? new mongoose.Types.ObjectId(groupId)
+      : null;
+
+    if (!groupObjectId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid groupId" });
+    }
+
+    // Fetch all project stages for the given company
+    const projectStages = await ProjectStage.find({
+      companyId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    }).sort({ sequence: "asc" });
+
+    // Fetch projects filtered by groupId
+    const stagesWithProjects = await Promise.all(
+      projectStages.map(async (stage) => {
+        let projectWhereCondition = {
+          projectStageId: stage._id,
+          companyId,
+          archive,
+          projectType: { $ne: "Exhibition" },
+          group: groupObjectId, // <-- Ensure correct ObjectId comparison
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+        };
+
+        if (userId !== "ALL") {
+          projectWhereCondition.projectUsers = { $in: [userId] };
+        }
+
+        let iprojects = await Project.find(projectWhereCondition);
+
+        let projects = await Promise.all(
+          iprojects.map(async (p) => {
+            const users = await User.find({
+              _id: { $in: p.projectUsers },
+            }).select("name");
+            const createdByUser = await User.findById(p.createdBy).select(
+              "name"
+            );
+
+            const tasksCount = await Task.countDocuments({
+              projectId: p._id,
+              isDeleted: false,
+            });
+
+            const isFavourite = await FavoriteProject.findOne({
+              projectId: p._id,
+              userId: userId,
+            });
+
+            return {
+              ...p.toObject(),
+              tasksCount,
+              isFavourite: !!isFavourite,
+              projectUsers: users.map((user) => user.name),
+              createdBy: createdByUser ? createdByUser.name : "Unknown",
+            };
+          })
+        );
+
+        return { ...stage.toObject(), projects };
+      })
+    );
+
+    const totalCount = await Project.countDocuments({
+      companyId,
+      archive,
+      group: groupObjectId, // <-- Ensure correct ObjectId comparison
+      isDeleted: false,
+    });
+
+    return res.json({
+      success: true,
+      projectStages: stagesWithProjects,
+      totalCount,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching project kanban by groupId",
     });
   }
 };

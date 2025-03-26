@@ -3,17 +3,17 @@ const { ProjectConfig } = require("../../models/project/project-config-model");
 // Create a new Project Configuration
 const createProjectConfig = async (req, res) => {
   try {
-    const { projectId, config , level, companyId} = req.body;
+    const { projectId, groupId, config, level, companyId } = req.body;
 
     // Basic validation
-   
 
     // Create a new ProjectConfig document
     const projectConfig = new ProjectConfig({
       projectId,
+      groupId,
       config,
       level,
-      companyId
+      companyId,
     });
 
     // Save to database
@@ -52,7 +52,7 @@ const getProjectConfigByProjectId = async (req, res) => {
 
 const getGlobalTaskConfig = async (req, res) => {
   try {
-    console.log("In Get Global Task Config")
+    console.log("In Get Global Task Config");
     const { companyId } = req.params;
     // Basic validation
     if (!companyId) {
@@ -60,8 +60,39 @@ const getGlobalTaskConfig = async (req, res) => {
     }
 
     // Find the project configuration by projectId
-    const projectConfig = await ProjectConfig.findOne({ level: "global", companyId });
-    console.log(projectConfig)
+    const projectConfig = await ProjectConfig.findOne({
+      level: "global",
+      companyId,
+    });
+    console.log(projectConfig);
+
+    if (!projectConfig) {
+      return res.status(404).json({ message: "Project config not found" });
+    }
+
+    res.status(200).json(projectConfig);
+  } catch (error) {
+    console.error("Error fetching project config:", error);
+    res.status(500).json({ message: "Error fetching project config", error });
+  }
+};
+
+const getGroupTaskConfig = async (req, res) => {
+  try {
+    console.log("In Get Global Task Config");
+    const { companyId, groupId } = req.params;
+    // Basic validation
+    if (!companyId) {
+      return res.status(400).json({ message: "Company ID is required" });
+    }
+
+    // Find the project configuration by projectId
+    const projectConfig = await ProjectConfig.findOne({
+      level: "group",
+      companyId,
+      groupId,
+    });
+    console.log(projectConfig);
 
     if (!projectConfig) {
       return res.status(404).json({ message: "Project config not found" });
@@ -159,5 +190,6 @@ module.exports = {
   getProjectConfigByProjectId,
   updateProjectConfig,
   deleteProjectConfig,
-  getGlobalTaskConfig
+  getGlobalTaskConfig,
+  getGroupTaskConfig,
 };
