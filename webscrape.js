@@ -184,7 +184,7 @@ async function scrollToLoadAllLeads(page) {
             const address = await page.evaluate(
               async () => await navigator.clipboard.readText()
             );
-            lead.address = address && address.includes("@") ? address : "N/A";
+            lead.address = address ? address : "N/A";
             console.log(`Fetched address: ${lead.address}`);
           } else {
             lead.address = "N/A";
