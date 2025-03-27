@@ -177,6 +177,24 @@ async function scrollToLoadAllLeads(page) {
           lead.email = "N/A";
         }
 
+        try {
+          const addressElement = page.locator("#headerAddress");
+          if ((await addressElement.count()) > 0) {
+            await addressElement.click();
+            const address = await page.evaluate(
+              async () => await navigator.clipboard.readText()
+            );
+            lead.address = address && address.includes("@") ? address : "N/A";
+            console.log(`Fetched address: ${lead.address}`);
+          } else {
+            lead.address = "N/A";
+            console.log(`No address found for ${lead.name}`);
+          }
+        } catch (error) {
+          console.error(`Error fetching address for ${lead.name}:`, error);
+          lead.address = "N/A";
+        }
+
         leadsData.push(lead);
       } catch (error) {
         console.error(`Error processing lead ${lead.name}:`, error);
@@ -401,13 +419,15 @@ const fetchLeads = async ({
   }
 };
 
-// fetchLeads( {mobileNumber: "9892492782", password :"KIPINDIAMART2022",
-//   start_dayToSelect : "24"
-//   , start_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
-//   , start_yearToSelect : "2025"
-//   , end_dayToSelect : "25"
-//   , end_monthToSelect : "0" // April (0-based index: 0 : January, 1 : February, etc.)
-//   , end_yearToSelect : "2025"
+// fetchLeads({
+//   mobileNumber: "9892492782",
+//   password: "KIPINDIAMART2022",
+//   start_dayToSelect: "24",
+//   start_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
+//   start_yearToSelect: "2025",
+//   end_dayToSelect: "25",
+//   end_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
+//   end_yearToSelect: "2025",
 // });
 
 module.exports = fetchLeads;
