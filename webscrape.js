@@ -140,6 +140,7 @@ async function scrollToLoadAllLeads(page) {
           const mobileElement = page.locator("#headerMobile");
           if ((await mobileElement.count()) > 0) {
             await mobileElement.click();
+            await page.waitForTimeout(500);
             const mobileNumber = await page.evaluate(async () => {
               return await navigator.clipboard.readText();
             });
@@ -163,6 +164,7 @@ async function scrollToLoadAllLeads(page) {
           const emailElement = page.locator("#headerEmail");
           if ((await emailElement.count()) > 0) {
             await emailElement.click();
+            await page.waitForTimeout(500);
             const email = await page.evaluate(
               async () => await navigator.clipboard.readText()
             );
@@ -181,6 +183,7 @@ async function scrollToLoadAllLeads(page) {
           const addressElement = page.locator("#headerAddress");
           if ((await addressElement.count()) > 0) {
             await addressElement.click();
+            await page.waitForTimeout(500);
             const address = await page.evaluate(
               async () => await navigator.clipboard.readText()
             );
@@ -422,7 +425,7 @@ const fetchLeads = async ({
 // fetchLeads({
 //   mobileNumber: "9892492782",
 //   password: "KIPINDIAMART2022",
-//   start_dayToSelect: "24",
+//   start_dayToSelect: "25",
 //   start_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
 //   start_yearToSelect: "2025",
 //   end_dayToSelect: "25",
