@@ -17,7 +17,7 @@ const errors = {
 };
 
 exports.projectClone = ((req, res) => {
-
+  console.log(req.body, "request boy whats all coming ????")
   console.log("in project clone")
  
     Project.findById(req.body.projectId)
@@ -35,6 +35,7 @@ exports.projectClone = ((req, res) => {
         companyId: result.companyId,
         group: result.group,
         sendnotification: 'false',
+        projectType: result.projectType, 
         createdBy: result.userid,
         createdOn: new Date(),
         modifiedBy: result.userId,
