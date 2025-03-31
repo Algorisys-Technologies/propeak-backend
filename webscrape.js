@@ -198,6 +198,22 @@ async function scrollToLoadAllLeads(page) {
           lead.address = "N/A";
         }
 
+        try {
+          const contactNameElement = page.locator("#left-name");
+          if ((await contactNameElement.count()) > 0) {
+            await page.waitForTimeout(500);
+            const contactName = await contactNameElement.textContent();
+            lead.contactPerson = contactName ? contactName.trim() : "N/A";
+            console.log(`Fetched contact person: ${lead.contactPerson}`);
+          } else {
+            lead.contactPerson = "N/A";
+            console.log("No contact person name found");
+          }
+        } catch (error) {
+          console.error("Error fetching contact person name:", error);
+          lead.contactPerson = "N/A";
+        }
+
         leadsData.push(lead);
       } catch (error) {
         console.error(`Error processing lead ${lead.name}:`, error);
@@ -273,7 +289,7 @@ const fetchLeads = async ({
   end_yearToSelect,
 }) => {
   console.log("In fetchLeads");
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: false });
 
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
