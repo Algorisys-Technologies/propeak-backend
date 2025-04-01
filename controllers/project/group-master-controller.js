@@ -35,11 +35,11 @@ const getGroups = async (req, res) => {
   try {
     const groups = await GroupMaster.find({ companyId, isDeleted: false });
 
-    if (!groups.length) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No groups found" });
-    }
+    // if (!groups.length) {
+    //   return res
+    //     .status(404)
+    //     .json({ success: false, message: "No groups found" });
+    // }
 
     return res.status(200).json({ success: true, groups });
   } catch (error) {

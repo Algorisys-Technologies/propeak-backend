@@ -298,8 +298,8 @@ exports.createProject = async (req, res) => {
     if (
       !title ||
       title.trim() === "" ||
-      !group ||
-      group.trim() === "" ||
+      // !group ||
+      // group.trim() === "" ||
       !status ||
       status.trim() === "" ||
       !taskStages ||
@@ -338,7 +338,12 @@ exports.createProject = async (req, res) => {
     archive: req.body.archive,
     customFieldValues: req.body.customFieldValues,
     projectTypeId: req.body.projectTypeId,
-    group: req.body.group,
+    group:
+      req.body.group &&
+      req.body.group.trim() !== "" &&
+      req.body.group !== "no-selection"
+        ? req.body.group
+        : null,
     creation_mode: "MANUAL",
     lead_source: "USER",
     projectType: req.body.projectType,
@@ -1377,7 +1382,7 @@ exports.getCustomTasksFieldGroup = async (req, res) => {
     let customTasksField = await CustomTaskField.find(condition).populate(
       "groupId"
     );
-    console.log(customTasksField, "customTasksField...............")
+    console.log(customTasksField, "customTasksField...............");
     return res.json({
       customTasksField,
     });
