@@ -76,6 +76,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
           const response = await axios.get(apiUrl);
           const leadsData = response.data.RESPONSE;
 
+          console.log("leadsData...API...", leadsData);
+
           if (!leadsData || leadsData.length === 0) {
             console.log("No new leads found from IndiaMART.");
             continue;
@@ -96,7 +98,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             let existingProject = await Project.findOne({
               companyId,
               group: new mongoose.Types.ObjectId(groupId),
-              title: lead.SENDER_NAME,
+              title: lead.SENDER_COMPANY,
               isDeleted: false,
             });
 
@@ -112,8 +114,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             if (!existingProject) {
               existingProject = new Project({
                 companyId,
-                title: lead.SENDER_NAME,
-                description: lead.SENDER_NAME,
+                title: lead.SENDER_COMPANY,
+                description: lead.SENDER_COMPANY,
                 startdate: new Date(),
                 enddate: new Date(),
                 status: "todo",
@@ -146,10 +148,10 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               });
 
               await existingProject.save();
-              console.log(`Project created: ${lead.SENDER_NAME}`);
+              console.log(`Project created: ${lead.SENDER_COMPANY}`);
             } else {
               console.log(
-                `Project already exists: ${lead.SENDER_NAME} - Skipping.`
+                `Project already exists: ${lead.SENDER_COMPANY} - Skipping.`
               );
             }
 
@@ -190,13 +192,18 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
                 name: lead.SENDER_NAME,
                 mobile_number: lead.SENDER_MOBILE,
+                mobile_number_alt: lead.SENDER_MOBILE_ALT,
                 email: lead.SENDER_EMAIL,
+                email_alt: lead.SENDER_EMAIL_ALT,
+                phone: lead.SENDER_PHONE,
+                phone_alt: lead.SENDER_PHONE_ALT,
                 company_name: lead.SENDER_COMPANY,
                 address: `${lead.SENDER_ADDRESS}, 
                 City: ${lead.SENDER_CITY}, 
                 State: ${lead.SENDER_STATE}, 
                 Pincode: ${lead.SENDER_PINCODE}, 
                 Country: ${lead.SENDER_COUNTRY_ISO}`,
+                leads_details: `${lead.QUERY_PRODUCT_NAME},${lead.QUERY_MESSAGE},${lead.QUERY_MCAT_NAME}`,
               },
               isDeleted: false,
             });
