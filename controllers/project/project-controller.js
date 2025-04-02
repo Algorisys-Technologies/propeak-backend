@@ -1294,16 +1294,38 @@ exports.addCustomTaskField = async (req, res) => {
     if (!key || !label || !type || !level) {
       return res.status(400).json({ message: "Missing required fields" });
     }
-    const existingField = await CustomTaskField.findOne({
+    // const existingField = await CustomTaskField.findOne({
+    //   key,
+    //   $or: [{ projectId }, { groupId }],
+    //   level,
+    //   isDeleted: false,
+    // });
+
+    // if (existingField) {
+    //   return res.status(409).json({ message: "Key already exists" });
+    // }
+
+    // Uniqueness only within the same project or group
+    const query = {
       key,
-      $or: [{ projectId }, { groupId }],
       level,
       isDeleted: false,
-    });
+    };
+
+    if (projectId) {
+      query.projectId = projectId;
+    } else if (groupId) {
+      query.groupId = groupId;
+    }
+
+    const existingField = await CustomTaskField.findOne(query);
 
     if (existingField) {
-      return res.status(409).json({ message: "Key already exists" });
+      return res
+        .status(409)
+        .json({ message: "Key already exists in this project/group" });
     }
+
     const newField = new CustomTaskField({
       key,
       label,
