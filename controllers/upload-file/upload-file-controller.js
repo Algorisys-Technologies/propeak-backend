@@ -417,6 +417,7 @@ exports.projectFileUpload = async (req, res) => {
       const projectTypeData = await ProjectType.findOne({
         projectType: projectType.trim(),
         companyId: companyId.trim(),
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       });
 
       if (!projectTypeData) {
@@ -443,6 +444,7 @@ exports.projectFileUpload = async (req, res) => {
       const groupData = await Group.findOne({
         groupName: groupName.trim(),
         companyId: companyId.trim(),
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       });
 
       if (
@@ -458,9 +460,11 @@ exports.projectFileUpload = async (req, res) => {
         `Group found: ${groupData.groupName}, Members:`,
         groupData.groupMembers
       );
-      return groupData.groupMembers.map(
-        (id) => new mongoose.Types.ObjectId(id)
-      );
+      // const data =  groupData.id.map(
+      //   (id) => new mongoose.Types.ObjectId(id)
+      // );
+      // console.log(data, "from groupdata")
+      return groupData.id;
     } catch (err) {
       console.error("Error fetching group members:", err);
       return [];
@@ -478,6 +482,7 @@ exports.projectFileUpload = async (req, res) => {
       const projectStage = await ProjectStage.findOne({
         title: statusTitle,
         companyId: companyId,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       });
       console.log(projectStage, "projectStage...........");
       return projectStage ? projectStage._id.toString() : null;
@@ -489,7 +494,11 @@ exports.projectFileUpload = async (req, res) => {
 
   async function getUserIdByName(name, companyId) {
     try {
-      const user = await User.findOne({ name: name, companyId });
+      const user = await User.findOne({ 
+        name: name, 
+        companyId, 
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      });
       return user ? user._id : null;
     } catch (err) {
       console.error("Error fetching user ID:", err);
@@ -604,9 +613,9 @@ exports.projectFileUpload = async (req, res) => {
                     row[field]?.toLowerCase() === "yes" ||
                     row[field]?.toLowerCase() === "true";
                 }
-
                 hasValidFields = true;
               } else {
+                if(normalizedField === "projectusers") continue;
                 customFieldValues[normalizedField] = row[field];
               }
             }
@@ -623,29 +632,34 @@ exports.projectFileUpload = async (req, res) => {
                 } else {
                   [month, day] = [day, month];
                 }
-                return new Date(year, month - 1, day);
+                return new Date(Date.UTC(year, month - 1, day)).toISOString();
               } else if (dateStr.includes("-")) {
                 let [day, month, year] = dateStr.split("-").map(Number);
                 if (year < 100) {
                   year += 2000;
                 }
-                return new Date(year, month - 1, day);
+                return new Date(Date.UTC(year, month - 1, day)).toISOString();
               }
               return dateStr;
             };
-            if (Array.isArray(project.userGroups)) {
-              project.userGroups = project.userGroups.map((userGroup) => {});
-            } else {
-              console.warn(
-                "userGroups is not an array, defaulting to empty array"
-              );
-              project.userGroups = [];
-            }
+            // console.log(project.userGroups, "from projects users groups")
+            // if (Array.isArray(project.userGroups)) {
+            //   project.userGroups = project.userGroups.map((userGroup) => {});
+            //   console.log(project.userGroups, "from user group")
+            // } else {
+            //   console.warn(
+            //     "userGroups is not an array, defaulting to empty array"
+            //   );
+            //   project.userGroups = [];
+            // }
             if (typeof project.userGroups === "string") {
               project.userGroups = project.userGroups
                 .split(",")
                 .map((item) => item.trim());
-            }
+            } else if (!Array.isArray(project.userGroups)) {
+              console.warn("userGroups is not a valid array or string, defaulting to empty array");
+              project.userGroups = [];
+            }            
 
             if (project.projectUsers) {
               const userNames = project.projectUsers
@@ -654,6 +668,7 @@ exports.projectFileUpload = async (req, res) => {
               const users = await User.find({
                 name: { $in: userNames },
                 companyId,
+                isDeleted: false,
               }).select("_id");
               project.projectUsers = users.map((user) => user._id);
             }
@@ -664,30 +679,42 @@ exports.projectFileUpload = async (req, res) => {
               const users = await User.find({
                 name: { $in: userNames },
                 companyId,
+                isDeleted: false,
               }).select("_id");
               project.notifyUsers = users.map((user) => user._id);
             }
 
-            if (project.groupName) {
-              const groupMembers = await getUserIdsByGroupName(
-                project.groupName,
-                companyId
-              );
 
-              if (groupMembers.length > 0) {
-                project.groupMembers = groupMembers; // Store user IDs
-              } else {
+            if (Array.isArray(project.userGroups) && project.userGroups.length > 0) {    
+              // Fetch group members for each group in the array
+              const groupList = await Promise.all(
+                project.userGroups.map(async (group) => {
+                  return await getUserIdsByGroupName(group, companyId);
+                })
+              );
+            
+
+              project.userGroups = [...new Set(groupList.flat())];
+            
+              if (project.userGroups.length === 0) {
                 console.warn(
-                  `No users found for group: ${project.groupName}, skipping groupMembers.`
+                  `No users found for group: ${project.userGroups.join(
+                    ", "
+                  )}, skipping groupMembers.`
                 );
-                project.groupMembers = [];
               }
+            } else {
+              console.warn("No valid userGroups found, skipping groupMembers.");
+              project.userGroups = [];
             }
+
             if (project.projecttype) {
               const projectTypeId = await getProjectTypeIdByTitle(
                 project.projecttype,
                 companyId
               );
+
+            
               if (projectTypeId) {
                 project.projectTypeId = projectTypeId;
               } else {
@@ -698,7 +725,7 @@ exports.projectFileUpload = async (req, res) => {
               }
             }
 
-            console.log(project.taskStages, "project.taskStages");
+
             if (project.taskStages) {
               const taskStageTitles = project.taskStages
                 .split(",")
@@ -751,6 +778,7 @@ exports.projectFileUpload = async (req, res) => {
             }
 
             // Convert projectowner to ID
+            let userID;
             if (project.projectOwnerId) {
               const projectOwnerId = await getUserIdByName(
                 project.projectOwnerId,
@@ -758,6 +786,7 @@ exports.projectFileUpload = async (req, res) => {
               );
               if (projectOwnerId) {
                 project.projectOwnerId = projectOwnerId;
+                userID = projectOwnerId;
               } else {
                 console.warn(
                   `User not found for name: ${project.projectOwnerId}, skipping projectOwnerId.`
@@ -790,7 +819,7 @@ exports.projectFileUpload = async (req, res) => {
 
             project.status = project.status || "todo";
             project.category = project.category || "todo";
-            project.userid = userId;
+            project.userid = userID || userId;
             project.completed = false;
             project.isDeleted = false;
             project.archive = false;
@@ -808,7 +837,30 @@ exports.projectFileUpload = async (req, res) => {
             if (!project.status) missingFields.push("status");
 
             if (missingFields.length === 0) {
-              projects.push(project);
+              const existingProject = await Project.findOne({
+                title: project.title,
+                companyId: project.companyId
+              });
+
+              if (!existingProject) {
+                // If no project with the same title exists, proceed with creation
+                projects.push(project);
+              }
+
+              // Loop through projects to process further
+              for (const proj of projects) {
+                
+                // Check again in case new projects are processed dynamically
+                const existingProj = await Project.findOne({
+                  title: proj.title,
+                  companyId: proj.companyId
+                });
+
+                if (!existingProj) {
+                  await Project.create(proj);
+                }
+              }
+              
             } else {
               console.log(
                 `project at row ${index + 1} missing required fields:`,
@@ -826,7 +878,7 @@ exports.projectFileUpload = async (req, res) => {
 
           if (projects.length > 0) {
             try {
-              await Project.insertMany(projects);
+            //  await Project.insertMany(projects);
               let missingFieldsSummary = failedRecords
                 .map(
                   (fail) =>
@@ -849,7 +901,8 @@ exports.projectFileUpload = async (req, res) => {
             }
           } else {
             res.json({
-              error: "Uploaded file is not in correct format",
+              title: "Duplicate company created!",
+              description: "some project have duplicate project title"
             });
           }
         }

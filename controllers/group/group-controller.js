@@ -12,12 +12,19 @@ const errors = {
 exports.getAllGroups = async (req, res) => {
   try {
     const { companyId } = req.body;
+    const { q } = req.query;
+
+    const searchFilter = q
+    ? { groupName: { $regex: new RegExp(q, "i") } }
+    : {};
+
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required." });
     }
     const groups = await Group.find({
       companyId,
       $or: [{ isDeleted: null }, { isDeleted: false }],
+      ...searchFilter
     });
 
     // console.log(groups, "groups");
