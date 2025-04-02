@@ -32,6 +32,16 @@ const groupSettingSchema = new mongoose.Schema(
       ref: "user",
       required: true,
     },
+    projectOwnerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true,
+    },
+    notifyUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "notifyuser",
+      required: true,
+    },
     integrationProvider: {
       type: String,
       // required: true
