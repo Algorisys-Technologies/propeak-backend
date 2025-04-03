@@ -21,7 +21,7 @@ const createGroup = async (req, res) => {
     });
 
     await newGroup.save();
-    return res.status(201).json({ success: true, group: newGroup });
+    return res.status(201).json({ success: true, group: newGroup, message: `${newGroup.name} Group added successfully` });
   } catch (error) {
     console.error("Error creating group:", error);
     return res.status(500).json({ success: false, message: error.message });
@@ -31,17 +31,30 @@ const createGroup = async (req, res) => {
 // Get Groups by Company ID
 const getGroups = async (req, res) => {
   const { companyId } = req.params;
+  const { q } = req.query; 
 
   try {
-    const groups = await GroupMaster.find({ companyId, isDeleted: false });
+    const filter = { 
+      isDeleted: false, 
+      companyId 
+    };
 
-    if (!groups.length) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No groups found" });
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: "i" } } 
+      ];
     }
 
-    return res.status(200).json({ success: true, groups });
+    const [groups, totalCount] = await Promise.all([
+      GroupMaster.find(filter),
+      GroupMaster.countDocuments(filter),
+    ]);
+
+    if (!groups.length) {
+      return res.status(404).json({ success: false, message: "No groups found" });
+    }
+
+    return res.status(200).json({ success: true, groups, totalCount });
   } catch (error) {
     console.error("Error fetching groups:", error);
     return res.status(500).json({ success: false, message: error.message });
@@ -66,7 +79,7 @@ const updateGroup = async (req, res) => {
         .json({ success: false, message: "Group not found" });
     }
 
-    return res.status(200).json({ success: true, group: updatedGroup });
+    return res.status(200).json({ success: true, group: updatedGroup, message: `${updatedGroup.name} Group updated successfully` });
   } catch (error) {
     console.error("Error updating group:", error);
     return res.status(500).json({ success: false, message: error.message });

@@ -47,8 +47,14 @@ exports.createCompany = async (req, res) => {
 
 // Get all Companies
 exports.getAllCompanies = async (req, res) => {
+  const query = req.query.q;
   try {
-    const companies = await Company.find({ isDeleted: false }); //
+    const companies = await Company.find({
+      isDeleted: false,
+      ...(query && { 
+        $or: [{ companyName: { $regex: query, $options: "i" } }] 
+      })
+    }); //
     // console.log(companies, "companiess...............")
     if (companies.length === 0) {
       return res
