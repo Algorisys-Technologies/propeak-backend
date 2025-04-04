@@ -78,12 +78,8 @@ exports.getMonthlyTaskReport = async (req, res) => {
     .lean()
     .populate("projectId", "title")
     .populate("userId", "name")
-    //  .populate({
-    //     path: 'interested_products.product_id', 
-    //     model: 'Product',  
-    //     select: 'name description price'  
-    //   }
-    // );
+    .populate({ path: "interested_products.product_id" });
+
     res.json({
       success: true,
       data: tasks.length > 0 ? tasks : [],
