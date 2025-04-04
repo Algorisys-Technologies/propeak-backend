@@ -243,7 +243,8 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
       .limit(limit)
       .lean()
       .populate("projectId", "title")
-      .populate("userId", "name");
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" });
 
     console.log("Fetched tasks:", tasks);
 
