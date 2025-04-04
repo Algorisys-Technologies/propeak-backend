@@ -1,5 +1,6 @@
 const { test, expect, chromium } = require("@playwright/test");
 const moment = require("moment");
+const fs = require("fs");
 
 require("dotenv").config();
 
@@ -278,6 +279,28 @@ const fetchLeads = async ({
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
   });
+  // const page = await context.newPage();
+  const cookiesFilePath = "cookie.json";
+  // ✅ Load cookies and ensure it's an array
+
+  if (fs.existsSync(cookiesFilePath)) {
+    let cookies = JSON.parse(fs.readFileSync(cookiesFilePath, "utf-8"));
+
+    // Ensure cookies is an array
+    if (!Array.isArray(cookies)) {
+      cookies = Object.values(cookies); // Convert object to array if needed
+    }
+
+    await context.addCookies(cookies);
+    console.log("✅ Loaded existing cookies");
+  } else {
+    console.log(
+      "❌ No cookies.json found! Please log in manually once and save cookies."
+    );
+    await browser.close();
+    return;
+  }
+
   const page = await context.newPage();
 
   try {
@@ -296,22 +319,24 @@ const fetchLeads = async ({
     // await delay(2000); // Wait for 1 second
 
     // await page.getByRole("button", { name: "Submit" }).click();
-    await delay(2000);
-    await page
-      .getByPlaceholder("Enter 10 digit mobile number")
-      .fill(mobileNumber);
-    await delay(1000);
-    await page.getByRole("button", { name: "Start Selling" }).click();
-    await delay(2000); // Wait for 2 seconds
+    // await delay(2000);
+    // await page
+    //   .getByPlaceholder("Enter 10 digit mobile number")
+    //   .fill(mobileNumber);
+    // await delay(1000);
+    // await page.getByRole("button", { name: "Start Selling" }).click();
+    // await delay(2000); // Wait for 2 seconds
 
-    await page.getByRole("button", { name: "Enter Password" }).click();
-    await page.getByPlaceholder("Enter Password").fill(password);
-    console.log("Filled password");
-    await delay(1000); // Wait for 1 second
+    // await page.getByRole("button", { name: "Enter Password" }).click();
+    // await page.getByPlaceholder("Enter Password").fill(password);
+    // console.log("Filled password");
+    // await page.getByRole("button", { name: "Request OTP on Mobile" }).click();
 
-    await page.getByRole("button", { name: "Sign In" }).click();
-    console.log("Logged in successfully");
-    await delay(3000); // Wait for 3 seconds
+    // await delay(1000); // Wait for 1 second
+
+    // await page.getByRole("button", { name: "Sign In" }).click();
+    // console.log("Logged in successfully");
+    // await delay(3000); // Wait for 3 seconds
 
     // Navigate to Lead Manager
     await page.getByRole("link", { name: "Lead Manager" }).click();
@@ -422,15 +447,15 @@ const fetchLeads = async ({
   }
 };
 
-// fetchLeads({
-//   mobileNumber: "9892492782",
-//   password: "KIPINDIAMART2022",
-//   start_dayToSelect: "25",
-//   start_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
-//   start_yearToSelect: "2025",
-//   end_dayToSelect: "25",
-//   end_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
-//   end_yearToSelect: "2025",
-// });
+fetchLeads({
+  mobileNumber: "9892492782",
+  password: "KIPINDIAMART2022",
+  start_dayToSelect: "25",
+  start_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
+  start_yearToSelect: "2025",
+  end_dayToSelect: "25",
+  end_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
+  end_yearToSelect: "2025",
+});
 
 module.exports = fetchLeads;

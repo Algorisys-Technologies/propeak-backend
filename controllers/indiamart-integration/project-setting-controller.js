@@ -512,17 +512,21 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     try {
       const response = await axios.get(url);
       console.log("API response:", response.data);
+      console.log("Total leads received:", response.data.RESPONSE?.length || 0);
 
       const leadsData = response.data.RESPONSE;
       //console.log("leadsData...API...", leadsData);
 
       if (enabled) {
         for (const lead of leadsData) {
+          const projectTitle = lead.SENDER_COMPANY?.trim() || `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+
           // Check if a project already exists for the same SENDER_NAME
           let existingProject = await Project.findOne({
             companyId,
             group: new mongoose.Types.ObjectId(groupId),
-            title: lead.SENDER_COMPANY,
+            // title: lead.SENDER_COMPANY,
+            title: projectTitle,
             isDeleted: false,
           });
 
@@ -539,7 +543,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           if (!existingProject) {
             existingProject = new Project({
               companyId,
-              title: lead.SENDER_COMPANY,
+              // title: lead.SENDER_COMPANY,
+              title :projectTitle,
               description: lead.SENDER_COMPANY,
               startdate: new Date(),
               enddate: new Date(),
