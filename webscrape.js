@@ -1,8 +1,11 @@
 const { test, expect, chromium } = require("@playwright/test");
 const moment = require("moment");
-const fs = require("fs");
+const fs = require("fs/promises");
+const path = require("path");
 
 require("dotenv").config();
+
+const COOKIES_PATH = path.resolve(__dirname, "cookie.json");
 
 function extractISODate(details) {
   const dateRegex =
@@ -274,40 +277,69 @@ const fetchLeads = async ({
   end_yearToSelect,
 }) => {
   console.log("In fetchLeads");
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: false });
 
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
   });
-  // const page = await context.newPage();
-  const cookiesFilePath = "cookie.json";
-  // ✅ Load cookies and ensure it's an array
-
-  if (fs.existsSync(cookiesFilePath)) {
-    let cookies = JSON.parse(fs.readFileSync(cookiesFilePath, "utf-8"));
-
-    // Ensure cookies is an array
-    if (!Array.isArray(cookies)) {
-      cookies = Object.values(cookies); // Convert object to array if needed
-    }
-
-    await context.addCookies(cookies);
-    console.log("✅ Loaded existing cookies");
-  } else {
-    console.log(
-      "❌ No cookies.json found! Please log in manually once and save cookies."
-    );
-    await browser.close();
-    return;
-  }
-
   const page = await context.newPage();
 
   try {
+    console.log("Checking if cookies exist");
+    const cookiesExist = await fs
+      .access(COOKIES_PATH)
+      .then(() => true)
+      .catch(() => false);
+
+    console.log("Cookies exist?", cookiesExist);
+    console.log("Using cookie path:", COOKIES_PATH);
+
+    // if (cookiesExist) {
+    //   const cookies = JSON.parse(await fs.readFile(COOKIES_PATH, "utf-8"));
+    //   await context.addCookies(cookies);
+    //   console.log("Cookies loaded");
+    // }
+
+    if (cookiesExist) {
+      const rawCookieData = JSON.parse(
+        await fs.readFile(COOKIES_PATH, "utf-8")
+      );
+
+      const parsedCookies = rawCookieData[0].cookie
+        .split("; ")
+        .map((cookieStr) => {
+          const [name, ...rest] = cookieStr.split("=");
+          return {
+            name,
+            value: rest.join("="),
+            domain: "seller.indiamart.com",
+            path: "/",
+            httpOnly: false,
+            secure: true,
+            sameSite: "Lax",
+          };
+        });
+
+      await context.addCookies(parsedCookies);
+      console.log("Cookies loaded and added to browser context");
+    }
+
     // Navigate to IndiaMART
     await page.goto("https://seller.indiamart.com/");
     console.log("Navigated to IndiaMART");
     await delay(2000); // Wait for 2 seconds
+
+    // Close the popup if it appears
+    const popupCloseButton = page.locator("button.nps-close.nps-toggle");
+
+    try {
+      await popupCloseButton.waitFor({ timeout: 5000 });
+      await popupCloseButton.click();
+      console.log("Popup closed successfully");
+      await delay(1000);
+    } catch (e) {
+      console.log("Popup did not appear or already closed");
+    }
 
     // // Login process
     // await page.locator("#user_sign_in").click();
@@ -330,8 +362,6 @@ const fetchLeads = async ({
     // await page.getByRole("button", { name: "Enter Password" }).click();
     // await page.getByPlaceholder("Enter Password").fill(password);
     // console.log("Filled password");
-    // await page.getByRole("button", { name: "Request OTP on Mobile" }).click();
-
     // await delay(1000); // Wait for 1 second
 
     // await page.getByRole("button", { name: "Sign In" }).click();
