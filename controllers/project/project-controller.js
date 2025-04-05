@@ -1549,11 +1549,12 @@ exports.getProjectsByCompanyId = async (req, res) => {
   try {
     // console.log("in getProjectsByCompanyId")
     // console.log(req.params)
+    console.log(req.params.companyId, "from company Id")
     const projects = await Project.find({
       isDeleted: false,
       companyId: req.params.companyId,
     });
-    // console.log(projects)
+  
     return res.json({
       success: true,
       projects: projects,
