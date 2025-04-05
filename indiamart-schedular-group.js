@@ -273,6 +273,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             end_dayToSelect,
             end_monthToSelect,
             end_yearToSelect,
+            authKey,
           });
           const leadsData = data;
           if (!leadsData || leadsData.length === 0) {
@@ -384,7 +385,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               userId: users[0]?._id || null,
               customFieldValues: {
                 date: new Date(startDate).toLocaleDateString("IN"),
-                name: lead.name,
+                name: lead.contactPerson,
                 mobile_number: lead.mobile,
                 email: lead.email,
                 company_name: lead.name,

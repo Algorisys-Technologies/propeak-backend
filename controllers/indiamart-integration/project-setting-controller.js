@@ -519,7 +519,9 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
       if (enabled) {
         for (const lead of leadsData) {
-          const projectTitle = lead.SENDER_COMPANY?.trim() || `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+          const projectTitle =
+            lead.SENDER_COMPANY?.trim() ||
+            `Lead-${lead.SENDER_MOBILE || Date.now()}`;
 
           // Check if a project already exists for the same SENDER_NAME
           let existingProject = await Project.findOne({
@@ -544,7 +546,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             existingProject = new Project({
               companyId,
               // title: lead.SENDER_COMPANY,
-              title :projectTitle,
+              title: projectTitle,
               description: lead.SENDER_COMPANY,
               startdate: new Date(),
               enddate: new Date(),
@@ -697,6 +699,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         end_dayToSelect,
         end_monthToSelect,
         end_yearToSelect,
+        authKey,
       });
 
       if (!leadsData || leadsData.length === 0) {
@@ -805,7 +808,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           userId: users[0]?._id || null,
           customFieldValues: {
             date: new Date(startDate).toLocaleDateString("IN"),
-            name: lead.name,
+            name: lead.contactPerson,
             mobile_number: lead.mobile,
             email: lead.email,
             company_name: lead.name,
