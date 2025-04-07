@@ -298,7 +298,7 @@ const fetchLeads = async ({
   authKey,
 }) => {
   console.log("In fetchLeads");
-  const browser = await chromium.launch({ headless: false });
+  const browser = await chromium.launch({ headless: true });
 
   console.log("authKey...", authKey);
 
