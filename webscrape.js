@@ -39,9 +39,11 @@ function extractISODate(details) {
 
   return extractedDate.toISOString();
 }
-
+//splitViewContactList
 async function scrollToLoadAllLeads(page) {
-  const scrollableContainerSelector = ".ReactVirtualized__Grid";
+  // const scrollableContainerSelector = ".ReactVirtualized__Grid";
+  const scrollableContainerSelector =
+    "#splitViewContactList .ReactVirtualized__Grid";
   const leadsSelector = ".list .row";
   const leadsData = [];
   let previousLeadCount = 0;
@@ -51,7 +53,7 @@ async function scrollToLoadAllLeads(page) {
   const scrollDelay = 2000; // Delay between scrolls
 
   await delay(5000);
-
+  console.log("scrollableContainerSelector...", scrollableContainerSelector);
   // Wait for the scrollable container to load
   await page.waitForSelector(scrollableContainerSelector, { timeout: 30000 });
   console.log("Scrollable container found.");
@@ -296,7 +298,7 @@ const fetchLeads = async ({
   authKey,
 }) => {
   console.log("In fetchLeads");
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: false });
 
   console.log("authKey...", authKey);
 
@@ -510,7 +512,7 @@ const fetchLeads = async ({
 //   end_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
 //   end_yearToSelect: "2025",
 //   authKey:
-//     "iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DMumbai%7Cgctid%3D70624%7Cgacrcy%3D10%7Cgip%3D106.222.207.175%7Cgstnm%3DMaharashtra; _gcl_au=1.1.94917028.1743763903; _ym_uid=1733911109144931503; _ym_d=1743763903; _ym_isad=2; _ga=GA1.1.75808991.1743763904; _clck=1dfx8ma%7C2%7Cfus%7C0%7C1920; pop_mthd=FL%3D0%7CDTy%3D1; G_ENABLED_IDPS=google; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo5KjQqMio4KiIsImV4cCI6MTc0Mzg1MzIxMiwiaWF0IjoxNzQzNzY2ODEyLCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjA0LTA0LTIwMjUifQ.lyapuWNXfYpEm2wVtFlszME1QPupCidU5qbXtdX-FuA; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9892492782%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D04%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; xnHist=pv%3D0%7Cipv%3D1%7Cfpv%3D1%7Ccity%3D%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D0%7Ctime%3DFri%20Apr%2004%202025%2016%3A47%3A16%20GMT%2B0530%20(India%20Standard%20Time)%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined; sessid=spv=2; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=326,233,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; _ga_8B5NXMMZN3=GS1.1.1743763903.1.1.1743766814.20.0.0; __gads=ID=d1d38fe504b7ebcd:T=1743766814:RT=1743766814:S=ALNI_MZGScQIQEC5QrQwhff8tCSUTyl8EA; __gpi=UID=00001089b8ce62c8:T=1743766814:RT=1743766814:S=ALNI_MYsl8Ecm_-d30xmCQw4ODfi-pmd9g; __eoi=ID=a1ad110fb4bf7739:T=1743766814:RT=1743766814:S=AA-AfjZbpcYYrR83-ubC7M3cvDhb; _clsk=pz3idj%7C1743766815154%7C6%7C0%7Cw.clarity.ms%2Fcollect; _ym_visorc=b; FCNEC=%5B%5B%22AKsRol_gpZhwFG0FL_VWlYZTwc6LkJ0LiAvUdHzg1aZ6q3XSVqnWkvqx15-FLhF9jwqNxeqQQXTkPOdc9ZOky7Vzo57NVTvQxsrs54Dr2jDQbtxJwmgF5owN6cV47cS3GJuE79AZikzFUa_HKJ0hL411VKaL2nGODw%3D%3D%22%5D%5D",
+//     "_ga=GA1.1.731456266.1733395523; _ym_uid=1733395524885722337; _ym_d=1733395524; G_ENABLED_IDPS=google; __gads=ID=e766023d02bcba0a:T=1733458034:RT=1735295143:S=ALNI_MZn7lK5v21eiu4cuGhEvbWSEqGn-A; __gpi=UID=00000f84f4ad0299:T=1733458034:RT=1735295143:S=ALNI_MYi2lYYJqn2C5d6a7dMmK6Qnnw5yw; __eoi=ID=3d2bdd337b72cf30:T=1733458034:RT=1735295143:S=AA-AfjY27gM_4cKTmPS3Z2BicRBi; sortby=0#29141067; _gcl_au=1.1.1769895048.1741757506; iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DPune%7Cgctid%3D70630%7Cgacrcy%3D200%7Cgip%3D106.220.135.249%7Cgstnm%3DMaharashtra; LGNSTR=0%2C2%2C0%2C1%2C1%2C1%2C1%2C0; _clck=1dnfq7m%7C2%7Cfuv%7C0%7C1800; _ym_isad=2; FCNEC=%5B%5B%22AKsRol-XJcNyPN93Elpcusvi-r19-j4bF9xhlPhgtRbztZDnwkM_ltQ-kIqB1SwvC1BR0OqX_6HQ4VaGGOctZFqLr1yzw-BxD6t22iWkY2SpxbvdlJgAB5MajQpNQOrIl89JyzjT3o0ueyAmfylKTt0e3xqfyMW4Hg%3D%3D%22%5D%5D; _ym_visorc=b; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo5KjQqMio4KiIsImV4cCI6MTc0NDA5MzA1OSwiaWF0IjoxNzQ0MDA2NjU5LCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjA3LTA0LTIwMjUifQ.XCHZVBVV3qKjhlZ92GMWMgz7Xel470oPAcqW8-zKziY; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=326,233,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9892492782%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D07%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; xnHist=pv%3D0%7Cipv%3D78%7Cfpv%3D2%7Ccity%3Dundefined%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D0%7Ctime%3DMon%20Apr%2007%202025%2009%3A37%3A24%20GMT%2B0530%20(India%20Standard%20Time)%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined; _clsk=18z2lk8%7C1744006663477%7C3%7C1%7Cj.clarity.ms%2Fcollect; sessid=spv=4; _ga_8B5NXMMZN3=GS1.1.1744006521.86.1.1744006664.55.0.0",
 // });
 
 module.exports = fetchLeads;
