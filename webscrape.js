@@ -1,7 +1,11 @@
 const { test, expect, chromium } = require("@playwright/test");
 const moment = require("moment");
+const fs = require("fs/promises");
+const path = require("path");
 
 require("dotenv").config();
+
+const COOKIES_PATH = path.resolve(__dirname, "./indiamart/cookie.json");
 
 function extractISODate(details) {
   const dateRegex =
@@ -35,9 +39,11 @@ function extractISODate(details) {
 
   return extractedDate.toISOString();
 }
-
+//splitViewContactList
 async function scrollToLoadAllLeads(page) {
-  const scrollableContainerSelector = ".ReactVirtualized__Grid";
+  // const scrollableContainerSelector = ".ReactVirtualized__Grid";
+  const scrollableContainerSelector =
+    "#splitViewContactList .ReactVirtualized__Grid";
   const leadsSelector = ".list .row";
   const leadsData = [];
   let previousLeadCount = 0;
@@ -46,6 +52,8 @@ async function scrollToLoadAllLeads(page) {
   let noNewLeadsCounter = 0;
   const scrollDelay = 2000; // Delay between scrolls
 
+  await delay(5000);
+  console.log("scrollableContainerSelector...", scrollableContainerSelector);
   // Wait for the scrollable container to load
   await page.waitForSelector(scrollableContainerSelector, { timeout: 30000 });
   console.log("Scrollable container found.");
@@ -198,6 +206,22 @@ async function scrollToLoadAllLeads(page) {
           lead.address = "N/A";
         }
 
+        try {
+          const contactNameElement = page.locator("#left-name");
+          if ((await contactNameElement.count()) > 0) {
+            await page.waitForTimeout(500);
+            const contactName = await contactNameElement.textContent();
+            lead.contactPerson = contactName ? contactName.trim() : "N/A";
+            console.log(`Fetched contact person: ${lead.contactPerson}`);
+          } else {
+            lead.contactPerson = "N/A";
+            console.log("No contact person name found");
+          }
+        } catch (error) {
+          console.error("Error fetching contact person name:", error);
+          lead.contactPerson = "N/A";
+        }
+
         leadsData.push(lead);
       } catch (error) {
         console.error(`Error processing lead ${lead.name}:`, error);
@@ -271,9 +295,12 @@ const fetchLeads = async ({
   end_dayToSelect,
   end_monthToSelect,
   end_yearToSelect,
+  authKey,
 }) => {
   console.log("In fetchLeads");
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: false });
+
+  console.log("authKey...", authKey);
 
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"], // Enable clipboard access
@@ -281,10 +308,63 @@ const fetchLeads = async ({
   const page = await context.newPage();
 
   try {
+    console.log("Checking if cookies exist");
+    // const cookiesExist = await fs
+    //   .access(COOKIES_PATH)
+    //   .then(() => true)
+    //   .catch(() => false);
+
+    // console.log("Cookies exist?", cookiesExist);
+    // console.log("Using cookie path:", COOKIES_PATH);
+
+    // if (cookiesExist) {
+    //   const cookies = JSON.parse(await fs.readFile(COOKIES_PATH, "utf-8"));
+    //   await context.addCookies(cookies);
+    //   console.log("Cookies loaded");
+    // }
+
+    // if (cookiesExist) {
+    //   const rawCookieData = JSON.parse(
+    //     await fs.readFile(COOKIES_PATH, "utf-8")
+    //   );
+
+    if (!authKey || authKey.trim() === "") {
+      throw new Error("authKey is missing or empty");
+    }
+
+    const parsedCookies = authKey.split("; ").map((cookieStr) => {
+      const [name, ...rest] = cookieStr.split("=");
+      return {
+        name,
+        value: rest.join("="),
+        domain: "seller.indiamart.com",
+        path: "/",
+        httpOnly: false,
+        secure: true,
+        sameSite: "Lax",
+      };
+    });
+
+    await context.addCookies(parsedCookies);
+    console.log("Cookies loaded and added to browser context");
+    // }
+
     // Navigate to IndiaMART
     await page.goto("https://seller.indiamart.com/");
     console.log("Navigated to IndiaMART");
     await delay(2000); // Wait for 2 seconds
+
+    // Close the popup if it appears
+    const popupCloseButton = page.locator("button.nps-close.nps-toggle");
+
+    try {
+      await popupCloseButton.waitFor({ timeout: 5000 });
+      await popupCloseButton.click();
+      console.log("Popup closed successfully");
+      await delay(1000);
+    } catch (e) {
+      console.log("Popup did not appear or already closed");
+    }
 
     // // Login process
     // await page.locator("#user_sign_in").click();
@@ -296,22 +376,22 @@ const fetchLeads = async ({
     // await delay(2000); // Wait for 1 second
 
     // await page.getByRole("button", { name: "Submit" }).click();
-    await delay(2000);
-    await page
-      .getByPlaceholder("Enter 10 digit mobile number")
-      .fill(mobileNumber);
-    await delay(1000);
-    await page.getByRole("button", { name: "Start Selling" }).click();
-    await delay(2000); // Wait for 2 seconds
+    // await delay(2000);
+    // await page
+    //   .getByPlaceholder("Enter 10 digit mobile number")
+    //   .fill(mobileNumber);
+    // await delay(1000);
+    // await page.getByRole("button", { name: "Start Selling" }).click();
+    // await delay(2000); // Wait for 2 seconds
 
-    await page.getByRole("button", { name: "Enter Password" }).click();
-    await page.getByPlaceholder("Enter Password").fill(password);
-    console.log("Filled password");
-    await delay(1000); // Wait for 1 second
+    // await page.getByRole("button", { name: "Enter Password" }).click();
+    // await page.getByPlaceholder("Enter Password").fill(password);
+    // console.log("Filled password");
+    // await delay(1000); // Wait for 1 second
 
-    await page.getByRole("button", { name: "Sign In" }).click();
-    console.log("Logged in successfully");
-    await delay(3000); // Wait for 3 seconds
+    // await page.getByRole("button", { name: "Sign In" }).click();
+    // console.log("Logged in successfully");
+    // await delay(3000); // Wait for 3 seconds
 
     // Navigate to Lead Manager
     await page.getByRole("link", { name: "Lead Manager" }).click();
@@ -409,7 +489,7 @@ const fetchLeads = async ({
       .waitFor({ state: "visible", timeout: 5000 });
     await page.getByText("Apply", { exact: true }).click();
     console.log("Applied custom date filter");
-    await delay(3000);
+    await delay(5000);
 
     // Scroll to load all leads
     return await scrollToLoadAllLeads(page);
@@ -431,6 +511,8 @@ const fetchLeads = async ({
 //   end_dayToSelect: "25",
 //   end_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
 //   end_yearToSelect: "2025",
+//   authKey:
+//     "_ga=GA1.1.731456266.1733395523; _ym_uid=1733395524885722337; _ym_d=1733395524; G_ENABLED_IDPS=google; __gads=ID=e766023d02bcba0a:T=1733458034:RT=1735295143:S=ALNI_MZn7lK5v21eiu4cuGhEvbWSEqGn-A; __gpi=UID=00000f84f4ad0299:T=1733458034:RT=1735295143:S=ALNI_MYi2lYYJqn2C5d6a7dMmK6Qnnw5yw; __eoi=ID=3d2bdd337b72cf30:T=1733458034:RT=1735295143:S=AA-AfjY27gM_4cKTmPS3Z2BicRBi; sortby=0#29141067; _gcl_au=1.1.1769895048.1741757506; iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DPune%7Cgctid%3D70630%7Cgacrcy%3D200%7Cgip%3D106.220.135.249%7Cgstnm%3DMaharashtra; LGNSTR=0%2C2%2C0%2C1%2C1%2C1%2C1%2C0; _clck=1dnfq7m%7C2%7Cfuv%7C0%7C1800; _ym_isad=2; FCNEC=%5B%5B%22AKsRol-XJcNyPN93Elpcusvi-r19-j4bF9xhlPhgtRbztZDnwkM_ltQ-kIqB1SwvC1BR0OqX_6HQ4VaGGOctZFqLr1yzw-BxD6t22iWkY2SpxbvdlJgAB5MajQpNQOrIl89JyzjT3o0ueyAmfylKTt0e3xqfyMW4Hg%3D%3D%22%5D%5D; _ym_visorc=b; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo5KjQqMio4KiIsImV4cCI6MTc0NDA5MzA1OSwiaWF0IjoxNzQ0MDA2NjU5LCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjA3LTA0LTIwMjUifQ.XCHZVBVV3qKjhlZ92GMWMgz7Xel470oPAcqW8-zKziY; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=326,233,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9892492782%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D07%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; xnHist=pv%3D0%7Cipv%3D78%7Cfpv%3D2%7Ccity%3Dundefined%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D0%7Ctime%3DMon%20Apr%2007%202025%2009%3A37%3A24%20GMT%2B0530%20(India%20Standard%20Time)%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined; _clsk=18z2lk8%7C1744006663477%7C3%7C1%7Cj.clarity.ms%2Fcollect; sessid=spv=4; _ga_8B5NXMMZN3=GS1.1.1744006521.86.1.1744006664.55.0.0",
 // });
 
 module.exports = fetchLeads;
