@@ -568,6 +568,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               projectUsers: [
                 new mongoose.Types.ObjectId(userId),
                 new mongoose.Types.ObjectId(projectOwnerId),
+                new mongoose.Types.ObjectId(notifyUserId),
                 users[0]?._id || null,
               ],
               notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
@@ -668,6 +669,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       projectStageId,
       taskStageId,
       projectTypeId,
+      projectOwnerId,
+      notifyUserId,
       authKey,
       startDate,
       endDate,
@@ -741,7 +744,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             //   "673202d015c8e180c21e9acf"
             // ),
             taskStages: ["todo", "inprogress", "completed"],
-            userid: new mongoose.Types.ObjectId(userId),
+            userid: new mongoose.Types.ObjectId(projectOwnerId),
             createdBy: new mongoose.Types.ObjectId(userId),
             createdOn: new Date(),
             modifiedOn: new Date(),
@@ -754,9 +757,11 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             customFieldValues: {},
             projectUsers: [
               new mongoose.Types.ObjectId(userId),
+              new mongoose.Types.ObjectId(projectOwnerId),
+              new mongoose.Types.ObjectId(notifyUserId),
               users[0]?._id || null,
             ],
-            notifyUsers: [new mongoose.Types.ObjectId(userId)],
+            notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
             messages: [],
             uploadFiles: [],
             tasks: [],

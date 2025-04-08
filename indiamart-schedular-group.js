@@ -137,6 +137,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 projectUsers: [
                   new mongoose.Types.ObjectId(userId),
                   new mongoose.Types.ObjectId(projectOwnerId),
+                  new mongoose.Types.ObjectId(notifyUserId),
                   users[0]?._id || null,
                 ],
                 notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
@@ -235,6 +236,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
           taskStageId,
           projectStageId,
           projectTypeId,
+          projectOwnerId,
+          notifyUserId,
           authKey,
           startDate,
           endDate,
@@ -316,7 +319,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 //   "673202d015c8e180c21e9acf"
                 // ),
                 taskStages: ["todo", "inprogress", "completed"],
-                userid: new mongoose.Types.ObjectId(userId),
+                userid: new mongoose.Types.ObjectId(projectOwnerId),
                 createdBy: new mongoose.Types.ObjectId(userId),
                 createdOn: new Date(),
                 modifiedOn: new Date(),
@@ -329,9 +332,11 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 customFieldValues: {},
                 projectUsers: [
                   new mongoose.Types.ObjectId(userId),
+                  new mongoose.Types.ObjectId(projectOwnerId),
+                  new mongoose.Types.ObjectId(notifyUserId),
                   users[0]?._id || null,
                 ],
-                notifyUsers: [new mongoose.Types.ObjectId(userId)],
+                notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
                 messages: [],
                 uploadFiles: [],
                 tasks: [],
