@@ -45,6 +45,7 @@ const {
   startOfDay,
   endOfDay,
 } = require("date-fns");
+const { result } = require("lodash");
 
 exports.createTask = (req, res) => {
   console.log("create task wala ");
@@ -2158,7 +2159,8 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
     const limit = 5;
     const page = parseInt(req.query.page) || 0;
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // console.log(today, "from today")
+    // today.setHours(0, 0, 0, 0);
     const startOfToday = new Date(new Date().setUTCHours(0, 0, 0));
     const endOfToday = new Date(new Date().setUTCHours(23, 59, 59));
 
@@ -2189,7 +2191,7 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
       overdueTasks: Task.find({
         companyId,
         endDate: { $lte: new Date() },
-        status: { $in: ["inprogress", "todo"] },
+        // status: { $in: ["inprogress", "todo"] },
         isDeleted: false,
       })
         .skip(page * limit)
@@ -2201,7 +2203,7 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
       overdueTasksTotalCount: Task.countDocuments({
         companyId,
         endDate: { $lte: new Date() },
-        status: { $in: ["inprogress", "todo"] },
+        // status: { $in: ["inprogress", "todo"] },
         isDeleted: false,
       }),
 

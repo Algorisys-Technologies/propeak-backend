@@ -215,13 +215,28 @@ exports.deleteNotification = async (req, res) => {
 exports.getAllNotifications = (req, res) => {
   const { companyId, projectId } = req.body;
   // console.log(companyId, "company id .....");
-
+  const {q} = req.query;
   const condition = {
-    $or: [{ isDeleted: null }, { isDeleted: false }],
-    companyId: companyId,
+    $and: [
+      {
+        $or: [{ isDeleted: null }, { isDeleted: false }],
+      },
+      {
+        companyId: companyId,
+      },
+    ],
   }
+
+  if(q){
+    condition.$and.push({
+      notification: { $regex: q, $options: "i"}
+    })
+  }
+
   if(!projectId){
-    condition.projectId = null
+    condition.$and.push({
+      projectId: null,
+    });
   }
 
   Notification.find(condition)
