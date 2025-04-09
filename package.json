@@ -2,6 +2,11 @@
   "name": "pms",
   "version": "0.1.0",
   "private": true,
+  "nodemonConfig": {
+    "ignore": [
+      "./backup/leads_progress.json"
+    ]
+  },
   "dependencies": {
     "@playwright/test": "^1.49.1",
     "@tanstack/react-table": "^8.20.5",

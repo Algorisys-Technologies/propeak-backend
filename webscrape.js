@@ -1,6 +1,6 @@
 const { chromium } = require("@playwright/test");
 const fs = require("fs/promises");
-const BACKUP_FILE = "./leads_progress.json";
+const BACKUP_FILE = "./backup/leads_progress.json";
 
 require("dotenv").config();
 
@@ -62,7 +62,7 @@ async function loadBackupIfExists() {
 
 async function saveBackup(leadsData) {
   await fs.writeFile(BACKUP_FILE, JSON.stringify(leadsData, null, 2));
-  console.log(`💾 Backup saved. Total leads so far: ${leadsData.length}`);
+  //console.log(`💾 Backup saved. Total leads so far: ${leadsData.length}`);
 }
 
 async function processSingleLead(lead, page) {
@@ -198,14 +198,14 @@ async function scrollToLoadAllLeads(page, browser, context, authKey) {
         }
       }
 
-      if (leadsData.length % 10 === 0) {
-        // await fs.writeFile(
-        //   `leads_backup_${Date.now()}.json`,
-        //   JSON.stringify(leadsData, null, 2)
-        // );
-        await saveBackup(leadsData);
-        console.log(`✔️ Backup saved. Total leads: ${leadsData.length}`);
-      }
+      // if (leadsData.length % 10 === 0) {
+      //   // await fs.writeFile(
+      //   //   `leads_backup_${Date.now()}.json`,
+      //   //   JSON.stringify(leadsData, null, 2)
+      //   // );
+      //   await saveBackup(leadsData);
+      //   //console.log(`✔️ Backup saved. Total leads: ${leadsData.length}`);
+      // }
 
       if (isMemoryHigh()) {
         console.log("🚨 High memory usage. Restarting browser context...");
@@ -263,7 +263,7 @@ async function fetchLeads({
 }) {
   console.log("In fetchLeads");
 
-  await loadBackupIfExists();
+  //await loadBackupIfExists();
 
   let browser = await chromium.launch({ headless: true });
   let context = await browser.newContext({
