@@ -2171,7 +2171,7 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
         companyId,
         startDate: { $lte: today },
         endDate: { $gte: today },
-        status: { $in: ["inprogress", "todo"] },
+        // status: { $in: ["inprogress", "todo"] },
         isDeleted: false,
       })
         .skip(page * limit)
@@ -2184,7 +2184,7 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
         companyId,
         startDate: { $lte: today },
         endDate: { $gte: today },
-        status: { $in: ["inprogress", "todo"] },
+        // status: { $in: ["inprogress", "todo"] },
         isDeleted: false,
       }),
 
