@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const GroupMaster = require("../../models/project/group-master-model");
 
 // Create Group
@@ -21,7 +22,11 @@ const createGroup = async (req, res) => {
     });
 
     await newGroup.save();
-    return res.status(201).json({ success: true, group: newGroup, message: `${newGroup.name} Group added successfully` });
+    return res.status(201).json({
+      success: true,
+      group: newGroup,
+      message: `${newGroup.name} Group added successfully`,
+    });
   } catch (error) {
     console.error("Error creating group:", error);
     return res.status(500).json({ success: false, message: error.message });
@@ -31,12 +36,20 @@ const createGroup = async (req, res) => {
 // Get Groups by Company ID
 const getGroups = async (req, res) => {
   const { companyId } = req.params;
-  const { q } = req.query; 
+  const { q } = req.query;
+
+  console.log("companyId...", companyId, "q", q);
+
+  if (!mongoose.Types.ObjectId.isValid(companyId)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid companyId" });
+  }
 
   try {
-    const filter = { 
-      isDeleted: false, 
-      companyId 
+    const filter = {
+      isDeleted: false,
+      companyId,
     };
 
     // if (!groups.length) {
@@ -45,9 +58,7 @@ const getGroups = async (req, res) => {
     //     .json({ success: false, message: "No groups found" });
     // }
     if (q) {
-      filter.$or = [
-        { name: { $regex: q, $options: "i" } } 
-      ];
+      filter.$or = [{ name: { $regex: q, $options: "i" } }];
     }
 
     const [groups, totalCount] = await Promise.all([
@@ -56,7 +67,9 @@ const getGroups = async (req, res) => {
     ]);
 
     if (!groups.length) {
-      return res.status(404).json({ success: false, message: "No groups found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "No groups found" });
     }
 
     return res.status(200).json({ success: true, groups, totalCount });
@@ -84,7 +97,11 @@ const updateGroup = async (req, res) => {
         .json({ success: false, message: "Group not found" });
     }
 
-    return res.status(200).json({ success: true, group: updatedGroup, message: `${updatedGroup.name} Group updated successfully` });
+    return res.status(200).json({
+      success: true,
+      group: updatedGroup,
+      message: `${updatedGroup.name} Group updated successfully`,
+    });
   } catch (error) {
     console.error("Error updating group:", error);
     return res.status(500).json({ success: false, message: error.message });
