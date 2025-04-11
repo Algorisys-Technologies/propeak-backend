@@ -1834,3 +1834,116 @@ exports.updateStage = async (req, res) => {
     return res.json({ success: false });
   }
 };
+exports.getKanbanProjects = async (req, res) => {
+  console.log("FOR ADVANCE SEARCH......");
+  try {
+    const { filters = [], searchFilter, projectId, stageId, groupId } = req.body;
+    const page = parseInt(req.query.page) || 0;
+    const limit = 10;
+    const skip = page * limit;
+
+    if (!stageId || stageId === "null") {
+      return res.json({ success: false, tasks: [] });
+    }
+
+    let whereCondition = {
+      taskStageId: stageId,
+      isDeleted: false,
+      projectId,
+    };
+
+    // Global search string
+    if (searchFilter) {
+      const regex = new RegExp(searchFilter, "i");
+      whereCondition.$or = [
+        { title: { $regex: regex } },
+        { description: { $regex: regex } },
+        { tag: { $regex: regex } },
+      ];
+    }
+
+    // Advanced filter logic
+    filters.forEach((filter) => {
+      const { field, value, isSystem } = filter;
+      if (!field || value === undefined || value === null) return;
+
+      if (isSystem === "false") {
+        const regex = new RegExp(value, "i");
+        whereCondition[`customFieldValues.${field}`] = { $regex: regex };
+        return;
+      }
+
+      switch (field) {
+        case "title":
+        case "description":
+        case "tag":
+        case "status":
+        case "depId":
+        case "taskType":
+        case "priority":
+        case "createdBy":
+        case "modifiedBy":
+        case "sequence":
+        case "dateOfCompletion":
+          whereCondition[field] = { $regex: new RegExp(value, "i") };
+          break;
+
+        case "completed":
+          whereCondition[field] = value === "true";
+          break;
+
+        case "storyPoint":
+          whereCondition[field] = Number(value);
+          break;
+
+        case "startDate":
+        case "endDate":
+        case "createdOn":
+        case "modifiedOn":
+          whereCondition[field] = {
+            $gte: new Date(new Date(value).setUTCHours(0, 0, 0, 0)),
+            $lte: new Date(new Date(value).setUTCHours(23, 59, 59, 999)),
+          };
+          break;
+
+        case "userId":
+        case "taskStageId":
+          whereCondition[field] = value;
+          break;
+
+        case "selectUsers":
+          whereCondition["userId"] = value;
+          break;
+
+        case "interested_products":
+          whereCondition["interested_products.product_id"] = value;
+          break;
+
+        case "uploadFiles":
+          whereCondition["uploadFiles.fileName"] = value;
+          break;
+
+        default:
+          break;
+      }
+    });
+
+    // Final DB query using Task model
+    const tasks = await Task.find(whereCondition)
+      .sort({ modifiedOn: -1, createdOn: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("userId")
+      .populate("createdBy")
+      .populate("subtasks");
+
+    const totalCount = await Task.countDocuments(whereCondition);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return res.json({ success: true, tasks, totalPages, totalCount });
+
+  } catch (error) {
+    console.error("Error fetching Kanban tasks:", error);
+    return res.status(500).json({ message: "Error fetching task Kanban", success: false });
+  }
+};

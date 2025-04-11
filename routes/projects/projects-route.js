@@ -227,4 +227,7 @@ router.get(
 );
 router.put("/updateStage", projectController.updateStage);
 
+router.post("/kanbanp", projectController.getKanbanProjects);
+
+
 module.exports = router;

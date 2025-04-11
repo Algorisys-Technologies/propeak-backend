@@ -2549,6 +2549,7 @@ exports.deleteTask = async (req, res) => {
 };
 
 exports.getKanbanTasks = async (req, res) => {
+  console.log("FOR ADVANCE SEARCH......")
   try {
     const { filters, searchFilter, projectId, stageId } = req.body;
     let page = req.query.page;
