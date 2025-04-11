@@ -346,6 +346,26 @@ exports.getAllRepositoryFile = (req, res) => {
     fs.mkdirSync(companyDocumentFolder, { recursive: true });
   }
 
+  const uploadData =  UploadRepositoryFile.find({
+    isDeleted: false,
+    companyId,
+    path: { $ne: "/contacts" },
+  })
+    .skip(limit * page)
+    .limit(limit)
+    .then(async (result) => {
+      const totalPages = Math.ceil(
+        (await UploadRepositoryFile.countDocuments({
+          isDeleted: false,
+          companyId,
+          path: "/new folder",
+        })) / limit
+      );
+
+      console.log(result, "from result")
+    });
+
+  console.log(uploadData, "from upload data")
   UploadRepositoryFile.find({
     isDeleted: false,
     companyId,
