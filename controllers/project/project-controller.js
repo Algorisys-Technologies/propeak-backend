@@ -1569,6 +1569,7 @@ exports.getProjectsKanbanData = async (req, res) => {
   try {
     const { companyId, userId } = req.params;
     const archive = req.query.archive == "true";
+    const fav = req.query.favourite;
 
     // Fetch all project stages
     const projectStages = await ProjectStage.find({
@@ -1593,6 +1594,37 @@ exports.getProjectsKanbanData = async (req, res) => {
 
         let iprojects = await Project.find(projectWhereCondition);
 
+        if(fav == "true"){
+          const favProjects = await FavoriteProject.aggregate([
+            {
+              $addFields: {
+                projectObjectId: { $toObjectId: "$projectId" }
+              }
+            },
+            {
+              $lookup: {
+                from: "projects",
+                localField: "projectObjectId",
+                foreignField: "_id",
+                as: "project"
+              }
+            },
+            {
+              $unwind: "$project"
+            },
+            {
+              $match: {
+                "project.projectStageId": stage._id,
+              }
+            },
+            {
+              $replaceRoot: {
+                newRoot: "$project"
+              }
+            }
+          ]);          
+          iprojects = favProjects;
+        }
         let projects = await Promise.all(
           iprojects.map(async (p) => {
             const users = await User.find({
@@ -1607,18 +1639,12 @@ exports.getProjectsKanbanData = async (req, res) => {
               isDeleted: false,
             });
 
-            const isFavourite = await FavoriteProject.findOne({
-              projectId: p._id,
-              userId: userId,
-            });
-
             return {
-              ...p.toObject(),
+              ...(typeof p.toObject === "function" ? p.toObject() : p),
               tasksCount,
-              isFavourite: !!isFavourite,
               projectUsers: users.map((user) => user.name),
               createdBy: createdByUser ? createdByUser.name : "Unknown",
-            };
+            };    
           })
         );
 
@@ -1650,6 +1676,7 @@ exports.getExhibitionKanbanData = async (req, res) => {
   try {
     const { companyId, userId } = req.params;
     const archive = req.query.archive == "true";
+    const fav = req.query.favourite;
 
     const projectStages = await ProjectStage.find({
       companyId,
@@ -1671,6 +1698,38 @@ exports.getExhibitionKanbanData = async (req, res) => {
         }
 
         let iprojects = await Project.find(projectWhereCondition);
+        if(fav == "true"){
+          const favProjects = await FavoriteProject.aggregate([
+            {
+              $addFields: {
+                projectObjectId: { $toObjectId: "$projectId" }
+              }
+            },
+            {
+              $lookup: {
+                from: "projects",
+                localField: "projectObjectId",
+                foreignField: "_id",
+                as: "project"
+              }
+            },
+            {
+              $unwind: "$project"
+            },
+            {
+              $match: {
+                "project.projectStageId": stage._id,
+                "project.projectType": "Exhibition",
+              }
+            },
+            {
+              $replaceRoot: {
+                newRoot: "$project"
+              }
+            }
+          ]);          
+          iprojects = favProjects;
+        }
 
         let projects = await Promise.all(
           iprojects.map(async (p) => {
@@ -1685,15 +1744,15 @@ exports.getExhibitionKanbanData = async (req, res) => {
               isDeleted: false,
             });
 
-            const isFavourite = await FavoriteProject.findOne({
-              projectId: p._id,
-              userId: userId,
-            });
+            // const isFavourite = await FavoriteProject.findOne({
+            //   projectId: p._id,
+            //   userId: userId,
+            // });
 
             return {
-              ...p.toObject(),
+              ...(typeof p.toObject === "function" ? p.toObject() : p),
               tasksCount,
-              isFavourite: !!isFavourite,
+              // isFavourite: !!isFavourite,
               projectUsers: users.map((user) => user.name),
               createdBy: createdByUser ? createdByUser.name : "Unknown",
             };
@@ -1729,6 +1788,7 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
   try {
     const { companyId, userId, groupId } = req.params;
     const archive = req.query.archive === "true";
+    const fav = req.query.favourite;
 
     console.log("groupId", groupId, "companyId", companyId, "userId", userId);
 
@@ -1765,6 +1825,37 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
         }
 
         let iprojects = await Project.find(projectWhereCondition);
+        if(fav == "true"){
+          const favProjects = await FavoriteProject.aggregate([
+            {
+              $addFields: {
+                projectObjectId: { $toObjectId: "$projectId" }
+              }
+            },
+            {
+              $lookup: {
+                from: "projects",
+                localField: "projectObjectId",
+                foreignField: "_id",
+                as: "project"
+              }
+            },
+            {
+              $unwind: "$project"
+            },
+            {
+              $match: {
+                "project.projectStageId": stage._id,
+              }
+            },
+            {
+              $replaceRoot: {
+                newRoot: "$project"
+              }
+            }
+          ]);          
+          iprojects = favProjects;
+        }
 
         let projects = await Promise.all(
           iprojects.map(async (p) => {
@@ -1780,15 +1871,15 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
               isDeleted: false,
             });
 
-            const isFavourite = await FavoriteProject.findOne({
-              projectId: p._id,
-              userId: userId,
-            });
+            // const isFavourite = await FavoriteProject.findOne({
+            //   projectId: p._id,
+            //   userId: userId,
+            // });
 
             return {
-              ...p.toObject(),
+              ...(typeof p.toObject === "function" ? p.toObject() : p),
               tasksCount,
-              isFavourite: !!isFavourite,
+              // isFavourite: !!isFavourite,
               projectUsers: users.map((user) => user.name),
               createdBy: createdByUser ? createdByUser.name : "Unknown",
             };

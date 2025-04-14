@@ -78,6 +78,9 @@ const ProjectSchema = new mongoose.Schema(
     archive: {
       type: Boolean,
     },
+    isFavourite: {
+      type: Boolean,
+    },
     customFieldValues: {
       type: Map,
     },
