@@ -3053,19 +3053,17 @@ exports.moveTasksToProject = async (req, res) => {
 
 exports.getTasksKanbanData = async (req, res) => {
   try {
+    console.log("whay us going on ")
     const { projectId } = req.params;
     const page = parseInt(req.query.page) || 0;
     let limit = 20;
     let skip = page * limit;
-    // let stageId = req.query.stageId;
     const project = await Project.findOne({ _id: projectId });
-    const taskStagesTitles = project.taskStages; // ["todo", "inProgress", "completed"]
-    // Find documents where the title is in the taskStagesTitles array and sort them by 'order' in ascending order
+    const taskStagesTitles = project.taskStages;
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
-    // Fetch paginated projects for each stage separately
     const stagesWithTasks = await Promise.all(
       taskStages.map(async (stage) => {
         const tasks = await Task.find({

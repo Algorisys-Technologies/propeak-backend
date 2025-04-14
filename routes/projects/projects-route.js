@@ -211,7 +211,7 @@ router.get(
   projectController.getProjectsByCompanyId
 );
 
-router.get(
+router.post(
   "/kanban/:companyId/:userId",
   // verifyToken,
   projectController.getProjectsKanbanData

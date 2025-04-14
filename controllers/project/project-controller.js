@@ -1568,18 +1568,22 @@ exports.getProjectsByCompanyId = async (req, res) => {
 exports.getProjectsKanbanData = async (req, res) => {
   try {
     const { companyId, userId } = req.params;
-    const archive = req.query.archive == "true";
+    const archive = req.query.archive === "true";
+    const page = parseInt(req.query.page) || 0;
+    console.log(page, "page wjats  kjcbjksbduic")
+    const limit = 20;
+    const skip = page * limit;
 
     // Fetch all project stages
     const projectStages = await ProjectStage.find({
       companyId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-    }).sort({ sequence: "asc" });
+    }).sort({ sequence: 1 });
 
     // Fetch paginated projects for each stage separately
     const stagesWithProjects = await Promise.all(
       projectStages.map(async (stage) => {
-        let projectWhereCondition = {
+        const projectWhereCondition = {
           projectStageId: stage._id,
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
           companyId,
@@ -1591,16 +1595,15 @@ exports.getProjectsKanbanData = async (req, res) => {
           projectWhereCondition.projectUsers = { $in: [userId] };
         }
 
-        let iprojects = await Project.find(projectWhereCondition);
+        const iprojects = await Project.find(projectWhereCondition);
 
-        let projects = await Promise.all(
+        const projects = await Promise.all(
           iprojects.map(async (p) => {
             const users = await User.find({
               _id: { $in: p.projectUsers },
             }).select("name");
-            const createdByUser = await User.findById(p.createdBy).select(
-              "name"
-            );
+
+            const createdByUser = await User.findById(p.createdBy).select("name");
 
             const tasksCount = await Task.countDocuments({
               projectId: p._id,
@@ -1638,13 +1641,96 @@ exports.getProjectsKanbanData = async (req, res) => {
       totalCount,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return res.json({
-      message: "error fetching project kanban",
+      message: "Error fetching project kanban",
       success: false,
     });
   }
 };
+
+// exports.getProjectsKanbanData = async (req, res) => {
+//   try {
+//     const { companyId, userId } = req.params;
+//     const archive = req.query.archive == "true";
+//     const page = parseInt(req.query.page) || 0;
+//     let limit = 20;
+//     let skip = page * limit;
+//     // Fetch all project stages
+//     const projectStages = await ProjectStage.find({
+//       companyId,
+//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//     }).sort({ sequence: "asc" });
+
+//     // Fetch paginated projects for each stage separately
+//     const stagesWithProjects = await Promise.all(
+//       projectStages.map(async (stage) => {
+//         let projectWhereCondition = {
+//           projectStageId: stage._id,
+//           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//           companyId,
+//           archive,
+//           projectType: { $ne: "Exhibition" },
+//         };
+
+//         if (userId !== "ALL") {
+//           projectWhereCondition.projectUsers = { $in: [userId] };
+//         }
+
+//         let iprojects = await Project.find(projectWhereCondition);
+
+//         let projects = await Promise.all(
+//           iprojects.map(async (p) => {
+//             const users = await User.find({
+//               _id: { $in: p.projectUsers },
+//             }).select("name");
+//             const createdByUser = await User.findById(p.createdBy).select(
+//               "name"
+//             );
+
+//             const tasksCount = await Task.countDocuments({
+//               projectId: p._id,
+//               isDeleted: false,
+//             });
+
+//             const isFavourite = await FavoriteProject.findOne({
+//               projectId: p._id,
+//               userId: userId,
+//             });
+
+//             return {
+//               ...p.toObject(),
+//               tasksCount,
+//               isFavourite: !!isFavourite,
+//               projectUsers: users.map((user) => user.name),
+//               createdBy: createdByUser ? createdByUser.name : "Unknown",
+//             };
+//           })
+//         );
+
+//         return { ...stage.toObject(), projects };
+//       })
+//     );
+
+//     const totalCount = await Project.countDocuments({
+//       isDeleted: false,
+//       companyId,
+//       archive,
+//     });
+
+//     return res.json({
+//       success: true,
+//       projectStages: stagesWithProjects,
+//       totalCount,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     return res.json({
+//       message: "error fetching project kanban",
+//       success: false,
+//     });
+//   }
+// };
 
 exports.getExhibitionKanbanData = async (req, res) => {
   try {
