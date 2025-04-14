@@ -1846,6 +1846,7 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
             {
               $match: {
                 "project.projectStageId": stage._id,
+                "project.group": groupObjectId,
               }
             },
             {
