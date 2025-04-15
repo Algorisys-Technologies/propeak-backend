@@ -396,10 +396,14 @@ exports.getAllMeetings = async (req, res) => {
       })
       .skip(limit * currentPage)
       .limit(Number(limit))
-    const totalMeetings = await Meeting.countDocuments({ $and: queryConditions }); 
+    const totalMeetings = await Meeting.countDocuments({ 
+      $and: queryConditions,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    }); 
     const totalPages = Math.ceil(
       await Meeting.countDocuments({
-        $and: queryConditions
+        $and: queryConditions,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       }) / limit
     );
 
