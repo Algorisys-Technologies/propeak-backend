@@ -1591,38 +1591,137 @@ exports.getProjectsKanbanData = async (req, res) => {
           projectWhereCondition.projectUsers = { $in: [userId] };
         }
 
-        let iprojects = await Project.find(projectWhereCondition);
+        const iprojects = await Project.aggregate([
+          { $match: projectWhereCondition },
+        
+          // Ensure createdBy is cast to ObjectId if stored as string
+          {
+            $addFields: {
+              createdByObjId: {
+                $cond: [
+                  { $eq: [{ $type: "$createdBy" }, "objectId"] },
+                  "$createdBy",
+                  { $toObjectId: "$createdBy" }
+                ]
+              }
+            }
+          },
+        
+          // Lookup createdBy user
+          {
+            $lookup: {
+              from: "users",
+              localField: "createdByObjId",
+              foreignField: "_id",
+              as: "createdByUser"
+            }
+          },
+          { $unwind: { path: "$createdByUser", preserveNullAndEmptyArrays: true } },
+        
+          // Lookup project users
+          {
+            $lookup: {
+              from: "users",
+              localField: "projectUsers",
+              foreignField: "_id",
+              as: "projectUsersData"
+            }
+          },
+        
+          // Lookup task count for each project
+          {
+            $lookup: {
+              from: "tasks",
+              let: { pid: "$_id" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ["$projectId", "$$pid"] },
+                        { $eq: ["$isDeleted", false] }
+                      ]
+                    }
+                  }
+                },
+                { $count: "count" }
+              ],
+              as: "tasksCountData"
+            }
+          },
+          {
+            $addFields: {
+              tasksCount: {
+                $cond: [
+                  { $gt: [{ $size: "$tasksCountData" }, 0] },
+                  { $arrayElemAt: ["$tasksCountData.count", 0] },
+                  0
+                ]
+              }
+            }
+          },
+        
+          // Lookup if project is favorite for user
+          {
+            $lookup: {
+              from: "favoriteprojects",
+              let: { pid: "$_id" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ["$projectId", "$$pid"] },
+                        { $eq: ["$userId", userId] }
+                      ]
+                    }
+                  }
+                }
+              ],
+              as: "favData"
+            }
+          },
+        
+          // Final computed fields
+          {
+            $addFields: {
+              isFavourite: { $gt: [{ $size: "$favData" }, 0] },
+              projectUsers: {
+                $map: {
+                  input: "$projectUsersData",
+                  as: "u",
+                  in: "$$u.name"
+                }
+              },
+              createdBy: {
+                $cond: [
+                  { $ifNull: ["$createdByUser.name", false] },
+                  "$createdByUser.name",
+                  "Unknown"
+                ]
+              }
+            }
+          },
+        
+          // 🧹 Clean up intermediate fields
+          {
+            $project: {
+              createdByUser: 0,
+              createdByObjId: 0,
+              projectUsersData: 0,
+              tasksCountData: 0,
+              favData: 0
+            }
+          }
+        ]);
+        
 
-        let projects = await Promise.all(
-          iprojects.map(async (p) => {
-            const users = await User.find({
-              _id: { $in: p.projectUsers },
-            }).select("name");
-            const createdByUser = await User.findById(p.createdBy).select(
-              "name"
-            );
+        console.log("projectsdata", iprojects)
+        
 
-            const tasksCount = await Task.countDocuments({
-              projectId: p._id,
-              isDeleted: false,
-            });
+      
 
-            const isFavourite = await FavoriteProject.findOne({
-              projectId: p._id,
-              userId: userId,
-            });
-
-            return {
-              ...p.toObject(),
-              tasksCount,
-              isFavourite: !!isFavourite,
-              projectUsers: users.map((user) => user.name),
-              createdBy: createdByUser ? createdByUser.name : "Unknown",
-            };
-          })
-        );
-
-        return { ...stage.toObject(), projects };
+        return { ...stage.toObject(), projects: iprojects };
       })
     );
 
