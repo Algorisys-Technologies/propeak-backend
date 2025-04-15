@@ -418,3 +418,29 @@ exports.getAllMeetings = async (req, res) => {
     });
   }
 };
+
+
+exports.deleteMeeting = async (req, res) => {
+  const meetingId = req.body.mettingId;
+  try{
+    if(meetingId){
+      await Meeting.updateOne(
+        {_id: meetingId},
+        {$set: {isDeleted: true}}
+      )
+      return res.status(200).json({
+        success: true,
+        message: "Meetings Deleted successfully",
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: "Meetings Id not Found!",
+    });
+  }catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
