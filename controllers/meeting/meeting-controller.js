@@ -315,6 +315,7 @@ exports.getMeetings = async (req, res) => {
     const meetings = await Meeting.find({
       companyId: req.query.companyId,
       // projectId: req.query.projectId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     })
       .populate({
         path: "userId",
@@ -383,6 +384,7 @@ exports.getAllMeetings = async (req, res) => {
     // console.log(selectedProjectId, "from select project Id")
     const meetings = await Meeting.find({
       $and: queryConditions,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     })
       .populate({
         path: "userId",
@@ -421,7 +423,7 @@ exports.getAllMeetings = async (req, res) => {
 
 
 exports.deleteMeeting = async (req, res) => {
-  const meetingId = req.body.mettingId;
+  const meetingId = req.body.meetingId;
   try{
     if(meetingId){
       await Meeting.updateOne(
