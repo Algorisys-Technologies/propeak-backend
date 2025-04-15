@@ -216,6 +216,9 @@ router.get(
   // verifyToken,
   projectController.getProjectsKanbanData
 );
+
+router.post("/getKanbanProjects", projectController.getKanbanProjects);
+
 router.get(
   "/kanbane/:companyId/:userId",
   // verifyToken,

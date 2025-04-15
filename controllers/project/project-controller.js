@@ -1567,7 +1567,7 @@ exports.getProjectsByCompanyId = async (req, res) => {
 };
 exports.getProjectsKanbanData = async (req, res) => {
   try {
-    const { companyId, userId } = req.params;
+    const { companyId, userId, stageId } = req.params;
     const archive = req.query.archive == "true";
 
     // Fetch all project stages
@@ -1636,6 +1636,119 @@ exports.getProjectsKanbanData = async (req, res) => {
       success: true,
       projectStages: stagesWithProjects,
       totalCount,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.json({
+      message: "error fetching project kanban",
+      success: false,
+    });
+  }
+};
+
+exports.getKanbanProjects = async (req, res) => {
+  try {
+    const archive = req.query.archive == "true";
+    let page = parseInt(req.query.page || "0");
+    const limit = 10;
+    const skip = page * limit;
+    const { stageId, companyId, userId } = req.body;
+
+    console.log(
+      "page...project",
+      req.query.page,
+      "stageId...",
+      stageId,
+      "companyId...",
+      companyId
+    );
+
+    // Build base filter for project stages
+    let stageFilter = {
+      companyId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    };
+
+    if (stageId && stageId !== "null" && stageId !== "ALL") {
+      stageFilter._id = stageId;
+    }
+
+    // Fetch relevant project stages (all or specific)
+    const projectStages = await ProjectStage.find(stageFilter).sort({
+      sequence: "asc",
+    });
+
+    const stagesWithProjects = await Promise.all(
+      projectStages.map(async (stage) => {
+        let projectWhereCondition = {
+          projectStageId: stage._id,
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+          companyId,
+          archive,
+          projectType: { $ne: "Exhibition" },
+        };
+
+        if (userId !== "ALL") {
+          projectWhereCondition.projectUsers = { $in: [userId] };
+        }
+
+        // Get total project count for pagination
+        const totalCount = await Project.countDocuments(projectWhereCondition);
+        const totalPages = Math.ceil(totalCount / limit);
+
+        // Fetch paginated projects
+        const iprojects = await Project.find(projectWhereCondition)
+          .sort({ createdOn: -1 })
+          .skip(skip)
+          .limit(limit);
+
+        // Enrich project data
+        const projects = await Promise.all(
+          iprojects.map(async (p) => {
+            const users = await User.find({
+              _id: { $in: p.projectUsers },
+            }).select("name");
+            const createdByUser = await User.findById(p.createdBy).select(
+              "name"
+            );
+            const tasksCount = await Task.countDocuments({
+              projectId: p._id,
+              isDeleted: false,
+            });
+            const isFavourite = await FavoriteProject.findOne({
+              projectId: p._id,
+              userId,
+            });
+
+            return {
+              ...p.toObject(),
+              tasksCount,
+              isFavourite: !!isFavourite,
+              projectUsers: users.map((user) => user.name),
+              createdBy: createdByUser ? createdByUser.name : "Unknown",
+            };
+          })
+        );
+
+        return {
+          ...stage.toObject(),
+          projects,
+          totalCount,
+          totalPages,
+        };
+      })
+    );
+
+    const globalTotalCount = await Project.countDocuments({
+      isDeleted: false,
+      companyId,
+      archive,
+    });
+
+    return res.json({
+      success: true,
+      projectStages: stagesWithProjects,
+      totalCount: globalTotalCount,
     });
   } catch (error) {
     console.log(error);
