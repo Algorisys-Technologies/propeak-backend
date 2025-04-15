@@ -1673,10 +1673,12 @@ exports.getKanbanProjects = async (req, res) => {
       stageFilter._id = stageId;
     }
 
-    // Fetch relevant project stages (all or specific)
-    const projectStages = await ProjectStage.find(stageFilter).sort({
-      sequence: "asc",
-    });
+    const projectStages = await ProjectStage.find({
+      companyId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    }).sort({ sequence: "asc" });
+
+    console.log("Fetched projectStages:", projectStages.length);
 
     const stagesWithProjects = await Promise.all(
       projectStages.map(async (stage) => {
@@ -1745,15 +1747,94 @@ exports.getKanbanProjects = async (req, res) => {
       archive,
     });
 
+    const globalTotalPages = Math.ceil(globalTotalCount / limit);
+
     return res.json({
       success: true,
       projectStages: stagesWithProjects,
       totalCount: globalTotalCount,
+      totalPages: globalTotalPages,
     });
   } catch (error) {
     console.log(error);
     return res.json({
       message: "error fetching project kanban",
+      success: false,
+    });
+  }
+};
+
+exports.getKanbanProjectsData = async (req, res) => {
+  try {
+    const archive = req.query.archive == "true";
+    let page = parseInt(req.query.page || "0");
+    const limit = 10;
+    const skip = page * limit;
+    const { stageId, companyId, userId } = req.body;
+
+    if (!stageId || stageId === "null" || stageId === "ALL") {
+      return res.status(400).json({
+        success: false,
+        message: "stageId is required and cannot be ALL or null.",
+      });
+    }
+
+    // Project query filter
+    const projectWhereCondition = {
+      projectStageId: stageId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      companyId,
+      archive,
+      projectType: { $ne: "Exhibition" },
+    };
+
+    if (userId !== "ALL") {
+      projectWhereCondition.projectUsers = { $in: [userId] };
+    }
+
+    const totalCount = await Project.countDocuments(projectWhereCondition);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    const iprojects = await Project.find(projectWhereCondition)
+      .sort({ createdOn: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const projects = await Promise.all(
+      iprojects.map(async (p) => {
+        const users = await User.find({ _id: { $in: p.projectUsers } }).select(
+          "name"
+        );
+        const createdByUser = await User.findById(p.createdBy).select("name");
+        const tasksCount = await Task.countDocuments({
+          projectId: p._id,
+          isDeleted: false,
+        });
+        const isFavourite = await FavoriteProject.findOne({
+          projectId: p._id,
+          userId,
+        });
+
+        return {
+          ...p.toObject(),
+          tasksCount,
+          isFavourite: !!isFavourite,
+          projectUsers: users.map((user) => user.name),
+          createdBy: createdByUser ? createdByUser.name : "Unknown",
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      projects,
+      totalCount,
+      totalPages,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.json({
+      message: "Error fetching kanban projects",
       success: false,
     });
   }

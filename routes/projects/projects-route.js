@@ -218,6 +218,7 @@ router.get(
 );
 
 router.post("/getKanbanProjects", projectController.getKanbanProjects);
+router.post("/getKanbanProjectsData", projectController.getKanbanProjectsData);
 
 router.get(
   "/kanbane/:companyId/:userId",
