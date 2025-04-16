@@ -1766,11 +1766,13 @@ exports.getKanbanProjects = async (req, res) => {
 
 exports.getKanbanProjectsData = async (req, res) => {
   try {
-    const archive = req.query.archive == "true";
+    //const archive = req.query.archive == "true";
     let page = parseInt(req.query.page || "0");
     const limit = 10;
     const skip = page * limit;
-    const { stageId, companyId, userId } = req.body;
+    const { stageId, companyId, userId, archive } = req.body;
+
+    console.log("req.body...", req.body, "req.query", req.query);
 
     if (!stageId || stageId === "null" || stageId === "ALL") {
       return res.status(400).json({
@@ -1781,12 +1783,14 @@ exports.getKanbanProjectsData = async (req, res) => {
 
     // Project query filter
     const projectWhereCondition = {
-      projectStageId: stageId,
+      projectStageId: stageId || "673202ee15c8e180c21e9ad7",
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       companyId,
-      archive,
+      archive: archive || false,
       projectType: { $ne: "Exhibition" },
     };
+
+    console.log("projectWhereCondition...", projectWhereCondition);
 
     if (userId !== "ALL") {
       projectWhereCondition.projectUsers = { $in: [userId] };
@@ -1795,10 +1799,14 @@ exports.getKanbanProjectsData = async (req, res) => {
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
 
+    console.log("totalCount", totalCount, "totalPages", totalPages);
+
     const iprojects = await Project.find(projectWhereCondition)
       .sort({ createdOn: -1 })
       .skip(skip)
       .limit(limit);
+
+    //console.log("iprojects...", iprojects);
 
     const projects = await Promise.all(
       iprojects.map(async (p) => {
