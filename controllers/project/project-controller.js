@@ -1766,7 +1766,6 @@ exports.getKanbanProjects = async (req, res) => {
 
 exports.getKanbanProjectsData = async (req, res) => {
   try {
-    //const archive = req.query.archive == "true";
     let page = parseInt(req.query.page || "0");
     const limit = 10;
     const skip = page * limit;
@@ -1800,6 +1799,13 @@ exports.getKanbanProjectsData = async (req, res) => {
     const totalPages = Math.ceil(totalCount / limit);
 
     console.log("totalCount", totalCount, "totalPages", totalPages);
+
+    if (page < 0 || page >= totalPages) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid page number.",
+      });
+    }
 
     const iprojects = await Project.find(projectWhereCondition)
       .sort({ createdOn: -1 })
