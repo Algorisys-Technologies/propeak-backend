@@ -1770,7 +1770,7 @@ exports.getKanbanProjectsData = async (req, res) => {
     const limit = 10;
     const skip = page * limit;
     const { stageId, companyId, userId, archive } = req.body;
-
+    console.log(stageId, "is stageId is coming ?????")
     console.log("req.body...", req.body, "req.query", req.query);
 
     if (!stageId || stageId === "null" || stageId === "ALL") {
