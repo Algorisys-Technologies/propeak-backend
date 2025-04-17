@@ -1853,7 +1853,6 @@ exports.getKanbanProjectsData = async (req, res) => {
     });
   }
 };
-
 exports.getExhibitionKanbanData = async (req, res) => {
   try {
     const { companyId, userId } = req.params;
@@ -1932,6 +1931,432 @@ exports.getExhibitionKanbanData = async (req, res) => {
     });
   }
 };
+exports.getKanbanExhibition = async (req, res) => {
+  try {
+    const archive = req.query.archive === "true";
+    const page = parseInt(req.query.page || "0");
+    const limit = 10;
+    const skip = page * limit;
+
+    const { stageId, companyId, userId } = req.body;
+
+    // Validate companyId
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: "companyId is required.",
+      });
+    }
+
+    // Base filter for project stages
+    const stageFilter = {
+      companyId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    };
+
+    // Apply stageId filter if provided
+    if (stageId && stageId !== "ALL" && stageId !== "null") {
+      stageFilter._id = stageId;
+    }
+
+    const projectStages = await ProjectStage.find(stageFilter).sort({
+      sequence: "asc",
+    });
+
+    const stagesWithProjects = await Promise.all(
+      projectStages.map(async (stage) => {
+        const projectWhereCondition = {
+          projectStageId: stage._id,
+          companyId,
+          archive,
+          projectType: "Exhibition",
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+        };
+
+        if (userId && userId !== "ALL") {
+          projectWhereCondition.projectUsers = { $in: [userId] };
+        }
+
+        const totalCount = await Project.countDocuments(projectWhereCondition);
+        const totalPages = Math.ceil(totalCount / limit);
+
+        const iprojects = await Project.find(projectWhereCondition)
+          .sort({ createdOn: -1 })
+          .skip(skip)
+          .limit(limit);
+
+        const projects = await Promise.all(
+          iprojects.map(async (p) => {
+            const users = await User.find({
+              _id: { $in: p.projectUsers },
+            }).select("name");
+
+            const createdByUser = await User.findById(p.createdBy).select(
+              "name"
+            );
+
+            const tasksCount = await Task.countDocuments({
+              projectId: p._id,
+              isDeleted: false,
+            });
+
+            const isFavourite = await FavoriteProject.findOne({
+              projectId: p._id,
+              userId,
+            });
+
+            return {
+              ...p.toObject(),
+              tasksCount,
+              isFavourite: !!isFavourite,
+              projectUsers: users.map((u) => u.name),
+              createdBy: createdByUser ? createdByUser.name : "Unknown",
+            };
+          })
+        );
+
+        return {
+          ...stage.toObject(),
+          projects,
+          totalCount,
+          totalPages,
+        };
+      })
+    );
+
+    const globalCountCondition = {
+      companyId,
+      archive,
+      projectType: "Exhibition",
+      isDeleted: false,
+    };
+
+    const globalTotalCount = await Project.countDocuments(globalCountCondition);
+    const globalTotalPages = Math.ceil(globalTotalCount / limit);
+
+    return res.json({
+      success: true,
+      projectStages: stagesWithProjects,
+      totalCount: globalTotalCount,
+      totalPages: globalTotalPages,
+    });
+  } catch (error) {
+    console.error("getKanbanExhibition error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching kanban exhibition data",
+    });
+  }
+};
+exports.getKanbanExhibitionData = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page || "0", 10);
+    const limit = 10;
+
+    if (!Number.isInteger(page) || page < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid page number.",
+      });
+    }
+
+    const { stageId, companyId, userId, archive } = req.body;
+
+    if (!stageId || stageId === "null" || stageId === "ALL") {
+      return res.status(400).json({
+        success: false,
+        message: "stageId is required and cannot be 'ALL' or null.",
+      });
+    }
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: "companyId is required.",
+      });
+    }
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required.",
+      });
+    }
+
+    const projectWhereCondition = {
+      projectStageId: stageId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      companyId,
+      archive: archive === true, // defaults to false if not true
+      projectType: "Exhibition",
+    };
+
+    if (userId !== "ALL") {
+      projectWhereCondition.projectUsers = { $in: [userId] };
+    }
+
+    const totalCount = await Project.countDocuments(projectWhereCondition);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    if (page >= totalPages && totalPages > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Page number exceeds available pages.",
+      });
+    }
+
+    const projectsRaw = await Project.find(projectWhereCondition)
+      .sort({ createdOn: -1 })
+      .skip(page * limit)
+      .limit(limit);
+
+    const projects = await Promise.all(
+      projectsRaw.map(async (p) => {
+        const users = await User.find({ _id: { $in: p.projectUsers } }).select(
+          "name"
+        );
+        const createdByUser = await User.findById(p.createdBy).select("name");
+        const tasksCount = await Task.countDocuments({
+          projectId: p._id,
+          isDeleted: false,
+        });
+        const isFavourite = await FavoriteProject.findOne({
+          projectId: p._id,
+          userId,
+        });
+
+        return {
+          ...p.toObject(),
+          tasksCount,
+          isFavourite: !!isFavourite,
+          projectUsers: users.map((u) => u.name),
+          createdBy: createdByUser?.name || "Unknown",
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      projects,
+      totalCount,
+      totalPages,
+    });
+  } catch (error) {
+    console.error("Error in getKanbanExhibitionData:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching kanban projects",
+    });
+  }
+};
+
+// exports.getKanbanExhibition = async (req, res) => {
+//   try {
+//     const archive = req.query.archive == "true";
+//     let page = parseInt(req.query.page || "0");
+//     const limit = 10;
+//     const skip = page * limit;
+//     const { stageId, companyId, userId } = req.body;
+
+//     console.log(
+//       "page...project",
+//       req.query.page,
+//       "stageId...",
+//       stageId,
+//       "companyId...",
+//       companyId
+//     );
+
+//     // Build base filter for project stages
+//     let stageFilter = {
+//       companyId,
+//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//     };
+
+//     if (stageId && stageId !== "null" && stageId !== "ALL") {
+//       stageFilter._id = stageId;
+//     }
+
+//     const projectStages = await ProjectStage.find({
+//       companyId,
+//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//     }).sort({ sequence: "asc" });
+
+//     console.log("Fetched projectStages:", projectStages.length);
+
+//     const stagesWithProjects = await Promise.all(
+//       projectStages.map(async (stage) => {
+//         let projectWhereCondition = {
+//           projectStageId: stage._id,
+//           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//           companyId,
+//           archive,
+//           projectType: "Exhibition",
+//         };
+
+//         if (userId !== "ALL") {
+//           projectWhereCondition.projectUsers = { $in: [userId] };
+//         }
+
+//         // Get total project count for pagination
+//         const totalCount = await Project.countDocuments(projectWhereCondition);
+//         const totalPages = Math.ceil(totalCount / limit);
+
+//         // Fetch paginated projects
+//         const iprojects = await Project.find(projectWhereCondition)
+//           .sort({ createdOn: -1 })
+//           .skip(skip)
+//           .limit(limit);
+
+//         // Enrich project data
+//         const projects = await Promise.all(
+//           iprojects.map(async (p) => {
+//             const users = await User.find({
+//               _id: { $in: p.projectUsers },
+//             }).select("name");
+//             const createdByUser = await User.findById(p.createdBy).select(
+//               "name"
+//             );
+//             const tasksCount = await Task.countDocuments({
+//               projectId: p._id,
+//               isDeleted: false,
+//             });
+//             const isFavourite = await FavoriteProject.findOne({
+//               projectId: p._id,
+//               userId,
+//             });
+
+//             return {
+//               ...p.toObject(),
+//               tasksCount,
+//               isFavourite: !!isFavourite,
+//               projectUsers: users.map((user) => user.name),
+//               createdBy: createdByUser ? createdByUser.name : "Unknown",
+//             };
+//           })
+//         );
+
+//         return {
+//           ...stage.toObject(),
+//           projects,
+//           totalCount,
+//           totalPages,
+//         };
+//       })
+//     );
+
+//     const globalTotalCount = await Project.countDocuments({
+//       isDeleted: false,
+//       companyId,
+//       archive,
+//     });
+
+//     const globalTotalPages = Math.ceil(globalTotalCount / limit);
+
+//     return res.json({
+//       success: true,
+//       projectStages: stagesWithProjects,
+//       totalCount: globalTotalCount,
+//       totalPages: globalTotalPages,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     return res.json({
+//       message: "error fetching project kanban",
+//       success: false,
+//     });
+//   }
+// };
+
+// exports.getKanbanExhibitionData = async (req, res) => {
+//   try {
+//     let page = parseInt(req.query.page || "0");
+//     const limit = 10;
+//     const skip = page * limit;
+//     const { stageId, companyId, userId, archive } = req.body;
+
+//     console.log("req.body...", req.body, "req.query", req.query);
+
+//     if (!stageId || stageId === "null" || stageId === "ALL") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "stageId is required and cannot be ALL or null.",
+//       });
+//     }
+
+//     // Project query filter
+//     const projectWhereCondition = {
+//       projectStageId: stageId || "673202ee15c8e180c21e9ad7",
+//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//       companyId,
+//       archive: archive || false,
+//       projectType: "Exhibition",
+//     };
+
+//     console.log("projectWhereCondition...", projectWhereCondition);
+
+//     if (userId !== "ALL") {
+//       projectWhereCondition.projectUsers = { $in: [userId] };
+//     }
+
+//     const totalCount = await Project.countDocuments(projectWhereCondition);
+//     const totalPages = Math.ceil(totalCount / limit);
+
+//     console.log("totalCount", totalCount, "totalPages", totalPages);
+
+//     if (page < 0 || page >= totalPages) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid page number.",
+//       });
+//     }
+
+//     const iprojects = await Project.find(projectWhereCondition)
+//       .sort({ createdOn: -1 })
+//       .skip(skip)
+//       .limit(limit);
+
+//     //console.log("iprojects...", iprojects);
+
+//     const projects = await Promise.all(
+//       iprojects.map(async (p) => {
+//         const users = await User.find({ _id: { $in: p.projectUsers } }).select(
+//           "name"
+//         );
+//         const createdByUser = await User.findById(p.createdBy).select("name");
+//         const tasksCount = await Task.countDocuments({
+//           projectId: p._id,
+//           isDeleted: false,
+//         });
+//         const isFavourite = await FavoriteProject.findOne({
+//           projectId: p._id,
+//           userId,
+//         });
+
+//         return {
+//           ...p.toObject(),
+//           tasksCount,
+//           isFavourite: !!isFavourite,
+//           projectUsers: users.map((user) => user.name),
+//           createdBy: createdByUser ? createdByUser.name : "Unknown",
+//         };
+//       })
+//     );
+
+//     return res.json({
+//       success: true,
+//       projects,
+//       totalCount,
+//       totalPages,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     return res.json({
+//       message: "Error fetching kanban projects",
+//       success: false,
+//     });
+//   }
+// };
 
 exports.getProjectKanbanDataByGroupId = async (req, res) => {
   try {
