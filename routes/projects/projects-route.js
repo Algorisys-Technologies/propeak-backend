@@ -216,15 +216,18 @@ router.get(
   // verifyToken,
   projectController.getProjectsKanbanData
 );
-
 router.post("/getKanbanProjects", projectController.getKanbanProjects);
 router.post("/getKanbanProjectsData", projectController.getKanbanProjectsData);
 
+//Exhibitions route 
 router.get(
   "/kanbane/:companyId/:userId",
-  // verifyToken,
   projectController.getExhibitionKanbanData
 );
+router.post("/getKanbanExhibition", projectController.getKanbanExhibition);
+router.post("/getKanbanExhibitionData", projectController.getKanbanExhibitionData);
+
+
 router.get(
   "/kanban-groupMaster/:companyId/:userId/:groupId",
   projectController.getProjectKanbanDataByGroupId
