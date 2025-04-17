@@ -229,6 +229,12 @@ router.get(
   "/kanban-groupMaster/:companyId/:userId/:groupId",
   projectController.getProjectKanbanDataByGroupId
 );
+
+router.post(
+  "/getKanbanProjectsByGroup",
+  projectController.getKanbanProjectsByGroup
+);
+
 router.put("/updateStage", projectController.updateStage);
 
 module.exports = router;

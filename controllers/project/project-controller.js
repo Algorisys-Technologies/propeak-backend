@@ -2028,6 +2028,106 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
   }
 };
 
+exports.getKanbanProjectsByGroup = async (req, res) => {
+  try {
+    let page = parseInt(req.query.page || "0");
+    const limit = 10;
+    const skip = page * limit;
+    const { groupId, companyId, userId, archive, stageId } = req.body;
+
+    console.log("req.body...", req.body, "req.query", req.query);
+
+    if (!groupId || groupId === "null" || groupId === "ALL") {
+      return res.status(400).json({
+        success: false,
+        message: "groupId is required and cannot be ALL or null.",
+      });
+    }
+
+    const groupObjectId = mongoose.Types.ObjectId.isValid(groupId)
+      ? new mongoose.Types.ObjectId(groupId)
+      : null;
+
+    if (!groupObjectId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid groupId format.",
+      });
+    }
+
+    const projectWhereCondition = {
+      group: groupObjectId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      companyId,
+      archive: archive || false,
+      projectType: { $ne: "Exhibition" },
+    };
+
+    if (stageId && stageId !== "ALL" && stageId !== "null") {
+      projectWhereCondition.projectStageId = stageId;
+    }
+
+    if (userId !== "ALL") {
+      projectWhereCondition.projectUsers = { $in: [userId] };
+    }
+
+    const totalCount = await Project.countDocuments(projectWhereCondition);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    console.log("totalCount", totalCount, "totalPages", totalPages);
+
+    if (page < 0 || page >= totalPages) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid page number.",
+      });
+    }
+
+    const iprojects = await Project.find(projectWhereCondition)
+      .sort({ createdOn: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const projects = await Promise.all(
+      iprojects.map(async (p) => {
+        const users = await User.find({ _id: { $in: p.projectUsers } }).select(
+          "name"
+        );
+        const createdByUser = await User.findById(p.createdBy).select("name");
+        const tasksCount = await Task.countDocuments({
+          projectId: p._id,
+          isDeleted: false,
+        });
+        const isFavourite = await FavoriteProject.findOne({
+          projectId: p._id,
+          userId,
+        });
+
+        return {
+          ...p.toObject(),
+          tasksCount,
+          isFavourite: !!isFavourite,
+          projectUsers: users.map((user) => user.name),
+          createdBy: createdByUser ? createdByUser.name : "Unknown",
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      projects,
+      totalCount,
+      totalPages,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.json({
+      success: false,
+      message: "Error fetching kanban projects by group",
+    });
+  }
+};
+
 exports.updateStage = async (req, res) => {
   try {
     const { projectId, newStageId, status } = req.body;
