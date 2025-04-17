@@ -1591,7 +1591,7 @@ exports.getProjectsKanbanData = async (req, res) => {
           projectWhereCondition.projectUsers = { $in: [userId] };
         }
 
-        let iprojects = await Project.find(projectWhereCondition);
+        let iprojects = await Project.find(projectWhereCondition).limit(10);
 
         let projects = await Promise.all(
           iprojects.map(async (p) => {
@@ -1972,7 +1972,7 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
           projectWhereCondition.projectUsers = { $in: [userId] };
         }
 
-        let iprojects = await Project.find(projectWhereCondition);
+        let iprojects = await Project.find(projectWhereCondition).limit(10);
 
         let projects = await Promise.all(
           iprojects.map(async (p) => {
