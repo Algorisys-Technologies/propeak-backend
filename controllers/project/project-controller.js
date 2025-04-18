@@ -1549,14 +1549,45 @@ exports.getProjectsByCompanyId = async (req, res) => {
   try {
     // console.log("in getProjectsByCompanyId")
     // console.log(req.params)
+    console.log(req.params.companyId, "from company Id")
     const projects = await Project.find({
       isDeleted: false,
       companyId: req.params.companyId,
     });
-    // console.log(projects)
+
+    const result = await Project.aggregate([
+      {
+        $match: {
+          isDeleted: false,
+          companyId: req.params.companyId,
+        },
+      },
+      {
+        $project: {
+          projectUsers: 1,
+        },
+      },
+      {
+        $unwind: "$projectUsers",
+      },
+      {
+        $match: {
+          projectUsers: { $ne: null }, // Remove nulls
+        },
+      },
+      {
+        $group: {
+          _id: "$projectUsers", 
+        },
+      },
+      {
+        $count: "uniqueProjectUsersCount", 
+      }
+    ]);  
     return res.json({
       success: true,
       projects: projects,
+      projectMembers: result[0]?.uniqueProjectUsersCount,
     });
   } catch (e) {
     return res.json({
