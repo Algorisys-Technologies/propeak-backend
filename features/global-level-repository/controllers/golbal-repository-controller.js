@@ -161,7 +161,7 @@ exports.getVisitingCardsFolderWise = async (req, res) => {
 
     if (page === "All") {
       // Fetch all records if page is "All"
-      result = await UploadRepositoryFile.find(query)
+      result = await UploadRepositoryFile.find(query);
     } else {
       // Get paginated results
       result = await UploadRepositoryFile.find(query)
@@ -537,7 +537,7 @@ exports.postMultipleVisitingCards = async (req, res) => {
   }
 };
 
-exports.postUploadFile = (req, res) => {
+exports.postUploadFile = async (req, res) => {
   const companyId = req.body.companyId;
   const type = req.body.type;
   console.log("give me data", req.body);
@@ -546,6 +546,7 @@ exports.postUploadFile = (req, res) => {
   if (!req.body.path) {
     return res.status(400).json({ error: "Path is required." });
   }
+
   let pathName;
   if (req.body.path === "root") {
     pathName = "/";
@@ -556,6 +557,7 @@ exports.postUploadFile = (req, res) => {
       pathName = "/" + req.body.path;
     }
   }
+
   let uploadFile = new UploadRepositoryFile({
     _id: req.body._id,
     title: req.body.title,
@@ -570,80 +572,194 @@ exports.postUploadFile = (req, res) => {
 
   try {
     if (!req.files.uploadFile) {
-      res.send({ success: false, message: "No files were uploaded." });
-      return;
+      return res.send({ success: false, message: "No files were uploaded." });
     }
-    var companyFolderPath = uploadFolder + "/" + companyId + "/documents";
-    var filename = req.body.fileName;
-    var uploadedFile = req.files.uploadFile;
-    let fileUploaded = uploadedFile.name.split(".");
-    let fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
 
-    let validFileExtn = config.extentionFile;
-    let isValidFileExtn = validFileExtn.filter((extn) => extn === fileExtn);
+    const companyFolderPath = path.join(
+      uploadFolder,
+      companyId.toString(),
+      "documents"
+    );
+    const filename = req.body.fileName;
+    const uploadedFile = req.files.uploadFile;
 
-    function ensureDirectoryExistence(filePath) {
-      var dirname = path.dirname(filePath);
-      if (fs.existsSync(dirname)) {
-        return true;
+    const fileUploaded = uploadedFile.name.split(".");
+    const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+
+    const validFileExtn = config.extentionFile;
+    const isValidFileExtn = validFileExtn.filter((extn) => extn === fileExtn);
+
+    console.log("upload folders", uploadFolder);
+
+    function ensureDirectoryExistence(folderPath) {
+      if (!fs.existsSync(folderPath)) {
+        console.log("Directory does not exist, creating:", folderPath);
+        fs.mkdirSync(folderPath, { recursive: true });
+        console.log("Directory created:", folderPath);
+      } else {
+        console.log("Directory already exists:", folderPath);
       }
-      ensureDirectoryExistence(dirname);
-      fs.mkdirSync(dirname);
     }
+
+    // Ensure root folder exists (e.g., /uploads/<companyId>/documents)
+    ensureDirectoryExistence(companyFolderPath);
+
     if (isValidFileExtn.length > 0) {
-      uploadFile.save().then((result) => {
-        res.json({
+      await uploadFile.save();
+
+      const finalFolderPath = path.join(companyFolderPath, pathName);
+      const fullFilePath = path.join(finalFolderPath, filename);
+
+      // Ensure full nested path exists before saving
+      ensureDirectoryExistence(finalFolderPath);
+
+      if (pathName === "/contacts" && type.startsWith("image/")) {
+        const message = {
+          accountId: req.body.accountId,
+          filePath: fullFilePath,
+          fileName: filename,
+          companyId,
+          type,
+        };
+        sendMessageToQueue(
+          message,
+          "contact_extraction_queue",
+          "contact_extraction_routing"
+        );
+      }
+
+      uploadedFile.mv(fullFilePath, function (err) {
+        if (err) {
+          console.log(err);
+          return res.send({ success: false, message: "File Not Saved." });
+        }
+
+        return res.json({
           success: true,
-          message: `Document Added Successfully !`,
+          message: "Document Added Successfully!",
           result: req.body,
         });
       });
-      if (pathName === "/") {
-        uploadedFile.mv(companyFolderPath + "/" + filename, function (err) {
-          if (err) {
-            console.log(err);
-            res.send({ success: false, message: "File Not Saved." });
-          }
-        });
-      } else {
-        if (pathName == "/contacts") {
-          if (type.startsWith("image/")) {
-            const message = {
-              accountId: req.body.accountId,
-              filePath: companyFolderPath + pathName + "/" + filename,
-              fileName: filename,
-              companyId,
-              type,
-            };
-            sendMessageToQueue(
-              message,
-              "contact_extraction_queue",
-              "contact_extraction_routing"
-            );
-          }
-        }
-        ensureDirectoryExistence(companyFolderPath + pathName + "/" + filename);
-
-        uploadedFile.mv(
-          companyFolderPath + pathName + "/" + filename,
-          function (err) {
-            if (err) {
-              res.send({ success: false, message: "File Not Saved." });
-            }
-          }
-        );
-      }
     } else {
-      res.send({
+      return res.send({
         success: false,
         message:
-          "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS','PPTX')",
+          "File format not supported! (Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS', 'PPTX')",
       });
     }
   } catch (err) {
     console.log(err);
+    return res.status(500).json({ error: "Something went wrong." });
   }
 };
+
+// exports.postUploadFile = (req, res) => {
+//   const companyId = req.body.companyId;
+//   const type = req.body.type;
+//   console.log("give me data", req.body);
+//   console.log(req.files);
+
+//   if (!req.body.path) {
+//     return res.status(400).json({ error: "Path is required." });
+//   }
+//   let pathName;
+//   if (req.body.path === "root") {
+//     pathName = "/";
+//   } else {
+//     if (req.body.path.charAt(0) === "/") {
+//       pathName = req.body.path;
+//     } else {
+//       pathName = "/" + req.body.path;
+//     }
+//   }
+//   let uploadFile = new UploadRepositoryFile({
+//     _id: req.body._id,
+//     title: req.body.title,
+//     fileName: req.body.fileName,
+//     description: req.body.description,
+//     path: pathName,
+//     isDeleted: false,
+//     createdBy: "",
+//     createdOn: new Date(),
+//     companyId: companyId,
+//   });
+
+//   try {
+//     if (!req.files.uploadFile) {
+//       res.send({ success: false, message: "No files were uploaded." });
+//       return;
+//     }
+//     var companyFolderPath = uploadFolder + "/" + companyId + "/documents";
+//     var filename = req.body.fileName;
+//     var uploadedFile = req.files.uploadFile;
+//     let fileUploaded = uploadedFile.name.split(".");
+//     let fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+
+//     let validFileExtn = config.extentionFile;
+//     let isValidFileExtn = validFileExtn.filter((extn) => extn === fileExtn);
+
+//     function ensureDirectoryExistence(filePath) {
+//       var dirname = path.dirname(filePath);
+//       if (fs.existsSync(dirname)) {
+//         return true;
+//       }
+//       ensureDirectoryExistence(dirname);
+//       fs.mkdirSync(dirname);
+//     }
+//     if (isValidFileExtn.length > 0) {
+//       uploadFile.save().then((result) => {
+//         res.json({
+//           success: true,
+//           message: `Document Added Successfully !`,
+//           result: req.body,
+//         });
+//       });
+//       if (pathName === "/") {
+//         uploadedFile.mv(companyFolderPath + "/" + filename, function (err) {
+//           if (err) {
+//             console.log(err);
+//             res.send({ success: false, message: "File Not Saved." });
+//           }
+//         });
+//       } else {
+//         if (pathName == "/contacts") {
+//           if (type.startsWith("image/")) {
+//             const message = {
+//               accountId: req.body.accountId,
+//               filePath: companyFolderPath + pathName + "/" + filename,
+//               fileName: filename,
+//               companyId,
+//               type,
+//             };
+//             sendMessageToQueue(
+//               message,
+//               "contact_extraction_queue",
+//               "contact_extraction_routing"
+//             );
+//           }
+//         }
+//         ensureDirectoryExistence(companyFolderPath + pathName + "/" + filename);
+
+//         uploadedFile.mv(
+//           companyFolderPath + pathName + "/" + filename,
+//           function (err) {
+//             if (err) {
+//               res.send({ success: false, message: "File Not Saved." });
+//             }
+//           }
+//         );
+//       }
+//     } else {
+//       res.send({
+//         success: false,
+//         message:
+//           "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS','PPTX')",
+//       });
+//     }
+//   } catch (err) {
+//     console.log(err);
+//   }
+// };
 
 exports.editRepositoryFile = (req, res) => {
   console.log("req.body in edit global", req.body);
