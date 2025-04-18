@@ -36,6 +36,9 @@ const MeetingSchema = new mongoose.Schema(
       enum: ["LIVE", "COMPLETED"],
       default: "LIVE",
     },
+    isDeleted: {
+      type: Boolean,
+    }
   },
   { timestamps: true }
 );

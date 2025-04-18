@@ -10,4 +10,5 @@ router.post("/start", meetingController.createMeeting);
 router.post("/end/:id", meetingController.endMeeting);
 router.get("/getmeetings", meetingController.getMeetings);
 router.post("/companyId", meetingController.getAllMeetings);
+router.post("/delete", meetingController.deleteMeeting)
 module.exports = router;
