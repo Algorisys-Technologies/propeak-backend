@@ -315,6 +315,7 @@ exports.getMeetings = async (req, res) => {
     const meetings = await Meeting.find({
       companyId: req.query.companyId,
       // projectId: req.query.projectId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     })
       .populate({
         path: "userId",
@@ -383,6 +384,7 @@ exports.getAllMeetings = async (req, res) => {
     // console.log(selectedProjectId, "from select project Id")
     const meetings = await Meeting.find({
       $and: queryConditions,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     })
       .populate({
         path: "userId",
@@ -394,10 +396,14 @@ exports.getAllMeetings = async (req, res) => {
       })
       .skip(limit * currentPage)
       .limit(Number(limit))
-    const totalMeetings = await Meeting.countDocuments({ $and: queryConditions }); 
+    const totalMeetings = await Meeting.countDocuments({ 
+      $and: queryConditions,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    }); 
     const totalPages = Math.ceil(
       await Meeting.countDocuments({
-        $and: queryConditions
+        $and: queryConditions,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       }) / limit
     );
 
@@ -418,3 +424,29 @@ exports.getAllMeetings = async (req, res) => {
     });
   }
 };
+
+
+exports.deleteMeeting = async (req, res) => {
+  const meetingId = req.body.meetingId;
+  try{
+    if(meetingId){
+      await Meeting.updateOne(
+        {_id: meetingId},
+        {$set: {isDeleted: true}}
+      )
+      return res.status(200).json({
+        success: true,
+        message: "Meetings Deleted successfully",
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: "Meetings Id not Found!",
+    });
+  }catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
