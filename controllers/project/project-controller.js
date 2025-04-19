@@ -829,18 +829,7 @@ exports.deleteProject = (req, res) => {
         isDeleted: true,
       }
     );
-    // let userIdToken = req.userInfo.userName;
-    // audit.insertAuditLog(
-    //   "false",
-    //   result.title,
-    //   "Project",
-    //   field,
-    //   result[field],
-    //   userIdToken,
-    //   result._id
-    // );
-
-    // Delete custom task fields associated with the project
+    
     CustomTaskField.deleteMany({
       projectId: req.body.id,
     }).then(() => {
