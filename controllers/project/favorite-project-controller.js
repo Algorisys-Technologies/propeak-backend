@@ -123,11 +123,13 @@ exports.getFavoriteProjects = (req, res) => {
 };
 
 exports.toggleFavoriteProject = async (req, res) => {
+  console.log("toggleFavoriteProject")
   try {
     let isExists = await FavoriteProject.findOne({
       userId: req.body.userId,
       projectId: req.body.projectId, 
     })
+    console.log(isExists, "from toggleFavoriteProject")
 
     if(isExists){
       await FavoriteProject.deleteMany({
@@ -144,6 +146,8 @@ exports.toggleFavoriteProject = async (req, res) => {
         userId: req.body.userId,
         projectId: req.body.projectId,
       });
+
+      console.log(favProject, "from favProject")
       await favProject.save()
       await Project.updateOne(
         {_id: req.body.projectId},
