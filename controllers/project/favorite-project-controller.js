@@ -153,10 +153,10 @@ exports.toggleFavoriteProject = async (req, res) => {
         {_id: req.body.projectId},
         { $set: {isFavourite: true}}
       )
-      return res.json({success: true, msg: "Toggled Favourite"})
+      return res.json({success: true, message: "Toggled Favourite"})
     }
 
-    return res.json({success: true, msg: "Removed Favourite"})
+    return res.json({success: true, message: "Removed Favourite"})
    
  
   } catch (e) {
@@ -164,6 +164,37 @@ exports.toggleFavoriteProject = async (req, res) => {
     return res.json({success: false, message: e})
   }
 };
+
+// exports.toggleFavoriteProject = async (req, res) => {
+//   try {
+//     console.log("toggle favourite")
+//     let isExists = await FavoriteProject.findOne({
+//       userId: req.body.userId,
+//       projectId: req.body.projectId, 
+//     })
+
+//     if(isExists){
+//       await FavoriteProject.deleteMany({
+//         projectId: req.body.projectId,
+//         userId: req.body.userId,
+//       })
+//     }
+//     else{
+//       let favProject = new FavoriteProject({
+//         userId: req.body.userId,
+//         projectId: req.body.projectId,
+//       });
+//       await favProject.save()
+//     }
+
+//     return res.json({success: true, message: "Toggled"})
+   
+ 
+//   } catch (e) {
+//     console.log(e);
+//     return res.json({success: false, message: e})
+//   }
+// };
 
 exports.updateFavoriteProject = (req, res) => {
  
