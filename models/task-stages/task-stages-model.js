@@ -15,6 +15,9 @@ const TaskStageSchema = new mongoose.Schema(
       type: String,
       required: true,  
     },
+    level: {
+      type: String,
+    },
     show: {
       type: Boolean,
       default: true, 

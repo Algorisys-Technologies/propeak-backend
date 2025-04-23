@@ -6,14 +6,23 @@ const Task = require("../../models/task/task-model");
 // Create a new task stage
 exports.create_task_stage = async (req, res) => {
   try {
-    const { sequence, title, displayName, show, companyId, createdBy } =
-      req.body;
-
+    const {
+      sequence,
+      title,
+      displayName,
+      show,
+      companyId,
+      createdBy,
+      projectId, // optional
+      level,
+    } = req.body;
+    console.log(req.body, "request body ?")
     if (!companyId) {
       return res
         .status(400)
         .json({ success: false, error: "Company ID is required." });
     }
+
     if (!title || !displayName) {
       return res.status(400).json({
         success: false,
@@ -21,36 +30,42 @@ exports.create_task_stage = async (req, res) => {
       });
     }
 
-    const newStage = new TaskStage({
+    // Create the stage payload
+    const newStageData = {
       sequence,
       title,
       displayName,
       show,
       companyId,
       createdBy,
+      level,
       createdOn: new Date(),
       modifiedBy: createdBy,
       modifiedOn: new Date(),
-    });
+    };
 
+    // Conditionally add projectId if it's provided
+    if (projectId|| level) {
+      newStageData.projectId = projectId;
+    }
+
+    const newStage = new TaskStage(newStageData);
     const result = await newStage.save();
 
     // Insert audit logs
-    ["sequence", "title", "displayName", "show", "companyId"].forEach(
-      (field) => {
-        if (result[field] !== undefined) {
-          audit.insertAuditLog(
-            "",
-            result.title,
-            "TaskStage",
-            field,
-            result[field],
-            createdBy,
-            result._id
-          );
-        }
+    ["sequence", "title", "displayName", "show", "companyId", "projectId"].forEach((field) => {
+      if (result[field] !== undefined) {
+        audit.insertAuditLog(
+          "",
+          result.title,
+          "TaskStage",
+          field,
+          result[field],
+          createdBy,
+          result._id
+        );
       }
-    );
+    });
 
     return res.status(201).json({
       success: true,
@@ -65,6 +80,72 @@ exports.create_task_stage = async (req, res) => {
     });
   }
 };
+
+// exports.create_task_stage = async (req, res) => {
+//   try {
+//     const { sequence, title, displayName, show, companyId, createdBy,projectId } =
+//       req.body;
+
+//     if (!companyId) {
+//       return res
+//         .status(400)
+//         .json({ success: false, error: "Company ID is required." });
+//     }
+//     if (!title || !displayName) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "Title and display name are required.",
+//       });
+//     }
+
+//     const newStage = new TaskStage({
+//       sequence,
+//       title,
+//       displayName,
+//       show,
+//       companyId,
+//       createdBy,
+//       createdOn: new Date(),
+//       modifiedBy: createdBy,
+//       modifiedOn: new Date(),
+//     });
+//  // Conditionally add projectId if it's provided
+//     if (projectId) {
+//       newStageData.projectId = projectId;
+//     }
+
+//     const result = await newStage.save();
+
+//     // Insert audit logs
+//     ["sequence", "title", "displayName", "show", "companyId"].forEach(
+//       (field) => {
+//         if (result[field] !== undefined) {
+//           audit.insertAuditLog(
+//             "",
+//             result.title,
+//             "TaskStage",
+//             field,
+//             result[field],
+//             createdBy,
+//             result._id
+//           );
+//         }
+//       }
+//     );
+
+//     return res.status(201).json({
+//       success: true,
+//       stage: result,
+//       message: "Task stage added successfully.",
+//     });
+//   } catch (error) {
+//     console.error("Error creating task stage:", error);
+//     return res.status(500).json({
+//       success: false,
+//       error: "Error in adding task stage.",
+//     });
+//   }
+// };
 
 // Get task stages by company ID
 // exports.get_task_stages_by_company = async (req, res) => {
