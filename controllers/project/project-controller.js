@@ -1902,12 +1902,12 @@ exports.getKanbanProjectsData = async (req, res) => {
     const limit = 10;
     const skip = page * limit;
     const { stageId, companyId, userId, archive, isFavorite, actualUserId } = req.body;
-    console.log(isFavorite, "from getKanbanProjectsData")
-    console.log(actualUserId, "from actualUserId")
-    console.log(userId, "from user getKanbanProjectsData")
+    // console.log(isFavorite, "from getKanbanProjectsData")
+    // console.log(actualUserId, "from actualUserId")
+    // console.log(userId, "from user getKanbanProjectsData")
 
     const isFavoriteFlag = isFavorite === true || isFavorite === "true";
-    console.log(isFavoriteFlag, "from isFavoriteFlag")
+    // console.log(isFavoriteFlag, "from isFavoriteFlag")
     // const favoriteUserId = userId === "ALL" ? actualUserId : userId;
 
 
@@ -2218,7 +2218,7 @@ exports.getKanbanExhibitionData = async (req, res) => {
     const { stageId, companyId, userId, archive, isFavorite, actualUserId } = req.body;
 
     const isFavoriteFlag = isFavorite === true || isFavorite === "true";
-    console.log(isFavoriteFlag, "from isFavoriteFlag")
+    // console.log(isFavoriteFlag, "from isFavoriteFlag")
     const favoriteUserId = userId === "ALL" ? actualUserId : userId;
 
     if (!stageId || stageId === "null" || stageId === "ALL") {
@@ -2636,7 +2636,7 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
     const { groupId, companyId, userId, archive, stageId, isFavorite, actualUserId } = req.body;
 
     const isFavoriteFlag = isFavorite === true || isFavorite === "true";
-    console.log(isFavoriteFlag, "from isFavoriteFlag")
+    // console.log(isFavoriteFlag, "from isFavoriteFlag")
     const favoriteUserId = userId === "ALL" ? actualUserId : userId;
 
     console.log("req.body...", req.body, "req.query", req.query);
