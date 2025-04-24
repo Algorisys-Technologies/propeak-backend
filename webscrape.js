@@ -91,8 +91,16 @@ async function processSingleLead(lead, page) {
       const mobileNumber = await page.evaluate(() =>
         navigator.clipboard.readText()
       );
+      // lead.mobile =
+      //   mobileNumber && !isNaN(Number(mobileNumber)) ? mobileNumber : "N/A";
+      const isValidPhoneNumber = (str) => {
+        return /^[+]?[\d\s-]{7,20}$/.test(str);
+      };
+
       lead.mobile =
-        mobileNumber && !isNaN(Number(mobileNumber)) ? mobileNumber : "N/A";
+        mobileNumber && isValidPhoneNumber(mobileNumber.trim())
+          ? mobileNumber.trim()
+          : "N/A";
     } else {
       lead.mobile = "N/A";
     }
@@ -342,7 +350,7 @@ async function fetchLeads({
 
   //await loadBackupIfExists();
 
-  let browser = await chromium.launch({ headless: true });
+  let browser = await chromium.launch({ headless: false });
   let context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"],
   });
@@ -450,13 +458,13 @@ async function fetchLeads({
 // fetchLeads({
 //   // mobileNumber: "9892492782",
 //   // password: "KIPINDIAMART2022",
-//   start_dayToSelect: "25",
-//   start_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
-//   start_yearToSelect: "2025",
-//   end_dayToSelect: "26",
-//   end_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
-//   end_yearToSelect: "2025",
-//   authKey: `__gsas=ID=caa09081d03a7d06:T=1728968293:RT=1728968293:S=ALNI_MamLhrtblkP0ktWpLAmvvC3w_gCVw; _ym_uid=1728968380746579524; _ga=GA1.1.264882019.1728968294; cookieType=2; G_ENABLED_IDPS=google; _gcl_au=1.1.1985882507.1744366269; sortby=1#29141067; iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DMumbai%7Cgctid%3D70624%7Cgacrcy%3D10%7Cgip%3D103.131.93.68%7Cgstnm%3DMaharashtra; LGNSTR=0%2C2%2C1%2C1%2C1%2C1%2C1%2C0; _ym_d=1744779423; _clck=4dko7f%7C2%7Cfva%7C0%7C1750; _ym_isad=2; empDet=; con_iso=; _ym_visorc=b; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo3KjYqNyowKiIsImV4cCI6MTc0NTM4NzM0NSwiaWF0IjoxNzQ1MzAwOTQ1LCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjIyLTA0LTIwMjUifQ.8D8iBN0hFRf51OSxzpYx4xiZOBGxMWZEwmrKquMsfVg; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9372657109%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D22%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; xnHist=pv%3D0%7Cipv%3Dundefined%7Cfpv%3D1%7Ccity%3Dundefined%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D0%7Ctime%3DTue%20Apr%2022%202025%2010%3A00%3A41%20GMT+0530%20%28India%20Standard%20Time%29%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined%7CcityID%3Dundefined; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=326,233,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; sessid=spv=3; _clsk=1sdstb9%7C1745300946761%7C3%7C1%7Cw.clarity.ms%2Fcollect; _ga_8B5NXMMZN3=GS1.1.1745298467.283.1.1745300947.4.0.0; FCNEC=%5B%5B%22AKsRol-cFjJ4nltyMFr5x4MxsBFlrWK7ow-lG3z-TgyXJkizYxpmPF5eG4ASVnkHO_-iXy57Cn_-wDzCxjcPcYZA5MGDhEieairF4EvMkkYEZISPK0_TxTgXQv82J_T9a9EeZeLEcKpz8Do52MdWaKzSYFGRYoMNdA%3D%3D%22%5D%5D; __gads=ID=7b1b202da47fa7f7:T=1728968293:RT=1745300948:S=ALNI_Mam3pio7NTdZBf0eZn5rQntO48qnA; __gpi=UID=00000f4353693981:T=1728968293:RT=1745300948:S=ALNI_MZ9OPxkeWq86lJ0Yb17tyBjq4-cyw; __eoi=ID=5a5353986d4c5de1:T=1744693662:RT=1745300948:S=AA-AfjYF530XoWJw-NhVjsMYlZqT`,
+//   start_dayToSelect: "29",
+//   start_monthToSelect: "7", // April (0-based index: 0 : January, 1 : February, etc.)
+//   start_yearToSelect: "2024",
+//   end_dayToSelect: "29",
+//   end_monthToSelect: "7", // April (0-based index: 0 : January, 1 : February, etc.)
+//   end_yearToSelect: "2024",
+//   authKey: `_gcl_au=1.1.731872204.1744261274; _ga=GA1.1.1676073735.1744261277; _ym_uid=1744261280639783108; _ym_d=1744261280; iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DMumbai%7Cgctid%3D70624%7Cgacrcy%3D10%7Cgip%3D106.222.205.216%7Cgstnm%3DMaharashtra; sortby=1#29141067; _ym_isad=2; _clck=i02qw8%7C2%7Cfvc%7C0%7C1926; _ym_visorc=b; empDet=; con_iso=; LGNSTR=0%2C2%2C1%2C1%2C1%2C1%2C1%2C0; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo3KjYqNyowKiIsImV4cCI6MTc0NTU1NzAwNCwiaWF0IjoxNzQ1NDcwNjA0LCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjI0LTA0LTIwMjUifQ.zR7HZGi7VoABZ7DsqX0B79vMZ1qktEVJahL6zRoXKSY; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9372657109%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D24%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; xnHist=pv%3D0%7Cipv%3Dundefined%7Cfpv%3D1%7Ccity%3Dundefined%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D1%7Ctime%3DThu%20Apr%2024%202025%2010%3A16%3A13%20GMT+0530%20%28India%20Standard%20Time%29%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined%7CcityID%3Dundefined; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=326,233,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; FCNEC=%5B%5B%22AKsRol-UhxNfDNFXvy9nDEx-47Scq7WVlidXLx_I6eMylkGFyJTYXtpUnMUlmrhzeiVJ-45tEmgQUUmBsAC72byxZAZ8MEUP1E_X7irB8jN11LpUGsikUXHB9U8-50HXHft66VkbKqFK--xIeIjA_P70sWxzxTLvtA%3D%3D%22%5D%5D; sessid=spv=7; __gads=ID=1b59f745b0dd7a6f:T=1744368575:RT=1745470617:S=ALNI_Ma40EwMWa2zHafeM3o5KZWi-4agCQ; __gpi=UID=000010993fccafbd:T=1744368575:RT=1745470617:S=ALNI_MZ9DphMta_F1whI-7g7yxnyL325VA; __eoi=ID=2f33fdc73bf658ff:T=1744368575:RT=1745470617:S=AA-Afja6hh3GE2oG_qrZEtmg3q5Q; _ga_8B5NXMMZN3=GS1.1.1745469980.11.1.1745470621.20.0.0`,
 // });
 
 module.exports = fetchLeads;
