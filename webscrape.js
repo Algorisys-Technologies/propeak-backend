@@ -350,7 +350,7 @@ async function fetchLeads({
 
   //await loadBackupIfExists();
 
-  let browser = await chromium.launch({ headless: false });
+  let browser = await chromium.launch({ headless: true });
   let context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"],
   });
