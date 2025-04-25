@@ -31,6 +31,11 @@ const TaskStageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    projectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project', // make sure your model name is correct
+      default: null,
+    },
   },
   { versionKey: false }
 );
