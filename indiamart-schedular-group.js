@@ -404,6 +404,97 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
 
             await newTask.save();
             console.log(`Task created for lead: ${lead.productName}`);
+
+            if (lead.leadDetail && Array.isArray(lead.leadDetail)) {
+              for (const detail of lead.leadDetail) {
+                try {
+                  const response = await fetch(
+                    "http://142.93.222.95:8000/extract_product",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify(detail),
+                    }
+                  );
+
+                  if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                  }
+
+                  const responseData = await response.json();
+                  console.log("JSON detail:", JSON.stringify(detail));
+                  console.log("Extracted Product Data:", responseData);
+
+                  if (!responseData?.product) {
+                    console.log(
+                      "No product extracted, skipping task creation."
+                    );
+                    continue; // Skip this iteration
+                  }
+
+                  // Prevent duplicate tasks
+                  const existingTask = await Task.findOne({
+                    projectId: existingProject._id,
+                    title: responseData?.product,
+                    isDeleted: false,
+                  });
+
+                  if (existingTask) {
+                    console.log(
+                      `Task already exists for product: ${responseData?.product} - Skipping.`
+                    );
+                    continue;
+                  }
+
+                  const formattedDate = moment(
+                    responseData?.date,
+                    "DD MMM YYYY, h:mm A"
+                  );
+
+                  // Create new task
+                  const newTask = new Task({
+                    projectId: existingProject._id,
+                    taskStageId,
+                    companyId,
+                    title: responseData?.product,
+                    description: responseData?.product,
+                    startDate: formattedDate.isValid()
+                      ? formattedDate.toDate()
+                      : new Date(),
+                    createdOn: new Date(),
+                    modifiedOn: new Date(),
+                    creation_mode: "AUTO",
+                    tag: [lead.label],
+                    lead_source: "INDIAMART",
+                    userId: users[0]?._id || null,
+                    customFieldValues: {
+                      date: new Date(startDate).toLocaleDateString("IN"),
+                      name: lead.contactPerson,
+                      mobile_number: lead.mobile,
+                      email: lead.email,
+                      company_name: lead.name,
+                      leads_details: responseData?.message,
+                      address: lead.address,
+                    },
+                    isDeleted: false,
+                  });
+
+                  console.log("newTask", newTask);
+
+                  await newTask.save();
+                  console.log(
+                    `Task created for lead: ${responseData?.product}`
+                  );
+                } catch (error) {
+                  console.error(
+                    "Error calling extract_product API:",
+                    error.message
+                  );
+                }
+              }
+            }
           }
 
           await GroupSetting.updateOne(

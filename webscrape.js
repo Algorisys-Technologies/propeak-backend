@@ -66,6 +66,86 @@ async function saveBackup(leadsData) {
   //console.log(`💾 Backup saved. Total leads so far: ${leadsData.length}`);
 }
 
+async function openLeadDetail(leadId, page) {
+  await page.evaluate((id) => {
+    const leads = document.querySelectorAll(".list .row");
+    for (const lead of leads) {
+      const elId =
+        lead.getAttribute("data-id") ||
+        lead.querySelector(".wrd_elip")?.innerText?.trim();
+      if (elId === id) {
+        lead.click();
+        break;
+      }
+    }
+  }, leadId);
+
+  // Wait for detail view content to update
+  await page.waitForTimeout(1000);
+}
+
+async function autoScrollInnerContent(page, selector) {
+  await page.evaluate(async (selector) => {
+    const container = document.querySelector(selector);
+    if (!container) return;
+
+    const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+    let previousHeight = 0;
+    let retries = 0;
+    const maxRetries = 5;
+
+    while (retries < maxRetries) {
+      container.scrollTop = container.scrollHeight;
+      await delay(1000);
+
+      if (container.scrollHeight !== previousHeight) {
+        previousHeight = container.scrollHeight;
+        retries = 0; // reset if new content loaded
+      } else {
+        retries++;
+      }
+    }
+  }, selector);
+}
+
+function parseLeadMessages(leadDetailText) {
+  const dateRegex = /(\d{1,2} [A-Za-z]{3} \d{4}, \d{1,2}:\d{2} (AM|PM))/g;
+
+  const matches = [...leadDetailText.matchAll(dateRegex)];
+  const structuredMessages = [];
+
+  for (let i = 0; i < matches.length; i++) {
+    const currentMatch = matches[i];
+    const date = currentMatch[0];
+    const startIndex = currentMatch.index + date.length;
+    const endIndex =
+      i + 1 < matches.length ? matches[i + 1].index : leadDetailText.length;
+
+    const message = leadDetailText.slice(startIndex, endIndex).trim();
+
+    structuredMessages.push({
+      date,
+      message,
+      probableValue: extractField(message, /Order Value\s*:\s*(.+)/),
+      quantity: extractField(message, /Quantity\s*:\s*(\d+)/),
+      quantityUnit: extractField(message, /Quantity (Unit|Unit:)\s*:\s*(.+)/),
+      type: extractField(
+        message,
+        /(Requirement Type|Why do you need this|Type of Requirement)\s*:\s*(.+)/
+      ),
+      product: extractField(message, /Requirement is for\s*(.+?)\./),
+    });
+  }
+
+  return structuredMessages;
+}
+
+function extractField(text, regex) {
+  const match = text.match(regex);
+  return match ? match[1].trim() : "N/A";
+}
+
 async function processSingleLead(lead, page) {
   lead.startDate = extractISODate(lead.dateTime);
   try {
@@ -134,6 +214,23 @@ async function processSingleLead(lead, page) {
       lead.contactPerson = "N/A";
     }
 
+    await openLeadDetail(lead.id, page);
+    await page.waitForSelector(".content__body");
+    const scrollableSelector = ".content__body";
+    await autoScrollInnerContent(page, scrollableSelector);
+
+    const leadDetail = await page.evaluate((selector) => {
+      const container = document.querySelector(selector);
+      return container ? container.innerText.trim() : "N/A";
+    }, scrollableSelector);
+
+    // console.log("leadDetail...", leadDetail);
+    //lead.leadDetail = leadDetail;
+    //console.log("leadDetail...", leadDetail);
+    const structured = parseLeadMessages(leadDetail);
+    //console.log("structured...", structured);
+    lead.leadDetail = structured;
+
     return lead;
   } catch (error) {
     console.error(`Error processing lead ${lead.name}:`, error);
@@ -166,6 +263,7 @@ async function scrollToLoadAllLeads(page, browser, context, authKey) {
             ? dateTimeElement.innerText.trim()
             : "N/A";
           const detailsClone = lead.cloneNode(true);
+
           if (dateTimeElement) dateTimeElement.remove();
           return {
             id:
@@ -196,72 +294,6 @@ async function scrollToLoadAllLeads(page, browser, context, authKey) {
       noNewLeadsCounter = 0;
     }
 
-    // for (let i = 0; i < newLeads.length; i += BATCH_SIZE) {
-    //   const batch = newLeads.slice(i, i + BATCH_SIZE);
-
-    //   //sequential
-    //   for (const lead of batch) {
-    //     if (seenLeadIds.has(lead.id)) continue;
-    //     const processed = await processSingleLead(lead, page);
-    //     if (processed) {
-    //       leadsData.push(processed);
-    //       seenLeadIds.add(processed.id);
-    //     }
-    //   }
-
-    //   // parallel processing
-    //   // const results = await Promise.all(
-    //   //   batch.map(async (lead) => {
-    //   //     if (seenLeadIds.has(lead.id)) return null;
-    //   //     const processed = await processSingleLead(lead, page);
-    //   //     if (processed) seenLeadIds.add(processed.id);
-    //   //     return processed;
-    //   //   })
-    //   // );
-    //   // leadsData.push(...results.filter(Boolean));
-
-    //   // if (leadsData.length % 10 === 0) {
-    //   //   // await fs.writeFile(
-    //   //   //   `leads_backup_${Date.now()}.json`,
-    //   //   //   JSON.stringify(leadsData, null, 2)
-    //   //   // );
-    //   //   await saveBackup(leadsData);
-    //   //   //console.log(`✔️ Backup saved. Total leads: ${leadsData.length}`);
-    //   // }
-
-    //   if (isMemoryHigh()) {
-    //     console.log("🚨 High memory usage. Restarting browser context...");
-    //     await page.close();
-    //     await context.close();
-    //     await browser.close();
-
-    //     browser = await chromium.launch({ headless: true });
-    //     context = await browser.newContext({
-    //       permissions: ["clipboard-read", "clipboard-write"],
-    //     });
-    //     page = await context.newPage();
-
-    //     // Re-add cookies
-    //     const parsedCookies = authKey.split("; ").map((cookieStr) => {
-    //       const [name, ...rest] = cookieStr.split("=");
-    //       return {
-    //         name,
-    //         value: rest.join("="),
-    //         domain: "seller.indiamart.com",
-    //         path: "/",
-    //         httpOnly: false,
-    //         secure: true,
-    //         sameSite: "Lax",
-    //       };
-    //     });
-    //     await context.addCookies(parsedCookies);
-    //     await page.goto("https://seller.indiamart.com/");
-    //     await delay(2000);
-    //   }
-
-    //   await page.waitForTimeout(scrollDelay);
-    // }
-
     for (let i = 0; i < newLeads.length; i += microBatchSize) {
       const microBatch = newLeads.slice(i, i + microBatchSize);
       let processedBatch = [];
@@ -269,6 +301,7 @@ async function scrollToLoadAllLeads(page, browser, context, authKey) {
       for (const lead of microBatch) {
         if (!seenLeadIds.has(lead.id)) {
           const processed = await processSingleLead(lead, page);
+
           if (processed) {
             leadsData.push(processed);
             seenLeadIds.add(processed.id);
@@ -276,21 +309,6 @@ async function scrollToLoadAllLeads(page, browser, context, authKey) {
           }
         }
       }
-
-      // processedBatch = await Promise.all(
-      //   microBatch.map(async (lead) => {
-      //     if (seenLeadIds.has(lead.id)) return null;
-
-      //     const processed = await processSingleLead(lead, page);
-      //     if (processed) {
-      //       seenLeadIds.add(processed.id);
-      //       return processed;
-      //     }
-      //     return null;
-      //   })
-      // );
-
-      // leadsData.push(...processedBatch.filter(Boolean));
 
       await delay(300);
 
@@ -332,6 +350,23 @@ async function scrollToLoadAllLeads(page, browser, context, authKey) {
 
     scrollAttempts++;
   }
+
+  // leadsData.forEach((lead, i) => {
+  //   console.log(`\n🔹 Lead ${i + 1}: ${lead.name}`);
+  //   console.log(`ID: ${lead.id}`);
+  //   console.log(`Product: ${lead.productName}`);
+  //   console.log(`Date: ${lead.dateTime}`);
+  //   //console.log(`Mobile: ${lead.mobile}`);
+  //   //console.log(`Email: ${lead.email}`);
+  //   //console.log(`Address: ${lead.address}`);
+  //   //console.log(`Contact Person: ${lead.contactPerson}`);
+  //   //console.log(`Label: ${lead.label}`);
+  //   //console.log(`Details:\n${lead.details}`);
+  //   console.log(`Lead Detail (${lead.leadDetail.length}):`);
+  //   lead.leadDetail.forEach((d, idx) => {
+  //     console.log(`  [${idx + 1}]`, JSON.stringify(d, null, 2));
+  //   });
+  // });
 
   console.log("🎉 All leads fetched.", leadsData, leadsData.length);
   return leadsData;
@@ -458,13 +493,13 @@ async function fetchLeads({
 // fetchLeads({
 //   // mobileNumber: "9892492782",
 //   // password: "KIPINDIAMART2022",
-//   start_dayToSelect: "29",
-//   start_monthToSelect: "7", // April (0-based index: 0 : January, 1 : February, etc.)
+//   start_dayToSelect: "28",
+//   start_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
 //   start_yearToSelect: "2024",
-//   end_dayToSelect: "29",
-//   end_monthToSelect: "7", // April (0-based index: 0 : January, 1 : February, etc.)
+//   end_dayToSelect: "28",
+//   end_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
 //   end_yearToSelect: "2024",
-//   authKey: `_gcl_au=1.1.731872204.1744261274; _ga=GA1.1.1676073735.1744261277; _ym_uid=1744261280639783108; _ym_d=1744261280; iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DMumbai%7Cgctid%3D70624%7Cgacrcy%3D10%7Cgip%3D106.222.205.216%7Cgstnm%3DMaharashtra; sortby=1#29141067; _ym_isad=2; _clck=i02qw8%7C2%7Cfvc%7C0%7C1926; _ym_visorc=b; empDet=; con_iso=; LGNSTR=0%2C2%2C1%2C1%2C1%2C1%2C1%2C0; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo3KjYqNyowKiIsImV4cCI6MTc0NTU1NzAwNCwiaWF0IjoxNzQ1NDcwNjA0LCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjI0LTA0LTIwMjUifQ.zR7HZGi7VoABZ7DsqX0B79vMZ1qktEVJahL6zRoXKSY; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9372657109%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D24%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; xnHist=pv%3D0%7Cipv%3Dundefined%7Cfpv%3D1%7Ccity%3Dundefined%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D1%7Ctime%3DThu%20Apr%2024%202025%2010%3A16%3A13%20GMT+0530%20%28India%20Standard%20Time%29%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined%7CcityID%3Dundefined; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=326,233,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; FCNEC=%5B%5B%22AKsRol-UhxNfDNFXvy9nDEx-47Scq7WVlidXLx_I6eMylkGFyJTYXtpUnMUlmrhzeiVJ-45tEmgQUUmBsAC72byxZAZ8MEUP1E_X7irB8jN11LpUGsikUXHB9U8-50HXHft66VkbKqFK--xIeIjA_P70sWxzxTLvtA%3D%3D%22%5D%5D; sessid=spv=7; __gads=ID=1b59f745b0dd7a6f:T=1744368575:RT=1745470617:S=ALNI_Ma40EwMWa2zHafeM3o5KZWi-4agCQ; __gpi=UID=000010993fccafbd:T=1744368575:RT=1745470617:S=ALNI_MZ9DphMta_F1whI-7g7yxnyL325VA; __eoi=ID=2f33fdc73bf658ff:T=1744368575:RT=1745470617:S=AA-Afja6hh3GE2oG_qrZEtmg3q5Q; _ga_8B5NXMMZN3=GS1.1.1745469980.11.1.1745470621.20.0.0`,
+//   authKey: `_ga=GA1.1.731456266.1733395523; _ym_uid=1733395524885722337; _ym_d=1733395524; G_ENABLED_IDPS=google; sortby=0#29141067; _gcl_au=1.1.1769895048.1741757506; __gads=ID=e766023d02bcba0a:T=1733458034:RT=1744022265:S=ALNI_MZn7lK5v21eiu4cuGhEvbWSEqGn-A; __gpi=UID=00000f84f4ad0299:T=1733458034:RT=1744022265:S=ALNI_MYi2lYYJqn2C5d6a7dMmK6Qnnw5yw; __eoi=ID=3d2bdd337b72cf30:T=1733458034:RT=1744022265:S=AA-AfjY27gM_4cKTmPS3Z2BicRBi; iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DPune%7Cgctid%3D70630%7Cgacrcy%3D10%7Cgip%3D106.215.183.65%7Cgstnm%3DMaharashtra; _clck=1dnfq7m%7C2%7Cfvd%7C0%7C1800; _ym_isad=2; LGNSTR=0%2C0%2C0%2C0%2C1%2C1%2C1%2C0; FCNEC=%5B%5B%22AKsRol_CN1D1lSMRo-RoEjNasL03SpE364TCeBq6JGV8W0l7O_HzUUDO4pgbtT7bkPRbcBWh18xARWHSMvZ8tLy2pp7Hd1KxyGmQgW8WoTr_V7j7HYQ2-PkGQt7jswfAw8BZj-wB3_0kMyXjJfyitLP_Ly6IDMo5wg%3D%3D%22%5D%5D; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo3KjYqNyowKiIsImV4cCI6MTc0NTY0Mzc4MCwiaWF0IjoxNzQ1NTU3MzgwLCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjI1LTA0LTIwMjUifQ.SJPbiB8makq7K-yVxQLUjoOAJZRCcy1_uL41x-BNflc; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=326,233,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9372657109%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D25%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; xnHist=pv%3D0%7Cipv%3D3%7Cfpv%3D2%7Ccity%3D%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D1%7Ctime%3DFri%20Apr%2025%202025%2010%3A33%3A00%20GMT+0530%20%28India%20Standard%20Time%29%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined%7CcityID%3Dundefined; _ga_8B5NXMMZN3=GS1.1.1745556881.92.1.1745561163.60.0.0`,
 // });
 
 module.exports = fetchLeads;
