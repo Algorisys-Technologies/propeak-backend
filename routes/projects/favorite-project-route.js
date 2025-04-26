@@ -8,7 +8,7 @@ const verifyAppLevelAccess = require("../../verify-app-level-access/verify-app-l
 router.post('/' ,favoriteProjectController.toggleFavoriteProject);
 
 //get All Favorite Project
-router.get('/', favoriteProjectController.getFavoriteProjects);
+router.post('/getFav', favoriteProjectController.getFavoriteProjects);
 
 //get Favorite Projects -
 router.post('/projects', favoriteProjectController.getAllProjects);

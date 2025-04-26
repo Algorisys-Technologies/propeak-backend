@@ -8,7 +8,8 @@ const { ObjectId } = require("mongodb");
 const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
 };
-
+const User = require("../../models/user/user-model")
+const Task = require("../../models/task/task-model");
 exports.getAllProjects = (req, res) => {
   // let userRole = req.userInfo.userRole.toLowerCase();
   // let accessCheck = access.checkEntitlements(userRole);
@@ -109,17 +110,70 @@ exports.getAllProjects = (req, res) => {
   });
 };
 
-exports.getFavoriteProjects = (req, res) => {
-  let userRole = req.userInfo.userRole.toLowerCase();
-  let accessCheck = access.checkEntitlementsForUserRole(userRole);
-  if (accessCheck === false) {
-    res.json({ err: errors.NOT_AUTHORIZED });
-    return;
+exports.getFavoriteProjects = async (req, res) => {
+  try {
+    let page = parseInt(req.query.page || "0");
+    const limit = 10;
+    const skip = page * limit;
+    const { stageId, companyId, userId, archive, isFavorite, actualUserId } = req.body;
+
+    const favorites = await FavoriteProject.find({ userId: actualUserId });
+
+    const favoriteProjectIds = favorites.map((f) => new mongoose.Types.ObjectId(f.projectId));
+
+    const projectWhereCondition = {
+      _id: { $in: favoriteProjectIds },
+      projectStageId: stageId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      companyId: companyId,
+      isFavourite: true,
+      projectType: { $ne: "Exhibition" },
+    };
+    
+    let iprojects = await Project.find(projectWhereCondition)
+    .sort({ createdOn: -1 })
+    .skip(skip)
+    .limit(limit);  
+    
+    const totalCount = await Project.countDocuments(projectWhereCondition);
+    const totalPages = Math.ceil(totalCount / 10);
+    console.log("totalCount", totalCount, "totalPages", totalPages, "asdasd");
+
+    const projects = await Promise.all(
+      iprojects.map(async (p) => {
+        const users = await User.find({ _id: { $in: p.projectUsers } }).select(
+          "name"
+        );
+        const createdByUser = await User.findById(p.createdBy).select("name");
+        const tasksCount = await Task.countDocuments({
+          projectId: p._id,
+          isDeleted: false,
+        });
+        // const isFavourite = await FavoriteProject.findOne({
+        //   projectId: p._id,
+        //   userId,
+        // });
+
+        return {
+          ...p.toObject(),
+          tasksCount,
+          // isFavourite: !!isFavourite,
+          projectUsers: users.map((user) => user.name),
+          createdBy: createdByUser ? createdByUser.name : "Unknown",
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      projects,
+      totalCount,
+      totalPages,
+    });
+  } catch (error) {
+    console.error("Error fetching favorite projects:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-  FavoriteProject.find({}).then((result) => {
-    logInfo(result, "getFavoriteProject result");
-    res.json(result);
-  });
 };
 
 exports.toggleFavoriteProject = async (req, res) => {

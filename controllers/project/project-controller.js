@@ -1992,8 +1992,6 @@ exports.getKanbanProjectsData = async (req, res) => {
       })
     );
 
-    console.log(projects, "from projects")
-
     return res.json({
       success: true,
       projects,
