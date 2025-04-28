@@ -364,6 +364,7 @@ exports.updateTask = (req, res) => {
     status,
     assignedUser,
     depId,
+    taskType,
     category,
     tag,
     interested_products,
@@ -384,6 +385,7 @@ exports.updateTask = (req, res) => {
     taskId,
     {
       depId: depId,
+      taskType,
       title,
       description,
       startDate,
@@ -702,6 +704,7 @@ exports.getTasks = (req, res) => {
   }
   Task.find({ projectId, companyId, isDeleted: false })
     .populate("userId", "name")
+    .populate({ path: "interested_products.product_id" })
     .then((tasks) => {
       if (!tasks || tasks.length === 0) {
         return res.status(404).json({
