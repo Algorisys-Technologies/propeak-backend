@@ -813,7 +813,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             lead_source: "INDIAMART",
             userId: users[0]?._id || null,
             customFieldValues: {
-              date: new Date(startDate).toLocaleDateString("IN"),
+              date: new Date(lead.startDate).toLocaleDateString("en-IN"),
               name: lead.contactPerson,
               mobile_number: lead.mobile,
               email: lead.email,
@@ -836,7 +836,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
         if (lead.leadDetail && Array.isArray(lead.leadDetail)) {
           for (const detail of lead.leadDetail) {
-            // console.log("detail...", JSON.stringify(detail));
+            //console.log("detail...", JSON.stringify(detail));
             try {
               const response = await fetch(
                 "http://142.93.222.95:8000/extract_product",
@@ -854,8 +854,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               }
 
               const responseData = await response.json();
-              console.log("JSON detail:", JSON.stringify(detail));
-              console.log("Extracted Product Data:", responseData);
+              //console.log("JSON detail:", JSON.stringify(detail));
+              //console.log("Extracted Product Data:", responseData);
 
               if (!responseData?.product) {
                 console.log("No product extracted, skipping task creation.");
@@ -898,7 +898,9 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
                 lead_source: "INDIAMART",
                 userId: users[0]?._id || null,
                 customFieldValues: {
-                  date: new Date(startDate).toLocaleDateString("IN"),
+                  date: new Date(responseData?.date).toLocaleDateString(
+                    "en-IN"
+                  ),
                   name: lead.contactPerson,
                   mobile_number: lead.mobile,
                   email: lead.email,
