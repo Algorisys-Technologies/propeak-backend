@@ -776,7 +776,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           await existingProject.save();
           console.log(`Project created: ${lead.name}`);
         } else {
-          console.log(`Project already exists: ${lead.name} - Skipping.`);
+          //console.log(`Project already exists: ${lead.name} - Skipping.`);
+          console.log(`Project already exists: ${lead.name}`);
         }
 
         // Prevent duplicate tasks
@@ -788,47 +789,54 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
         //console.log("existingTask", existingTask);
 
-        if (existingTask) {
-          console.log(
-            `Task already exists for product: ${lead.productName} - Skipping.`
-          );
-          continue;
+        // if (existingTask) {
+        //   console.log(
+        //     `Task already exists for product: ${lead.productName} - Skipping.`
+        //   );
+        //   continue;
+        // }
+
+        if (!existingTask) {
+          // Create new task
+          const newTask = new Task({
+            projectId: existingProject._id,
+            taskStageId,
+            //taskStageId: new mongoose.Types.ObjectId("6732031b15c8e180c21e9aee"),
+            companyId,
+            title: lead.productName,
+            description: lead.productName,
+            startDate: lead.startDate,
+            createdOn: new Date(),
+            modifiedOn: new Date(),
+            creation_mode: "AUTO",
+            tag: [lead.label],
+            lead_source: "INDIAMART",
+            userId: users[0]?._id || null,
+            customFieldValues: {
+              date: new Date(lead.startDate).toLocaleDateString("en-IN"),
+              name: lead.contactPerson,
+              mobile_number: lead.mobile,
+              email: lead.email,
+              company_name: lead.name,
+              leads_details: lead.details,
+              address: lead.address,
+            },
+            isDeleted: false,
+          });
+
+          console.log("newTask", newTask);
+
+          await newTask.save();
+          console.log(`Task created for lead: ${lead.productName}`);
+        } else {
+          console.log(`Task already exists for product: ${lead.productName}`);
         }
 
-        // Create new task
-        const newTask = new Task({
-          projectId: existingProject._id,
-          taskStageId,
-          //taskStageId: new mongoose.Types.ObjectId("6732031b15c8e180c21e9aee"),
-          companyId,
-          title: lead.productName,
-          description: lead.productName,
-          startDate: lead.startDate,
-          createdOn: new Date(),
-          modifiedOn: new Date(),
-          creation_mode: "AUTO",
-          tag: [lead.label],
-          lead_source: "INDIAMART",
-          userId: users[0]?._id || null,
-          customFieldValues: {
-            date: new Date(startDate).toLocaleDateString("IN"),
-            name: lead.contactPerson,
-            mobile_number: lead.mobile,
-            email: lead.email,
-            company_name: lead.name,
-            leads_details: lead.details,
-            address: lead.address,
-          },
-          isDeleted: false,
-        });
-
-        console.log("newTask", newTask);
-
-        await newTask.save();
-        console.log(`Task created for lead: ${lead.productName}`);
+        //console.log("lead-leadDetail...", lead.leadDetail);
 
         if (lead.leadDetail && Array.isArray(lead.leadDetail)) {
           for (const detail of lead.leadDetail) {
+            //console.log("detail...", JSON.stringify(detail));
             try {
               const response = await fetch(
                 "http://142.93.222.95:8000/extract_product",
@@ -846,8 +854,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               }
 
               const responseData = await response.json();
-              console.log("JSON detail:", JSON.stringify(detail));
-              console.log("Extracted Product Data:", responseData);
+              //console.log("JSON detail:", JSON.stringify(detail));
+              //console.log("Extracted Product Data:", responseData);
 
               if (!responseData?.product) {
                 console.log("No product extracted, skipping task creation.");
@@ -890,7 +898,9 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
                 lead_source: "INDIAMART",
                 userId: users[0]?._id || null,
                 customFieldValues: {
-                  date: new Date(startDate).toLocaleDateString("IN"),
+                  date: new Date(responseData?.date).toLocaleDateString(
+                    "en-IN"
+                  ),
                   name: lead.contactPerson,
                   mobile_number: lead.mobile,
                   email: lead.email,
