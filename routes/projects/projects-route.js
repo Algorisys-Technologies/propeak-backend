@@ -11,8 +11,6 @@ const companyProjectConfigController = require("../../controllers/project/compan
 
 router.post(
   "/summary",
-  // verifyToken,
-  // checkRole,
   projectController.getAllProjectsSummary
 );
 
@@ -20,28 +18,17 @@ router.get("/statusOptions", verifyToken, projectController.getStatusOptions);
 
 router.get(
   "/data/:projectId",
-  // verifyToken,
   projectController.getProjectByProjectId
 );
 
 //get project with task
 router.get(
   "/tasks/data/:projectId",
-  // verifyToken,
   projectController.getProjectDataByProjectId
 );
 
 // READ (ALL)
 router.get("/:projectId", verifyToken, projectController.getTasksAndUsers);
-
-// CREATE
-// router.post(
-//   "/addProject",
-//   verifyToken,
-//   verifyAppLevelAccess,
-//   restrictCreation,
-//   projectController.createProject
-// );
 
 router.post("/addProject", projectController.createProject);
 // UPDATE
@@ -50,7 +37,6 @@ router.post("/editProject", projectController.updateProject);
 // DELETE
 router.post(
   "/deleteProject",
-
   projectController.deleteProject
 );
 
@@ -66,9 +52,6 @@ router.post(
 //Get AuditLog
 router.post(
   "/AuditLog",
-  // verifyToken,
-  // checkRole,
-  // verifyAppLevelAccess,
   projectController.getAuditLog
 );
 
