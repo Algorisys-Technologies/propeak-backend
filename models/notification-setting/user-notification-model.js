@@ -8,7 +8,7 @@ const UserNotificationSchema = new mongoose.Schema({
   },
   subject: {
     type: String,
-    required: true,
+    // required: true,
   },
   message: String,
   url: String,
@@ -30,6 +30,13 @@ const UserNotificationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "task",
   },
+  email: {
+    type: Boolean
+  },
+  inApp : {
+    type: Boolean
+  },
+  muteEvents: [],
   createdOn: {
     type: Date,
     default: Date.now,
@@ -42,7 +49,7 @@ const UserNotificationSchema = new mongoose.Schema({
   modifiedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "user",
-  },
+  }
 }, { versionKey: false });
 
 module.exports = mongoose.model("UserNotification", UserNotificationSchema);

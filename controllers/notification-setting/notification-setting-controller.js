@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { logError, logInfo } = require("../../common/logger");
 const NotificationSettingSchema = require("../../models/notification-setting/notification-setting-model");
+const UserNotificationModel = require("../../models/notification-setting/user-notification-model");
 
 const errors = {
   ADDNOTIFICATIONERROR: "Error occurred while adding the notification",
@@ -59,4 +60,32 @@ exports.createNotificationSetting = async (req, res) => {
       error: error.message || error,
     });
   }
+};
+
+exports.addPreferences = async (req, res) => {
+  const { userId, email, inApp, muteEvents } = req.body;
+
+    const userNotification = await UserNotificationModel.create({
+      userId,
+      email,
+      inApp,
+      muteEvents,
+      createdBy: userId,
+      modifiedBy: userId,
+    });
+    console.log(userNotification, "ffrom user")
+};
+
+exports.getPreferences = async (req, res) => {
+  const { userId } = req.params;
+
+    const preferences = await UserNotificationModel.find({
+      userId
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: "Notification preferences added successfully.",
+      data: preferences,
+    });
 };
