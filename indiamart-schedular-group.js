@@ -352,7 +352,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               await existingProject.save();
               console.log(`Project created: ${lead.name}`);
             } else {
-              console.log(`Project already exists: ${lead.name} - Skipping.`);
+              console.log(`Project already exists: ${lead.name}`);
             }
 
             // Prevent duplicate tasks
@@ -362,48 +362,43 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               isDeleted: false,
             });
 
-            console.log("existingTask", existingTask);
+            if (!existingTask) {
+              // Create new task
+              const newTask = new Task({
+                projectId: existingProject._id,
+                taskStageId,
+                //taskStageId: new mongoose.Types.ObjectId("6732031b15c8e180c21e9aee"),
+                companyId,
+                title: lead.productName,
+                description: lead.productName,
+                startDate: lead.startDate,
+                createdOn: new Date(),
+                modifiedOn: new Date(),
+                creation_mode: "AUTO",
+                tag: [lead.label],
+                lead_source: "INDIAMART",
+                userId: users[0]?._id || null,
+                customFieldValues: {
+                  date: new Date(startDate).toLocaleDateString("IN"),
+                  name: lead.contactPerson,
+                  mobile_number: lead.mobile,
+                  email: lead.email,
+                  company_name: lead.name,
+                  leads_details: lead.details,
+                  address: lead.address,
+                },
+                isDeleted: false,
+              });
 
-            if (existingTask) {
+              console.log("newTask", newTask);
+
+              await newTask.save();
+              console.log(`Task created for lead: ${lead.productName}`);
+            } else {
               console.log(
-                `Task already exists for product: ${lead.productName} - Skipping.`
+                `Task already exists for product: ${lead.productName}`
               );
-              continue;
             }
-
-            // Create new task
-            const newTask = new Task({
-              projectId: existingProject._id,
-              taskStageId,
-              // taskStageId: new mongoose.Types.ObjectId(
-              //   "6732031b15c8e180c21e9aee"
-              // ),
-              companyId,
-              title: lead.productName,
-              description: lead.productName,
-              startDate: lead.startDate,
-              createdOn: new Date(),
-              modifiedOn: new Date(),
-              creation_mode: "AUTO",
-              tag: [lead.label],
-              lead_source: "INDIAMART",
-              userId: users[0]?._id || null,
-              customFieldValues: {
-                date: new Date(startDate).toLocaleDateString("IN"),
-                name: lead.contactPerson,
-                mobile_number: lead.mobile,
-                email: lead.email,
-                company_name: lead.name,
-                leads_details: lead.details,
-                address: lead.address,
-              },
-              isDeleted: false,
-            });
-
-            console.log("newTask", newTask);
-
-            await newTask.save();
-            console.log(`Task created for lead: ${lead.productName}`);
 
             if (lead.leadDetail && Array.isArray(lead.leadDetail)) {
               for (const detail of lead.leadDetail) {
