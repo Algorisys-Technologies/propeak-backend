@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
@@ -34,6 +35,26 @@ const NotificationSchema = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
       // required: true,
+    },
+    channel: {
+      type: [String],
+      enum: ["email", "inApp","sms"],
+      default: ["inApp"],
+    },
+    eventType: {
+      type: String,
+      enum: [
+        "TASK_CREATED",
+        "TASK_ASSIGNED",
+        "STAGE_CHANGED",
+        "TASK_COMPLETED",
+        "TASK_REJECTED",
+        "TASK_COMMENTED",
+        "PROJECT_ARCHIVED",
+        "CUSTOM_FIELD_UPDATE",
+        "EMAIL_RECEIVED"
+      ],
+      required: true,
     },
   },
   {

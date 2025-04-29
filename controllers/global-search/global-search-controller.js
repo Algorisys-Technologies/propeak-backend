@@ -44,7 +44,8 @@ exports.searchByTasksAndProjects = async (req, res) => {
     // Fetch projects with pagination
     const projects = await Project.find(projectQuery)
       .skip(limit * page)
-      .limit(limit);
+      .limit(limit)
+      .populate("group", "name");
 
     // Build account query
     const accountQuery = {
@@ -133,69 +134,3 @@ exports.searchByTasksAndProjects = async (req, res) => {
   }
 };
 
-// exports.searchByTasksAndProjects = async (req, res) => {
-//   try {
-//     const { companyId, searchText, page } = req.body;
-
-//     const limit = 5;
-
-//     const searchQuery = new RegExp(searchText, "i");
-//     console.log("Using regex query:", searchQuery);
-
-//     // Build task query
-//     const taskQuery = {
-//       companyId: companyId,
-//       isDeleted: false,
-//       $or: [
-//         { title: { $regex: searchQuery } },
-//         { tag: { $regex: searchQuery } },
-//       ],
-//     };
-
-//     // Fetch tasks with pagination
-//     const tasks = await Task.find(taskQuery)
-//       .skip(limit * page)
-//       .limit(limit);
-
-//     // Build project query
-//     const projectQuery = {
-//       companyId: companyId,
-//       isDeleted: false,
-//       $or: [
-//         { title: { $regex: searchQuery } },
-//         { tag: { $regex: searchQuery } },
-//       ],
-//     };
-
-//     // Fetch projects with pagination
-//     const projects = await Project.find(projectQuery)
-//       .skip(limit * page)
-//       .limit(limit);
-//     console.log("Projects found:", projects.length, projects);
-
-//     // Count total tasks and projects
-//     const totalTasks = await Task.countDocuments(taskQuery);
-//     const totalProjects = await Project.countDocuments(projectQuery);
-//     const totalResults = totalTasks + totalProjects;
-
-//     // Calculate total pages
-//     const totalPages = Math.ceil(totalResults / limit);
-
-//     return res.status(200).json({
-//       success: true,
-//       tasks,
-//       projects,
-//       totalPages,
-//     });
-//   } catch (error) {
-//     console.error("Error in searchByTasksAndProjects", error);
-//     return res.status(500).json({
-//       success: false,
-//       tasks: [],
-//       projects: [],
-//       totalPages: 0,
-//       message: "An error occurred while searching.",
-//       error: error.message,
-//     });
-//   }
-// };

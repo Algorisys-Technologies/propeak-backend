@@ -8,6 +8,10 @@ const audit = require("../audit-log/audit-log-controller");
 const AuditLogs = require("../../models/auditlog/audit-log-model");
 const ProjectStatus = require("../../models/project/project-status-model");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
+const {
+  generateProjectArchiveNotificationEmail,
+} = require("../../utils/eventEmailTemplates");
+const Notification = require("../../models/notification/notification-model");
 
 const {
   CustomTaskField,
@@ -32,7 +36,9 @@ const errors = {
   SERVER_ERROR: "Opps, something went wrong. Please try again.",
   NOT_AUTHORIZED: "Your are not authorized",
 };
-
+const config = require("../../config/config");
+const rabbitMQ = require("../../rabbitmq");
+const nodemailer = require("nodemailer");
 exports.getAuditLog = (req, res) => {
   // let userRole = req.userInfo.userRole.toLowerCase();
   // let accessCheck = access.checkEntitlements(userRole);
@@ -1235,48 +1241,444 @@ exports.getUserProject = (req, res) => {
     logError("getUserProject", e);
   }
 };
+const moment = require("moment");
 
+// exports.archiveProject = async (req, res) => {
+//   console.log("In archive function");
+
+//   try {
+//     logInfo(req.body, "archiveProject req.body");
+
+//     const { projectId } = req.body; // Destructure projectId from req.body
+//     console.log("Project ID:", projectId);
+
+//     // Fetch the project based on projectId
+//     const project = await Project.findOne({ _id: projectId });
+//     console.log("Project found:", project);
+
+//     if (!project) {
+//       console.log("Project not found");
+//       return res.json({ success: false, message: "Project not found" });
+//     }
+
+//     const { projectUsers, title: projectName, archive } = project;
+//     console.log("Assigned To:", projectUsers);
+//     console.log("Project Name:", projectName || "Unknown Project");
+//     console.log("Current Archive Status:", archive);
+
+//     // If no users are assigned to the project, handle this case and skip notification
+//     if (projectUsers.length === 0) {
+//       console.log("No users assigned to this project. Skipping notification.");
+//       return res.json({
+//         success: true,
+//         message: "Project archive status updated, but no users assigned for notification.",
+//       });
+//     }
+
+//     // Retrieve user details based on the projectUsers IDs
+//     const usersAssignedToProject = await User.find({
+//       _id: { $in: projectUsers },
+//     }).select('email name'); // Select only necessary fields (email, name)
+
+//     console.log("Users Assigned to Project:", usersAssignedToProject);
+
+//     if (usersAssignedToProject.length === 0) {
+//       console.log("No valid users found for project notification.");
+//       return res.json({
+//         success: true,
+//         message: "No valid users found for notification.",
+//       });
+//     }
+
+//     // Toggle the archive status of the project
+//     const isArchived = project.archive;
+//     console.log("Is project archived:", isArchived);
+
+//     const updatedProject = await Project.findOneAndUpdate(
+//       { _id: projectId },
+//       { $set: { archive: !isArchived } },
+//       { new: true }
+//     );
+//     console.log("Updated project:", updatedProject);
+
+//     // Create notification content
+//     const notificationContent = `${projectName || "Unknown Project"} assigned to ${usersAssignedToProject.map(user => user.name).join(', ')} was archived.`;
+//     console.log("Notification Content:", notificationContent);
+
+//     // Create a new notification in the database
+//     const notification = new Notification({
+//       notification: notificationContent,
+//       projectId: updatedProject._id,
+//       companyId: req.body.companyId,
+//       eventType: "PROJECT_ARCHIVED",
+//       hidenotifications: [],
+//       shownotifications: usersAssignedToProject,
+//       projectId: projectId,
+//       channel: ["inApp", "email"],
+//       fromDate: new Date().toISOString(),
+//       toDate: new Date().toISOString(),
+//     });
+
+//     console.log("Saving notification:", notification);
+//     await notification.save();
+//     console.log("Notification saved");
+
+//     // Generate the email content using the helper function
+//     const fromDate = new Date();
+//     const toDate = new Date(); // Or calculate a future date if needed
+
+//     const mailOptions = {
+//       from: config.from, // Your 'from' email configuration
+//       to: usersAssignedToProject.map(user => user.email).join(', '), // Send email to all users
+//       subject: `ProPeak Project Notification for ${projectName || "Unknown Project"}`, // Include project title in the subject
+//       html: generateProjectArchiveNotificationEmail({
+//         userName: usersAssignedToProject.map(user => user.name).join(', ') || "Valued User",
+//         notification: notificationContent,
+//         fromDate,
+//         toDate,
+//         projectTitle: projectName || "Unknown Project", // Pass project title to the email
+//       }),
+//     };
+
+//     console.log("Mail options created:", mailOptions);
+
+//     try {
+//       // Assuming you're using a message queue to send emails
+//       rabbitMQ.sendMessageToQueue(
+//         mailOptions,
+//         "message_queue", // The queue name
+//         "msgRoute" // Routing key for the message queue
+//       );
+//       console.log(`Email queued for ${usersAssignedToProject.map(user => user.email).join(', ')}`);
+//     } catch (err) {
+//       console.error(`Error while sending email to users: `, err);
+//     }
+
+//     return res.json({
+//       success: true,
+//       message: "Project archive status updated, notification saved, and email queued",
+//     });
+//   } catch (e) {
+//     console.error("Error occurred in archiveProject:", e);
+//     return res.json({ success: false, message: e.message });
+//   }
+// };
+
+// exports.archiveProject = async (req, res) => {
+//   console.log("In archive function");
+
+//   try {
+//     logInfo(req.body, "archiveProject req.body");
+
+//     const { projectId } = req.body; // Destructure projectId from req.body
+//     console.log("Project ID:", projectId);
+
+//     // Fetch the project based on projectId
+//     const project = await Project.findOne({ _id: projectId });
+//     console.log("Project found:", project);
+
+//     if (!project) {
+//       console.log("Project not found");
+//       return res.json({ success: false, message: "Project not found" });
+//     }
+
+//     const { projectUsers, title: projectName, archive } = project;
+//     console.log("Assigned To:", projectUsers);
+//     console.log("Project Name:", projectName || "Unknown Project");
+//     console.log("Current Archive Status:", archive);
+
+//     // If no users are assigned to the project, handle this case and skip notification
+//     if (projectUsers.length === 0) {
+//       console.log("No users assigned to this project. Skipping notification.");
+//       return res.json({
+//         success: true,
+//         message:
+//           "Project archive status updated, but no users assigned for notification.",
+//       });
+//     }
+
+//     // Retrieve user details based on the projectUsers IDs
+//     const usersAssignedToProject = await User.find({
+//       _id: { $in: projectUsers },
+//     }).select("_id"); // Only select the _id of users
+
+//     console.log("Users Assigned to Project:", usersAssignedToProject);
+
+//     if (usersAssignedToProject.length === 0) {
+//       console.log("No valid users found for project notification.");
+//       return res.json({
+//         success: true,
+//         message: "No valid users found for notification.",
+//       });
+//     }
+
+//     // Toggle the archive status of the project
+//     const isArchived = project.archive;
+//     console.log("Is project archived:", isArchived);
+
+//     const updatedProject = await Project.findOneAndUpdate(
+//       { _id: projectId },
+//       { $set: { archive: !isArchived } },
+//       { new: true }
+//     );
+//     console.log("Updated project:", updatedProject);
+
+//     // Create notification content
+//     const notificationContent = `${
+//       projectName || "Unknown Project"
+//     } assigned to ${usersAssignedToProject
+//       .map((user) => user._id)
+//       .join(", ")} was archived.`;
+//     console.log("Notification Content:", notificationContent);
+
+//     // Format the date to "YYYY-MM-DD"
+//     const formattedDate = moment().format("YYYY-MM-DD");
+//     console.log(req.body.companyId, "company id ???");
+//     // Create a new notification in the database
+//     const notification = new Notification({
+//       notification: notificationContent,
+//       projectId: updatedProject._id,
+//       companyId: req.body.companyId,
+//       eventType: "PROJECT_ARCHIVED",
+//       hidenotifications: [],
+//       shownotifications: usersAssignedToProject.map((user) => user._id), // Store only ObjectIds
+//       projectId: projectId,
+//       channel: ["inApp", "email"],
+//       fromDate: formattedDate,
+//       toDate: formattedDate,
+//     });
+
+//     console.log("Saving notification:", notification);
+//     await notification.save();
+//     console.log("Notification saved");
+
+//     // Generate the email content using the helper function
+//     const fromDate = formattedDate; // Use formatted date
+//     const toDate = formattedDate; // Use formatted date
+
+//     const mailOptions = {
+//       from: config.from, // Your 'from' email configuration
+//       to: usersAssignedToProject.map((user) => user.email).join(", "), // Send email to all users
+//       subject: `ProPeak Project Notification for ${
+//         projectName || "Unknown Project"
+//       }`, // Include project title in the subject
+//       html: generateProjectArchiveNotificationEmail({
+//         userName:
+//           usersAssignedToProject.map((user) => user.name).join(", ") ||
+//           "Valued User",
+//         notification: notificationContent,
+//         fromDate,
+//         toDate,
+//         projectTitle: projectName || "Unknown Project", // Pass project title to the email
+//       }),
+//     };
+
+//     console.log("Mail options created:", mailOptions);
+
+//     try {
+//       // Assuming you're using a message queue to send emails
+//       rabbitMQ.sendMessageToQueue(
+//         mailOptions,
+//         "message_queue", // The queue name
+//         "msgRoute" // Routing key for the message queue
+//       );
+//       console.log(
+//         `Email queued for ${usersAssignedToProject
+//           .map((user) => user.email)
+//           .join(", ")}`
+//       );
+//     } catch (err) {
+//       console.error(`Error while sending email to users: `, err);
+//     }
+
+//     return res.json({
+//       success: true,
+//       message:
+//         "Project archive status updated, notification saved, and email queued",
+//     });
+//   } catch (e) {
+//     console.error("Error occurred in archiveProject:", e);
+//     return res.json({ success: false, message: e.message });
+//   }
+// };
 exports.archiveProject = async (req, res) => {
-  console.log("in archive");
+  console.log("In archive function");
 
   try {
     logInfo(req.body, "archiveProject req.body");
-    const projectId = req.body.projectId;
-    const isArchived = (
-      await Project.findOne({
-        _id: projectId,
-      })
-    ).archive;
 
-    if (isArchived) {
-      await Project.findOneAndUpdate(
-        {
-          _id: projectId,
-        },
-        {
-          $set: {
-            archive: false,
-          },
-        }
-      );
-    } else {
-      await Project.findOneAndUpdate(
-        {
-          _id: projectId,
-        },
-        {
-          $set: {
-            archive: true,
-          },
-        }
-      );
+    const { projectId } = req.body; // Destructure projectId from req.body
+    console.log("Project ID:", projectId);
+
+    // Fetch the project based on projectId
+    const project = await Project.findOne({ _id: projectId });
+    console.log("Project found:", project);
+
+    if (!project) {
+      console.log("Project not found");
+      return res.json({ success: false, message: "Project not found" });
     }
 
-    return res.json({ success: true, message: "toggle archive" });
+    const { projectUsers, title: projectName, archive } = project;
+    console.log("Assigned To:", projectUsers);
+    console.log("Project Name:", projectName || "Unknown Project");
+    console.log("Current Archive Status:", archive);
+
+    // If no users are assigned to the project, handle this case and skip notification
+    if (projectUsers.length === 0) {
+      console.log("No users assigned to this project. Skipping notification.");
+      return res.json({
+        success: true,
+        message:
+          "Project archive status updated, but no users assigned for notification.",
+      });
+    }
+
+    // Retrieve user details based on the projectUsers IDs
+    const usersAssignedToProject = await User.find({
+      _id: { $in: projectUsers },
+    }).select("_id name email"); // Select _id, name, and email of users
+
+    console.log("Users Assigned to Project:", usersAssignedToProject);
+
+    if (usersAssignedToProject.length === 0) {
+      console.log("No valid users found for project notification.");
+      return res.json({
+        success: true,
+        message: "No valid users found for notification.",
+      });
+    }
+
+    // Toggle the archive status of the project
+    const isArchived = project.archive;
+    console.log("Is project archived:", isArchived);
+
+    const updatedProject = await Project.findOneAndUpdate(
+      { _id: projectId },
+      { $set: { archive: !isArchived } },
+      { new: true }
+    );
+    console.log("Updated project:", updatedProject);
+
+    // Create notification content with user names
+    const notificationContent = `${projectName || "Unknown Project"} assigned to ${usersAssignedToProject
+      .map((user) => user.name)  // Use name instead of _id
+      .join(", ")} was archived.`;
+    console.log("Notification Content:", notificationContent);
+
+    // Format the date to "YYYY-MM-DD"
+    const formattedDate = moment().format("YYYY-MM-DD");
+    console.log(req.body.companyId, "company id ???");
+
+    // Create a new notification in the database
+    const notification = new Notification({
+      notification: notificationContent,
+      projectId: updatedProject._id,
+      companyId: req.body.companyId,
+      eventType: "PROJECT_ARCHIVED",
+      hidenotifications: [],
+      shownotifications: usersAssignedToProject.map((user) => user._id), // Store only ObjectIds
+      projectId: projectId,
+      channel: ["inApp", "email"],
+      fromDate: formattedDate,
+      toDate: formattedDate,
+    });
+
+    console.log("Saving notification:", notification);
+    await notification.save();
+    console.log("Notification saved");
+
+    // Generate the email content using the helper function
+    const fromDate = formattedDate; // Use formatted date
+    const toDate = formattedDate; // Use formatted date
+
+    const mailOptions = {
+      from: config.from, // Your 'from' email configuration
+      to: usersAssignedToProject.map((user) => user.email).join(", "), // Send email to all users
+      subject: `ProPeak Project Notification for ${
+        projectName || "Unknown Project"
+      }`, // Include project title in the subject
+      html: generateProjectArchiveNotificationEmail({
+        userName:
+          usersAssignedToProject.map((user) => user.name).join(", ") ||
+          "Valued User",
+        notification: notificationContent,
+        fromDate,
+        toDate,
+        projectTitle: projectName || "Unknown Project", // Pass project title to the email
+      }),
+    };
+
+    console.log("Mail options created:", mailOptions);
+
+    try {
+      // Assuming you're using a message queue to send emails
+      rabbitMQ.sendMessageToQueue(
+        mailOptions,
+        "message_queue", // The queue name
+        "msgRoute" // Routing key for the message queue
+      );
+      console.log(
+        `Email queued for ${usersAssignedToProject
+          .map((user) => user.email)
+          .join(", ")}`
+      );
+    } catch (err) {
+      console.error(`Error while sending email to users: `, err);
+    }
+
+    return res.json({
+      success: true,
+      message:
+        "Project archive status updated, notification saved, and email queued",
+    });
   } catch (e) {
-    return res.json({ success: false, message: e });
+    console.error("Error occurred in archiveProject:", e);
+    return res.json({ success: false, message: e.message });
   }
 };
+
+// exports.archiveProject = async (req, res) => {
+//   console.log("in archive");
+
+//   try {
+//     logInfo(req.body, "archiveProject req.body");
+//     const projectId = req.body.projectId;
+//     const isArchived = (
+//       await Project.findOne({
+//         _id: projectId,
+//       })
+//     ).archive;
+
+//     if (isArchived) {
+//       await Project.findOneAndUpdate(
+//         {
+//           _id: projectId,
+//         },
+//         {
+//           $set: {
+//             archive: false,
+//           },
+//         }
+//       );
+//     } else {
+//       await Project.findOneAndUpdate(
+//         {
+//           _id: projectId,
+//         },
+//         {
+//           $set: {
+//             archive: true,
+//           },
+//         }
+//       );
+//     }
+
+//     return res.json({ success: true, message: "toggle archive" });
+//   } catch (e) {
+//     return res.json({ success: false, message: e });
+//   }
+// };
 
 // customfields for tasks for specific projects
 
@@ -1549,7 +1951,7 @@ exports.getProjectsByCompanyId = async (req, res) => {
   try {
     // console.log("in getProjectsByCompanyId")
     // console.log(req.params)
-    console.log(req.params.companyId, "from company Id")
+    console.log(req.params.companyId, "from company Id");
     const projects = await Project.find({
       isDeleted: false,
       companyId: req.params.companyId,
@@ -1577,13 +1979,13 @@ exports.getProjectsByCompanyId = async (req, res) => {
       },
       {
         $group: {
-          _id: "$projectUsers", 
+          _id: "$projectUsers",
         },
       },
       {
-        $count: "uniqueProjectUsersCount", 
-      }
-    ]);  
+        $count: "uniqueProjectUsersCount",
+      },
+    ]);
     return res.json({
       success: true,
       projects: projects,
@@ -1624,7 +2026,7 @@ exports.getProjectsKanbanData = async (req, res) => {
 
         // const iprojects = await Project.aggregate([
         //   { $match: projectWhereCondition },
-        
+
         //   // Ensure createdBy is cast to ObjectId if stored as string
         //   {
         //     $addFields: {
@@ -1637,7 +2039,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // Lookup createdBy user
         //   {
         //     $lookup: {
@@ -1648,7 +2050,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //     }
         //   },
         //   { $unwind: { path: "$createdByUser", preserveNullAndEmptyArrays: true } },
-        
+
         //   // Lookup project users
         //   {
         //     $lookup: {
@@ -1658,7 +2060,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       as: "projectUsersData"
         //     }
         //   },
-        
+
         //   // Lookup task count for each project
         //   {
         //     $lookup: {
@@ -1691,7 +2093,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // Lookup if project is favorite for user
         //   {
         //     $lookup: {
@@ -1712,7 +2114,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       as: "favData"
         //     }
         //   },
-        
+
         //   // Final computed fields
         //   {
         //     $addFields: {
@@ -1733,25 +2135,20 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // 🧹 Clean up intermediate fields
         //   {
-            // $project: {
-            //   createdByUser: 0,
-            //   createdByObjId: 0,
-            //   projectUsersData: 0,
-            //   tasksCountData: 0,
-            //   favData: 0
+        // $project: {
+        //   createdByUser: 0,
+        //   createdByObjId: 0,
+        //   projectUsersData: 0,
+        //   tasksCountData: 0,
+        //   favData: 0
         //     }
         //   }
         // ]);
-        
+
         let iprojects = await Project.find(projectWhereCondition).limit(10);
-
-        console.log("projectsdata", iprojects)
-        
-
-      
 
         return { ...stage.toObject(), projects: iprojects };
       })
@@ -1784,15 +2181,6 @@ exports.getKanbanProjects = async (req, res) => {
     const limit = 10;
     const skip = page * limit;
     const { stageId, companyId, userId } = req.body;
-
-    console.log(
-      "page...project",
-      req.query.page,
-      "stageId...",
-      stageId,
-      "companyId...",
-      companyId
-    );
 
     // Build base filter for project stages
     let stageFilter = {
@@ -1901,9 +2289,6 @@ exports.getKanbanProjectsData = async (req, res) => {
     const limit = 10;
     const skip = page * limit;
     const { stageId, companyId, userId, archive } = req.body;
-
-    console.log("req.body...", req.body, "req.query", req.query);
-
     if (!stageId || stageId === "null" || stageId === "ALL") {
       return res.status(400).json({
         success: false,
@@ -1928,8 +2313,6 @@ exports.getKanbanProjectsData = async (req, res) => {
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
-
-    console.log("totalCount", totalCount, "totalPages", totalPages);
 
     if (page < 0 || page >= totalPages) {
       return res.status(400).json({
@@ -2047,7 +2430,6 @@ exports.getExhibitionKanbanData = async (req, res) => {
       projectType: "Exhibition",
       isDeleted: false,
     });
-    console.log(totalCount, "totalCount");
 
     return res.json({
       success: true,
@@ -2590,8 +2972,6 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
     const limit = 10;
     const skip = page * limit;
     const { groupId, companyId, userId, archive, stageId } = req.body;
-
-    console.log("req.body...", req.body, "req.query", req.query);
 
     if (!groupId || groupId === "null" || groupId === "ALL") {
       return res.status(400).json({

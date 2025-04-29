@@ -105,29 +105,6 @@ exports.getUser = (req, res) => {
       });
     });
 };
-// exports.getUsers = async (req, res) => {
-//   const { companyId } = req.body; // Extract companyId from request body
-//   try {
-//     // Fetch users associated with the given companyId and not deleted
-//     const users = await User.find({
-//       isDeleted: false,
-//       companyId: companyId, // Filter users by companyId
-//     });
-
-//     // console.log(users, "users");
-
-//     if (users.length === 0) {
-//       return res
-//         .status(404)
-//         .json({ success: false, msg: "No users found for this company." });
-//     }
-
-//     res.json({ success: true, data: users });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ success: false, error: "Internal Server Error" });
-//   }
-// };
 
 exports.getUsers = async (req, res) => {
   try {
