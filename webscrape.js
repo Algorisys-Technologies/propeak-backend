@@ -205,6 +205,32 @@ async function processSingleLead(lead, page) {
       lead.contactPerson = "N/A";
     }
 
+    const timeStampLocator = page.locator(".time_stamp").first();
+    let rawProductDate =
+      (await timeStampLocator.count()) > 0
+        ? (await timeStampLocator.innerText()).trim()
+        : "N/A";
+    console.log("rawProductDate", rawProductDate);
+    // Add current year if year is missing
+    if (rawProductDate !== "N/A" && !/\d{4}/.test(rawProductDate)) {
+      const currentYear = new Date().getFullYear();
+      rawProductDate = `${rawProductDate}, ${currentYear}`;
+    }
+    // Convert to ISO format
+    let isoDate = "Invalid Date";
+    try {
+      const cleanedDateStr = rawProductDate
+        .replace(/, /g, " ")
+        .replace(/,+/g, ",");
+      const parsedDate = new Date(cleanedDateStr);
+      if (!isNaN(parsedDate)) {
+        isoDate = parsedDate.toISOString();
+      }
+    } catch (err) {
+      console.error("Error parsing date:", rawProductDate, err);
+    }
+    lead.productDate = isoDate;
+
     await openLeadDetail(lead.id, page);
     await page.waitForSelector(".content__body");
     const scrollableSelector = ".content__body";
@@ -255,6 +281,7 @@ async function scrollToLoadAllLeads(page, browser, context, authKey) {
           const dateTime = dateTimeElement
             ? dateTimeElement.innerText.trim()
             : "N/A";
+
           const detailsClone = lead.cloneNode(true);
 
           if (dateTimeElement) dateTimeElement.remove();
@@ -268,7 +295,7 @@ async function scrollToLoadAllLeads(page, browser, context, authKey) {
               lead.querySelector(".wrd_elip .prod-name")?.innerText?.trim() ||
               "N/A",
             startDate: "N/A",
-            dateTime,
+            dateTime: dateTime,
             details:
               detailsClone.innerText.trim().replace(dateTime, "") || "N/A",
           };
@@ -486,13 +513,13 @@ async function fetchLeads({
 // fetchLeads({
 //   // mobileNumber: "9892492782",
 //   // password: "KIPINDIAMART2022",
-//   start_dayToSelect: "28",
+//   start_dayToSelect: "2",
 //   start_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
 //   start_yearToSelect: "2024",
-//   end_dayToSelect: "28",
+//   end_dayToSelect: "2",
 //   end_monthToSelect: "1", // April (0-based index: 0 : January, 1 : February, etc.)
 //   end_yearToSelect: "2024",
-//   authKey: `_gcl_au=1.1.731872204.1744261274; _ga=GA1.1.1676073735.1744261277; _ym_uid=1744261280639783108; _ym_d=1744261280; iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DMumbai%7Cgctid%3D70624%7Cgacrcy%3D10%7Cgip%3D106.222.205.216%7Cgstnm%3DMaharashtra; sortby=1#29141067; LGNSTR=0%2C2%2C1%2C1%2C1%2C1%2C1%2C0; _clck=i02qw8%7C2%7Cfvh%7C0%7C1926; _ym_isad=2; _ym_visorc=b; empDet=; con_iso=; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo3KjYqNyowKiIsImV4cCI6MTc0NTk4ODY2NSwiaWF0IjoxNzQ1OTAyMjY1LCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjI5LTA0LTIwMjUifQ.cxCR18pzzd-0WddRBHNrm2BYJriVJM-qOqEjbPtFj3c; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9372657109%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D29%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; xnHist=pv%3D0%7Cipv%3Dundefined%7Cfpv%3D1%7Ccity%3Dundefined%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D1%7Ctime%3DTue%20Apr%2029%202025%2010%3A13%3A06%20GMT+0530%20%28India%20Standard%20Time%29%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined%7CcityID%3Dundefined; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=233,326,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; _clsk=s1t60h%7C1745902268860%7C4%7C0%7Ci.clarity.ms%2Fcollect; sessid=spv=6; FCNEC=%5B%5B%22AKsRol9eU3_g5n2Hfw37ZkZ-07650HkE9nndpxO3bKjrTFYFWrXda5gkXH9f6SAicbO721qPiKLSIvCIVpeOj9rBoYWWq4B7yqsYpM60eL7elHG7ajWXQEJCJfOqHhx_pBFxApeQfO74VT97fv7hklShHgM8-ddL1A%3D%3D%22%5D%5D; __gads=ID=1b59f745b0dd7a6f:T=1744368575:RT=1745902270:S=ALNI_Ma40EwMWa2zHafeM3o5KZWi-4agCQ; __gpi=UID=000010993fccafbd:T=1744368575:RT=1745902270:S=ALNI_MZ9DphMta_F1whI-7g7yxnyL325VA; __eoi=ID=2f33fdc73bf658ff:T=1744368575:RT=1745902270:S=AA-Afja6hh3GE2oG_qrZEtmg3q5Q; _ga_8B5NXMMZN3=GS1.1.1745901788.22.1.1745902271.6.0.0`,
+//   authKey: `_gcl_au=1.1.731872204.1744261274; _ga=GA1.1.1676073735.1744261277; _ym_uid=1744261280639783108; _ym_d=1744261280; iploc=gcniso%3DIN%7Cgcnnm%3DIndia%7Cgctnm%3DMumbai%7Cgctid%3D70624%7Cgacrcy%3D10%7Cgip%3D106.222.205.216%7Cgstnm%3DMaharashtra; sortby=1#29141067; LGNSTR=0%2C2%2C1%2C1%2C1%2C1%2C1%2C0; _clck=i02qw8%7C2%7Cfvi%7C0%7C1926; _ym_isad=2; _ym_visorc=b; __gads=ID=1b59f745b0dd7a6f:T=1744368575:RT=1745988514:S=ALNI_Ma40EwMWa2zHafeM3o5KZWi-4agCQ; __gpi=UID=000010993fccafbd:T=1744368575:RT=1745988514:S=ALNI_MZ9DphMta_F1whI-7g7yxnyL325VA; __eoi=ID=2f33fdc73bf658ff:T=1744368575:RT=1745988514:S=AA-Afja6hh3GE2oG_qrZEtmg3q5Q; empDet=; con_iso=; im_iss=t%3DeyJ0eXAiOiJKV1QiLCJhbGciOiJzaGEyNTYifQ.eyJpc3MiOiJVU0VSIiwiYXVkIjoiOSo3KjYqNyowKiIsImV4cCI6MTc0NjA3NTE5MCwiaWF0IjoxNzQ1OTg4NzkwLCJzdWIiOiIyOTE0MTA2NyIsImNkdCI6IjMwLTA0LTIwMjUifQ.HJck48NoEK03NcBftdSk2B8X8HvyZKvKpVZo4-4OWcA; ImeshVisitor=fn%3DSachin%7Cem%3Ds%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%40kip.co.in%7Cphcc%3D91%7Ciso%3DIN%7Cmb1%3D9372657109%7Cctid%3D70624%7Cglid%3D29141067%7Ccd%3D30%2FAPR%2F2025%7Ccmid%3D12%7Cutyp%3DP%7Cev%3DV%7Cuv%3DV%7Custs%3D%7Cadmln%3D0%7Cadmsales%3D0; FCNEC=%5B%5B%22AKsRol8YGaCbaQmzVO7SnbYCzNcCEj2M4Ex4p8dzBYGLpS30wTt9rDSLq7eWhCCFS6ofKxsqJEaiYLCs_oavPbpvmsnEBUOEcWZ_r4yfGE0rVJ_50OS4rIRur6Q6UoGy4y7SLYVk0KLeYGIL7sN4bNxhNfKW6R5CGw%3D%3D%22%5D%5D; xnHist=pv%3D0%7Cipv%3Dundefined%7Cfpv%3D1%7Ccity%3Dundefined%7Ccvstate%3Dundefined%7Cpopupshown%3Dundefined%7Cinstall%3Dundefined%7Css%3Dundefined%7Cmb%3Dundefined%7Ctm%3Dundefined%7Cage%3Dundefined%7Ccount%3D1%7Ctime%3DWed%20Apr%2030%202025%2010%3A18%3A15%20GMT+0530%20%28India%20Standard%20Time%29%7Cglid%3D29141067%7Cgname%3Dundefined%7Cgemail%3Dundefined%7CcityID%3Dundefined; userDet=glid=29141067|loc_pref=4|fcp_flag=1|image=http://5.imimg.com/data5/SELLER/GlPhoto/2023/12/364896082/FM/MF/ZG/29141067/colour-logo-64x64.jpg|service_ids=233,326,355,228|logo=https://5.imimg.com/data5/SELLER/Logo/2024/6/424491046/CK/YZ/KD/29141067/new-logo-kip-90x90.jpg|psc_status=0|d_re=|u_url=https://www.indiamart.com/kip-chemicals-mumbai/|ast=A|lst=LST|ctid=70624|ct=Mumbai|stid=6489|st=Maharashtra|enterprise=0|mod_st=F|rating=4.6|nach=0|iec=AAHCK7941A|is_suspect=0|vertical=KCD|pns_no=8047763552|gst=27AAHCK7941A1ZL|pan=AAHCK7941A|cin=U51900MH2019PTC330444|collectPayments=0|is_display_invoice_banner=0|is_display_enquiry=0|is_display_credit=0|disposition=|disp_date=|recreateUserDetCookie=|vid=|did=|fid=|src_ID=3|locPref_enable=1; sessid=spv=5; _clsk=dor4md%7C1745988799281%7C3%7C1%7Ck.clarity.ms%2Fcollect; _ga_8B5NXMMZN3=GS1.1.1745988498.24.1.1745988802.5.0.0`,
 // });
 
 module.exports = fetchLeads;
