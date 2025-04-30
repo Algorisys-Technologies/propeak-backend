@@ -5,6 +5,7 @@ const notificationSettingController = require("../../controllers/notification-se
 router.post("/add", notificationSettingController.createNotificationSetting);
 router.post("/addPreferences", notificationSettingController.addPreferences);
 router.get("/getPreferences/:userId", notificationSettingController.getPreferences);
+router.put("/:preferencesId", notificationSettingController.updatePreferences);
 
 module.exports = router;
 

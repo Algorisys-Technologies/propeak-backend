@@ -89,3 +89,39 @@ exports.getPreferences = async (req, res) => {
       data: preferences,
     });
 };
+
+exports.updatePreferences = async (req, res) => {
+  const { preferencesId } = req.params;
+  const { userId, email, inApp, muteEvents } = req.body;
+
+  try {
+    // Optional: verify document exists
+    const existing = await UserNotificationModel.findOne({
+      _id: preferencesId,
+      userId,
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "Preferences not found" });
+    }
+
+    // Update the document
+    const result = await UserNotificationModel.updateOne(
+      { _id: preferencesId, userId },
+      {
+        $set: {
+          email,
+          inApp,
+          muteEvents,
+        },
+      }
+    );
+
+    console.log(result, "Update Result");
+
+    return res.status(200).json({ message: "Preferences updated successfully" });
+  } catch (error) {
+    console.error("Error updating preferences:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
