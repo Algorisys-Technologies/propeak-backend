@@ -457,7 +457,35 @@ exports.createProject = async (req, res) => {
       }
     });
 };
+exports.getProjects = async (req, res) => {
+  try {
+    console.log("is this coming here or not ?")
+    const { companyId } = req.query;
 
+    if (!companyId) {
+      return res.status(400).json({ success: false, msg: "Company ID is required." });
+    }
+
+    const projects = await Project.find({ companyId, isDeleted: false })
+      // .populate("projectStageId", "name") // populate only name field
+      // .populate("projectTypeId", "name")  // optional
+      // .populate("group", "groupName")     // if group is a ref
+      // .populate("companyId", "companyName") // optional, if needed
+      // .populate("projectUsers", "name email") // optional
+      // .sort({ createdOn: -1 });
+
+    res.status(200).json({
+      success: true,
+      projects,
+    });
+  } catch (error) {
+    console.error("GET_PROJECTS ERROR", error);
+    res.status(500).json({
+      success: false,
+      msg: "Something went wrong while fetching projects.",
+    });
+  }
+};
 // Directly export the createProject function
 
 // UPDATE
@@ -1158,21 +1186,19 @@ exports.getProjectData = (req, res) => {
 
 exports.getProjectDataForCompany = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    console.log(req.body, "requesting from body >>>")
 
+    const { companyId } = req.body;
+    console.log(req.body, "requesting from body >>>")
     if (!companyId) {
       return res.status(400).json({
         message: "Company ID is required.",
       });
     }
-
-    // Find projects where companyId matches and is not deleted
     const projects = await Project.find({
       companyId: companyId,
       isDeleted: false,
     });
-
-    // If no projects found, send a response indicating that
     if (projects.length === 0) {
       return res.status(404).json({
         message: "No projects found for the given company.",
