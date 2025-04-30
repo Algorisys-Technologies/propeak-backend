@@ -63,9 +63,14 @@ exports.createNotificationSetting = async (req, res) => {
 };
 
 exports.addPreferences = async (req, res) => {
-  const { userId, email, inApp, muteEvents } = req.body;
+  try {
+    const { userId, email, inApp, muteEvents } = req.body;
 
-    const userNotification = await UserNotificationModel.create({
+    if (!userId || !email || !inApp || !muteEvents) {
+      return res.status(400).json({success:false, message: "Missing required fields." });
+    }
+
+    await UserNotificationModel.create({
       userId,
       email,
       inApp,
@@ -73,21 +78,40 @@ exports.addPreferences = async (req, res) => {
       createdBy: userId,
       modifiedBy: userId,
     });
-    console.log(userNotification, "ffrom user")
+
+    return res.status(200).json({success:true, message: "Preferences Saved successfully" });
+  } catch (error) {
+    console.error("Error adding preferences:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
 };
 
-exports.getPreferences = async (req, res) => {
-  const { userId } = req.params;
 
-    const preferences = await UserNotificationModel.find({
-      userId
-    });
-    
-    res.status(201).json({
+exports.getPreferences = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const preferences = await UserNotificationModel.find({ userId });
+
+    if (!preferences || preferences.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No preferences found for this user.",
+      });
+    }
+
+    res.status(200).json({
       success: true,
-      message: "Notification preferences added successfully.",
       data: preferences,
     });
+  } catch (error) {
+    console.error("Error fetching preferences:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
 };
 
 exports.updatePreferences = async (req, res) => {
@@ -102,11 +126,11 @@ exports.updatePreferences = async (req, res) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ message: "Preferences not found" });
+      return res.status(404).json({success:false,  message: "Preferences not found" });
     }
 
     // Update the document
-    const result = await UserNotificationModel.updateOne(
+    await UserNotificationModel.updateOne(
       { _id: preferencesId, userId },
       {
         $set: {
@@ -117,9 +141,7 @@ exports.updatePreferences = async (req, res) => {
       }
     );
 
-    console.log(result, "Update Result");
-
-    return res.status(200).json({ message: "Preferences updated successfully" });
+    return res.status(200).json({ success:true, message: "Preferences Saved successfully" });
   } catch (error) {
     console.error("Error updating preferences:", error);
     return res.status(500).json({ message: "Internal server error" });
