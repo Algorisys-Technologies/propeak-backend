@@ -371,7 +371,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 companyId,
                 title: lead.productName,
                 description: lead.productName,
-                startDate: lead.startDate,
+                startDate: startDate,
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 creation_mode: "AUTO",
@@ -379,7 +379,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 lead_source: "INDIAMART",
                 userId: users[0]?._id || null,
                 customFieldValues: {
-                  date: new Date(startDate).toLocaleDateString("IN"),
+                  date: moment(startDate).format("DD/MM/YYYY"),
                   name: lead.contactPerson,
                   mobile_number: lead.mobile,
                   email: lead.email,
@@ -465,7 +465,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                     lead_source: "INDIAMART",
                     userId: users[0]?._id || null,
                     customFieldValues: {
-                      date: new Date(startDate).toLocaleDateString("IN"),
+                      date: moment(responseData?.date).format("DD/MM/YYYY"),
                       name: lead.contactPerson,
                       mobile_number: lead.mobile,
                       email: lead.email,
