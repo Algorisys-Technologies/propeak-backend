@@ -805,7 +805,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             companyId,
             title: lead.productName,
             description: lead.productName,
-            startDate: lead.startDate,
+            startDate: lead.dateTime,
             createdOn: new Date(),
             modifiedOn: new Date(),
             creation_mode: "AUTO",
@@ -813,7 +813,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             lead_source: "INDIAMART",
             userId: users[0]?._id || null,
             customFieldValues: {
-              date: new Date(lead.startDate).toLocaleDateString("en-IN"),
+              date: moment(lead.dateTime).format("DD/MM/YYYY"),
               name: lead.contactPerson,
               mobile_number: lead.mobile,
               email: lead.email,
@@ -898,9 +898,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
                 lead_source: "INDIAMART",
                 userId: users[0]?._id || null,
                 customFieldValues: {
-                  date: new Date(responseData?.date).toLocaleDateString(
-                    "en-IN"
-                  ),
+                  date: moment(responseData?.date).format("DD/MM/YYYY"),
                   name: lead.contactPerson,
                   mobile_number: lead.mobile,
                   email: lead.email,
