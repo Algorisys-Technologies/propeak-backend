@@ -371,7 +371,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 companyId,
                 title: lead.productName,
                 description: lead.productName,
-                startDate: startDate,
+                startDate: lead.productDate,
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 creation_mode: "AUTO",
@@ -379,7 +379,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 lead_source: "INDIAMART",
                 userId: users[0]?._id || null,
                 customFieldValues: {
-                  date: moment(startDate).format("DD/MM/YYYY"),
+                  date: moment(lead.productDate).format("DD/MM/YYYY"),
                   name: lead.contactPerson,
                   mobile_number: lead.mobile,
                   email: lead.email,
