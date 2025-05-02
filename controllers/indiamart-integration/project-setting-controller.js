@@ -918,10 +918,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
                 continue;
               }
 
-              const formattedDate = moment(
-                responseData?.date,
-                "DD MMM YYYY, h:mm A"
-              );
+              // const formattedDate = moment(
+              //   responseData?.date,
+              //   "DD MMM YYYY, h:mm A"
+              // );
 
               // Create new task
               const newTask = new Task({
@@ -930,9 +930,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
                 companyId,
                 title: responseData?.product,
                 description: responseData?.product,
-                startDate: formattedDate.isValid()
-                  ? formattedDate.toDate()
-                  : new Date(),
+                startDate: responseData?.date,
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 creation_mode: "AUTO",
