@@ -14,7 +14,6 @@ const errors = {
 const { isValidObjectId } = require("mongoose");
 
 exports.createNotificationSetting = async (req, res) => {
-  console.log("is this coming here ");
   try {
     const {
       companyId,
@@ -40,9 +39,7 @@ exports.createNotificationSetting = async (req, res) => {
       active,
       createdBy: req.body.userId,
     });
-    console.log("what is the coming here ", setting);
     const savedSetting = await setting.save();
-    console.log(savedSetting, "savedSetting???");
     res.status(201).json({
       success: true,
       message: "Notification setting created successfully",
@@ -58,11 +55,73 @@ exports.createNotificationSetting = async (req, res) => {
   }
 };
 
+exports.updateNotificationSetting = async (req, res) => {
+  console.log("is this coming here ???", req.body);
+  try {
+    const { id } = req.params;
+    console.log("what id is coming here ???", id);
+    const {
+      companyId,
+      projectId,
+      taskStageId,
+      eventType,
+      notifyRoles,
+      notifyUserIds,
+      channel,
+      mandatory,
+      active,
+    } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Notification setting ID is required",
+      });
+    }
+
+    const updatedSetting = await NotificationSetting.findByIdAndUpdate(
+      id,
+      {
+        companyId,
+        projectId,
+        taskStageId,
+        eventType,
+        notifyRoles,
+        notifyUserIds,
+        channel,
+        mandatory,
+        active,
+        modifiedBy: req.body.userId,
+        modifiedOn: new Date(),
+      },
+      { new: true }
+    );
+
+    if (!updatedSetting) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification setting not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Notification setting updated successfully",
+      data: updatedSetting,
+    });
+  } catch (error) {
+    console.error("Error updating notification setting:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update notification setting",
+      error: error.message,
+    });
+  }
+};
+
 exports.getNotificationSettings = async (req, res) => {
   try {
-    console.log("is this notification ??");
     const { companyId } = req.body;
-    console.log(companyId, "is this coming ");
     if (!companyId) {
       return res.status(400).json({
         success: false,
@@ -75,22 +134,23 @@ exports.getNotificationSettings = async (req, res) => {
       isDeleted: { $ne: true },
     })
       .populate({
-        path: "projectId",  
-        select: "title",  
+        path: "projectId",
+        select: "title",
         model: "project",
       })
       .populate({
         path: "taskStageId",
-        select: "displayName", 
+        select: "displayName",
         model: "taskStage",
       })
       .populate({
         path: "notifyRoles",
-        select: "name", 
+        select: "name",
+        model: "role",
       })
       .populate({
         path: "notifyUserIds",
-        select: "name email",  
+        select: "name email",
       });
 
     res.status(200).json({
@@ -108,13 +168,53 @@ exports.getNotificationSettings = async (req, res) => {
   }
 };
 
+exports.deleteNotificationSetting = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Notification setting ID is required",
+      });
+    }
+
+    const deletedSetting = await NotificationSetting.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    if (!deletedSetting) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification setting not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Notification setting deleted successfully",
+      data: deletedSetting,
+    });
+  } catch (error) {
+    console.error("Error deleting notification setting:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete notification setting",
+      error: error.message,
+    });
+  }
+};
 
 exports.addPreferences = async (req, res) => {
   try {
     const { userId, email, inApp, muteEvents } = req.body;
 
     if (!userId || !email || !inApp || !muteEvents) {
-      return res.status(400).json({success:false, message: "Missing required fields." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required fields." });
     }
 
     await UserNotificationModel.create({
@@ -126,13 +226,16 @@ exports.addPreferences = async (req, res) => {
       modifiedBy: userId,
     });
 
-    return res.status(200).json({success:true, message: "Preferences Saved successfully" });
+    return res
+      .status(200)
+      .json({ success: true, message: "Preferences Saved successfully" });
   } catch (error) {
     console.error("Error adding preferences:", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
-
 
 exports.getPreferences = async (req, res) => {
   try {
@@ -173,7 +276,9 @@ exports.updatePreferences = async (req, res) => {
     });
 
     if (!existing) {
-      return res.status(404).json({success:false,  message: "Preferences not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Preferences not found" });
     }
 
     // Update the document
@@ -188,7 +293,9 @@ exports.updatePreferences = async (req, res) => {
       }
     );
 
-    return res.status(200).json({ success:true, message: "Preferences Saved successfully" });
+    return res
+      .status(200)
+      .json({ success: true, message: "Preferences Saved successfully" });
   } catch (error) {
     console.error("Error updating preferences:", error);
     return res.status(500).json({ message: "Internal server error" });
