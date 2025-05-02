@@ -170,17 +170,16 @@ exports.createTask = (req, res) => {
         if (taskId) {
           await Task.findOneAndUpdate(
             { _id: taskId },
-            { 
-              $push: { 
-                uploadFiles: { 
-                  _id: uploadResult._id, 
-                  fileName: uploadResult.fileName 
-                } 
-              } 
+            {
+              $push: {
+                uploadFiles: {
+                  _id: uploadResult._id,
+                  fileName: uploadResult.fileName,
+                },
+              },
             },
-            { new: true } 
+            { new: true }
           );
-          
         } else {
           await Project.findOneAndUpdate(
             { _id: projectId },
@@ -1139,46 +1138,45 @@ exports.deleteTask = (req, res) => {
 
   // Update the task to set isDeleted to true
   Task.findByIdAndUpdate(taskId, { $set: { isDeleted: true } }, { new: true })
-  .then(async (task) => {
-    if (!task) {
-      return res.status(404).json({
-        success: false,
-        msg: "Task not found",
+    .then(async (task) => {
+      if (!task) {
+        return res.status(404).json({
+          success: false,
+          msg: "Task not found",
+        });
+      }
+
+      // Update all upload files related to this task
+      await UploadFile.updateOne(
+        { _id: { $in: task.uploadFiles._id } },
+        { $set: { isDeleted: true } }
+      );
+
+      // Insert an audit log for the task marked as deleted
+      audit.insertAuditLog(
+        "",
+        "Task deletion",
+        "Task",
+        "delete",
+        taskId,
+        req.body.userName || "unknown",
+        taskId
+      );
+
+      res.json({
+        success: true,
+        msg: "Task and related files marked as deleted successfully!",
+        task,
       });
-    }
-
-    // Update all upload files related to this task
-    await UploadFile.updateOne(
-      { _id: { $in: task.uploadFiles._id } },
-      { $set: { isDeleted: true } }
-    );
-
-    // Insert an audit log for the task marked as deleted
-    audit.insertAuditLog(
-      "",
-      "Task deletion",
-      "Task",
-      "delete",
-      taskId,
-      req.body.userName || "unknown",
-      taskId
-    );
-
-    res.json({
-      success: true,
-      msg: "Task and related files marked as deleted successfully!",
-      task,
+    })
+    .catch((err) => {
+      console.error("DELETE_TASK ERROR", err);
+      res.status(400).json({
+        success: false,
+        msg: "Failed to mark task as deleted",
+        error: err.message,
+      });
     });
-  })
-  .catch((err) => {
-    console.error("DELETE_TASK ERROR", err);
-    res.status(400).json({
-      success: false,
-      msg: "Failed to mark task as deleted",
-      error: err.message,
-    });
-  });
-
 };
 exports.deleteSelectedTasks = async (req, res) => {
   const { taskIds, modifiedBy } = req.body;
@@ -1201,8 +1199,10 @@ exports.deleteSelectedTasks = async (req, res) => {
   try {
     // Step 1: Fetch the tasks to be deleted
     const tasksToDelete = await Task.find({ _id: { $in: taskIds } });
-    // const fileIds = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.id)); 
-    const fileNames = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.fileName));
+    // const fileIds = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.id));
+    const fileNames = tasksToDelete.flatMap((task) =>
+      task.uploadFiles.map((file) => file.fileName)
+    );
 
     if (!tasksToDelete || tasksToDelete.length === 0) {
       return res.status(404).json({
@@ -1213,7 +1213,7 @@ exports.deleteSelectedTasks = async (req, res) => {
 
     // Step 2: Delete tasks
     const deletedTasks = await Task.updateMany(
-      { _id: { $in: taskIds } }, 
+      { _id: { $in: taskIds } },
       { $set: { isDeleted: true } }
     );
 
@@ -1221,10 +1221,10 @@ exports.deleteSelectedTasks = async (req, res) => {
 
     // const uploadFileIds = deleteFile.map(file => file._id);
 
-    if(deleteFile)
+    if (deleteFile)
       if (fileNames.length > 0) {
         await UploadFile.updateMany(
-          { fileName: { $in: fileNames } }, 
+          { fileName: { $in: fileNames } },
           { $set: { isDeleted: true } }
         );
       }
@@ -2461,12 +2461,16 @@ exports.getTasksStagesByProjectId = async (req, res) => {
         {
           $lookup: {
             from: "products",
-            let: { companyId: "$companyId"},
+            let: { companyId: "$companyId" },
             pipeline: [
-              { $match: { $expr: { $eq: ["$companyId", { $toObjectId: companyId }] } } }
+              {
+                $match: {
+                  $expr: { $eq: ["$companyId", { $toObjectId: companyId }] },
+                },
+              },
             ],
-            as: "companyProducts"
-          }
+            as: "companyProducts",
+          },
         },
         {
           $lookup: {
@@ -2491,28 +2495,29 @@ exports.getTasksStagesByProjectId = async (req, res) => {
         {
           $lookup: {
             from: "tasks",
-            let: { projectId: "$_id" }, 
+            let: { projectId: "$_id" },
             pipeline: [
-              { 
-                $match: { 
-                  $expr: { $eq: ["$projectId", "$$projectId"] } } 
+              {
+                $match: {
+                  $expr: { $eq: ["$projectId", "$$projectId"] },
+                },
               },
-              { 
-                $unwind: "$tag" 
+              {
+                $unwind: "$tag",
               },
-              { 
-                $group: { 
+              {
+                $group: {
                   _id: "$tag", // Group by tag
                   // count: { $sum: 1 } // Count occurrences of each tag
-                } 
-              }
+                },
+              },
             ],
-            as: "taskTags"
-          }
-        }
+            as: "taskTags",
+          },
+        },
       ])
     )[0];
-    const taskStagesTitles = project.taskStages; 
+    const taskStagesTitles = project.taskStages;
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       companyId: companyId,
@@ -2525,27 +2530,63 @@ exports.getTasksStagesByProjectId = async (req, res) => {
   }
 };
 
+const sendNotification = require("../../utils/send-notification");
 exports.updateStage = async (req, res) => {
   try {
+    console.log("is it coming here ?");
     const { taskId, newStageId, status } = req.body;
 
-    await Task.findByIdAndUpdate(
-      { _id: taskId },
-      { taskStageId: newStageId, modifiedOn: new Date(), status }
-    );
+    const task = await Task.findById(taskId); // no populate if not needed
 
+    if (!task)
+      return res
+        .status(404)
+        .json({ success: false, message: "Task not found" });
+
+    task.taskStageId = newStageId;
+    task.status = status;
+    task.modifiedOn = new Date();
+    await task.save();
+
+    const eventType = "STAGE_CHANGED";
+    console.log(eventType, "what is the event type ");
+
+    // ✅ send based on notification settings, not just assignedTo
+    const check = await sendNotification(task, eventType);
+
+    console.log("Notification result:", check);
     return res.json({ success: true });
   } catch (error) {
-    return res.json({ success: false });
+    console.error("Error updating task stage:", error);
+    return res.status(500).json({ success: false });
   }
 };
+// exports.updateStage = async (req, res) => {
+//   console.log("is it moving from here?")
+//   try {
+//     const { taskId, newStageId, status } = req.body;
+
+//     await Task.findByIdAndUpdate(
+//       { _id: taskId },
+//       { taskStageId: newStageId, modifiedOn: new Date(), status }
+//     );
+
+//     return res.json({ success: true });
+//   } catch (error) {
+//     return res.json({ success: false });
+//   }
+// };
 
 exports.deleteTask = async (req, res) => {
   try {
     const { taskId } = req.body;
 
     await Task.findByIdAndUpdate({ _id: taskId }, { isDeleted: true });
-    await UploadFile.findOneAndUpdate({ taskId }, { $set: { isDeleted: true } }, { new: true });
+    await UploadFile.findOneAndUpdate(
+      { taskId },
+      { $set: { isDeleted: true } },
+      { new: true }
+    );
 
     return res.json({ success: true });
   } catch (error) {
@@ -3211,7 +3252,7 @@ exports.deleteFiltered = async (req, res) => {
             case "interested_products": {
               condition["interested_products.product_id"] = value;
               break;
-            } 
+            }
             default:
               break;
           }
@@ -3223,7 +3264,7 @@ exports.deleteFiltered = async (req, res) => {
 
     if (condition["uploadFiles.fileName"]) {
       await UploadFile.updateMany(
-        { fileName: condition["uploadFiles.fileName"] }, 
+        { fileName: condition["uploadFiles.fileName"] },
         { $set: { isDeleted: true } }
       );
     }
