@@ -715,12 +715,52 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
       for (const lead of leadsData) {
         // Check if a project already exists for the same SENDER_NAME
-        let existingProject = await Project.findOne({
+        // let existingProject = await Project.findOne({
+        //   companyId,
+        //   group: new mongoose.Types.ObjectId(groupId),
+        //   title: lead.name,
+        //   isDeleted: false,
+        // });
+
+        // let existingProject = await Project.findOne({
+        //   companyId,
+        //   group: new mongoose.Types.ObjectId(groupId),
+        //   title: lead.name,
+        //   isDeleted: false,
+        //   "customFieldValues.address": lead.address,
+        // });
+
+        let projectQuery = {
           companyId,
           group: new mongoose.Types.ObjectId(groupId),
           title: lead.name,
           isDeleted: false,
-        });
+        };
+
+        if (lead.address) {
+          projectQuery["customFieldValues.address"] = lead.address;
+        }
+
+        let existingProject = await Project.findOne(projectQuery);
+        // let existingProject = null;
+        // let existingTitleProject = await Project.findOne({
+        //   companyId,
+        //   group: new mongoose.Types.ObjectId(groupId),
+        //   title: lead.name,
+        //   isDeleted: false,
+        // });
+
+        // // If address is present, check for matching project with same address
+        // if (lead.address && existingTitleProject) {
+        //   if (
+        //     existingTitleProject.customFieldValues?.address &&
+        //     existingTitleProject.customFieldValues.address
+        //       .trim()
+        //       .toLowerCase() === lead.address.trim().toLowerCase()
+        //   ) {
+        //     existingProject = existingTitleProject;
+        //   }
+        // }
 
         const regex = new RegExp(lead.label, "i");
 
@@ -753,7 +793,9 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
             miscellaneous: false,
             archive: false,
-            customFieldValues: {},
+            customFieldValues: {
+              address: lead.address,
+            },
             projectUsers: [
               new mongoose.Types.ObjectId(userId),
               new mongoose.Types.ObjectId(projectOwnerId),
