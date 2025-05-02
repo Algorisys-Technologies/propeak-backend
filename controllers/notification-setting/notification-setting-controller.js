@@ -119,6 +119,52 @@ exports.updateNotificationSetting = async (req, res) => {
   }
 };
 
+exports.toggleNotificationActive = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { active } = req.body;
+
+    if (typeof active !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "`active` must be a boolean value",
+      });
+    }
+
+    const updatedSetting = await NotificationSetting.findByIdAndUpdate(
+      id,
+      {
+        active,
+        modifiedBy: req.body.userId,
+        modifiedOn: new Date(),
+      },
+      { new: true }
+    );
+
+    if (!updatedSetting) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification setting not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Notification setting ${
+        active ? "activated" : "deactivated"
+      } successfully`,
+      data: updatedSetting,
+    });
+  } catch (error) {
+    console.error("Error toggling active status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to toggle notification setting",
+      error: error.message,
+    });
+  }
+};
+
 exports.getNotificationSettings = async (req, res) => {
   try {
     const { companyId } = req.body;

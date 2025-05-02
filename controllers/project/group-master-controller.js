@@ -37,9 +37,6 @@ const createGroup = async (req, res) => {
 const getGroups = async (req, res) => {
   const { companyId } = req.params;
   const { q } = req.query;
-
-  console.log("companyId...", companyId, "q", q);
-
   if (!mongoose.Types.ObjectId.isValid(companyId)) {
     return res
       .status(400)
