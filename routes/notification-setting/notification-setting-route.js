@@ -7,6 +7,10 @@ router.post(
   "/notification-setting",
   notificationSettingController.getNotificationSettings
 );
+router.put(
+    "/toggle/:id",
+    notificationSettingController.toggleNotificationActive
+  );
 router.delete("/:id", notificationSettingController.deleteNotificationSetting);
 router.put("/:id", notificationSettingController.updateNotificationSetting);
 
@@ -15,10 +19,7 @@ router.get(
   "/getPreferences/:userId",
   notificationSettingController.getPreferences
 );
-router.put("/:preferencesId", notificationSettingController.updatePreferences);
-router.put(
-  "/toggle/:id",
-  notificationSettingController.toggleNotificationActive
-);
+router.post("/:preferencesId", notificationSettingController.updatePreferences);
+
 
 module.exports = router;
