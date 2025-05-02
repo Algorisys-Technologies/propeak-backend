@@ -280,6 +280,18 @@ exports.createProject = async (req, res) => {
   const { title, companyId, status, taskStages, group } = req.body;
   const existingProject = await Project.findOne({ title, companyId });
 
+  // let projectQuery = {
+  //   title,
+  //   companyId,
+  // };
+
+  // if (req.body.customFieldValues?.address) {
+  //   projectQuery["customFieldValues.address"] =
+  //     req.body.customFieldValues.address;
+  // }
+
+  // const existingProject = await Project.findOne(projectQuery);
+
   console.log(existingProject, "existingProject");
 
   if (existingProject) {
@@ -462,7 +474,7 @@ exports.createProject = async (req, res) => {
 
 // UPDATE
 exports.updateProject = async (req, res) => {
-  console.log("okay okay ");
+  console.log("req.body update project", req.body);
   // console.log("req.body updated",req.body);
   logInfo(req.body, "updateProject req.body");
   try {
@@ -698,6 +710,7 @@ exports.updateProject = async (req, res) => {
 exports.updateProjectField = async (req, res) => {
   logInfo("updateProjectField");
   logInfo(req.body, "req.body in update fields");
+  console.log("req.body in update fields...", req.body.customFieldValues);
   const { _id, title, companyId, status } = req.body;
 
   const existingProject = await Project.findOne({
@@ -1549,7 +1562,7 @@ exports.getProjectsByCompanyId = async (req, res) => {
   try {
     // console.log("in getProjectsByCompanyId")
     // console.log(req.params)
-    console.log(req.params.companyId, "from company Id")
+    console.log(req.params.companyId, "from company Id");
     const projects = await Project.find({
       isDeleted: false,
       companyId: req.params.companyId,
@@ -1577,13 +1590,13 @@ exports.getProjectsByCompanyId = async (req, res) => {
       },
       {
         $group: {
-          _id: "$projectUsers", 
+          _id: "$projectUsers",
         },
       },
       {
-        $count: "uniqueProjectUsersCount", 
-      }
-    ]);  
+        $count: "uniqueProjectUsersCount",
+      },
+    ]);
     return res.json({
       success: true,
       projects: projects,
@@ -1624,7 +1637,7 @@ exports.getProjectsKanbanData = async (req, res) => {
 
         // const iprojects = await Project.aggregate([
         //   { $match: projectWhereCondition },
-        
+
         //   // Ensure createdBy is cast to ObjectId if stored as string
         //   {
         //     $addFields: {
@@ -1637,7 +1650,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // Lookup createdBy user
         //   {
         //     $lookup: {
@@ -1648,7 +1661,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //     }
         //   },
         //   { $unwind: { path: "$createdByUser", preserveNullAndEmptyArrays: true } },
-        
+
         //   // Lookup project users
         //   {
         //     $lookup: {
@@ -1658,7 +1671,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       as: "projectUsersData"
         //     }
         //   },
-        
+
         //   // Lookup task count for each project
         //   {
         //     $lookup: {
@@ -1691,7 +1704,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // Lookup if project is favorite for user
         //   {
         //     $lookup: {
@@ -1712,7 +1725,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       as: "favData"
         //     }
         //   },
-        
+
         //   // Final computed fields
         //   {
         //     $addFields: {
@@ -1733,25 +1746,22 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // 🧹 Clean up intermediate fields
         //   {
-            // $project: {
-            //   createdByUser: 0,
-            //   createdByObjId: 0,
-            //   projectUsersData: 0,
-            //   tasksCountData: 0,
-            //   favData: 0
+        // $project: {
+        //   createdByUser: 0,
+        //   createdByObjId: 0,
+        //   projectUsersData: 0,
+        //   tasksCountData: 0,
+        //   favData: 0
         //     }
         //   }
         // ]);
-        
+
         let iprojects = await Project.find(projectWhereCondition).limit(10);
 
-        console.log("projectsdata", iprojects)
-        
-
-      
+        console.log("projectsdata", iprojects);
 
         return { ...stage.toObject(), projects: iprojects };
       })
