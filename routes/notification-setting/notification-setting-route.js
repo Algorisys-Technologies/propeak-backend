@@ -6,6 +6,7 @@ router.post("/add", notificationSettingController.createNotificationSetting);
 router.post("/notification-setting", notificationSettingController.getNotificationSettings);
 router.post("/addPreferences", notificationSettingController.addPreferences);
 router.get("/getPreferences/:userId", notificationSettingController.getPreferences);
+router.put("/:preferencesId", notificationSettingController.updatePreferences);
 
 module.exports = router;
 
