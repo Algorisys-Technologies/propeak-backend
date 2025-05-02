@@ -4,12 +4,12 @@ const NotificationSettingSchema = new mongoose.Schema({
   companyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Company",
-    required: true,
+    // required: true,
   },
   projectId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Project",
-    required: true,
+    // required: true,
   },
   taskStageId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -28,7 +28,7 @@ const NotificationSettingSchema = new mongoose.Schema({
       "CUSTOM_FIELD_UPDATE",
       "EMAIL_RECEIVED"
     ],
-    required: true,
+    // required: true,
   },
   notifyRoles: [String],
   notifyUserIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "user" }],

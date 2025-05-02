@@ -459,20 +459,22 @@ exports.createProject = async (req, res) => {
 };
 exports.getProjects = async (req, res) => {
   try {
-    console.log("is this coming here or not ?")
+    console.log("is this coming here or not ?");
     const { companyId } = req.query;
 
     if (!companyId) {
-      return res.status(400).json({ success: false, msg: "Company ID is required." });
+      return res
+        .status(400)
+        .json({ success: false, msg: "Company ID is required." });
     }
 
-    const projects = await Project.find({ companyId, isDeleted: false })
-      // .populate("projectStageId", "name") // populate only name field
-      // .populate("projectTypeId", "name")  // optional
-      // .populate("group", "groupName")     // if group is a ref
-      // .populate("companyId", "companyName") // optional, if needed
-      // .populate("projectUsers", "name email") // optional
-      // .sort({ createdOn: -1 });
+    const projects = await Project.find({ companyId, isDeleted: false });
+    // .populate("projectStageId", "name") // populate only name field
+    // .populate("projectTypeId", "name")  // optional
+    // .populate("group", "groupName")     // if group is a ref
+    // .populate("companyId", "companyName") // optional, if needed
+    // .populate("projectUsers", "name email") // optional
+    // .sort({ createdOn: -1 });
 
     res.status(200).json({
       success: true,
@@ -1186,10 +1188,7 @@ exports.getProjectData = (req, res) => {
 
 exports.getProjectDataForCompany = async (req, res) => {
   try {
-    console.log(req.body, "requesting from body >>>")
-
     const { companyId } = req.body;
-    console.log(req.body, "requesting from body >>>")
     if (!companyId) {
       return res.status(400).json({
         message: "Company ID is required.",
@@ -1575,7 +1574,7 @@ exports.getProjectsByCompanyId = async (req, res) => {
   try {
     // console.log("in getProjectsByCompanyId")
     // console.log(req.params)
-    console.log(req.params.companyId, "from company Id")
+    console.log(req.params.companyId, "from company Id");
     const projects = await Project.find({
       isDeleted: false,
       companyId: req.params.companyId,
@@ -1603,13 +1602,13 @@ exports.getProjectsByCompanyId = async (req, res) => {
       },
       {
         $group: {
-          _id: "$projectUsers", 
+          _id: "$projectUsers",
         },
       },
       {
-        $count: "uniqueProjectUsersCount", 
-      }
-    ]);  
+        $count: "uniqueProjectUsersCount",
+      },
+    ]);
     return res.json({
       success: true,
       projects: projects,
@@ -1650,7 +1649,7 @@ exports.getProjectsKanbanData = async (req, res) => {
 
         // const iprojects = await Project.aggregate([
         //   { $match: projectWhereCondition },
-        
+
         //   // Ensure createdBy is cast to ObjectId if stored as string
         //   {
         //     $addFields: {
@@ -1663,7 +1662,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // Lookup createdBy user
         //   {
         //     $lookup: {
@@ -1674,7 +1673,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //     }
         //   },
         //   { $unwind: { path: "$createdByUser", preserveNullAndEmptyArrays: true } },
-        
+
         //   // Lookup project users
         //   {
         //     $lookup: {
@@ -1684,7 +1683,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       as: "projectUsersData"
         //     }
         //   },
-        
+
         //   // Lookup task count for each project
         //   {
         //     $lookup: {
@@ -1717,7 +1716,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // Lookup if project is favorite for user
         //   {
         //     $lookup: {
@@ -1738,7 +1737,7 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       as: "favData"
         //     }
         //   },
-        
+
         //   // Final computed fields
         //   {
         //     $addFields: {
@@ -1759,25 +1758,22 @@ exports.getProjectsKanbanData = async (req, res) => {
         //       }
         //     }
         //   },
-        
+
         //   // 🧹 Clean up intermediate fields
         //   {
-            // $project: {
-            //   createdByUser: 0,
-            //   createdByObjId: 0,
-            //   projectUsersData: 0,
-            //   tasksCountData: 0,
-            //   favData: 0
+        // $project: {
+        //   createdByUser: 0,
+        //   createdByObjId: 0,
+        //   projectUsersData: 0,
+        //   tasksCountData: 0,
+        //   favData: 0
         //     }
         //   }
         // ]);
-        
+
         let iprojects = await Project.find(projectWhereCondition).limit(10);
 
-        console.log("projectsdata", iprojects)
-        
-
-      
+        console.log("projectsdata", iprojects);
 
         return { ...stage.toObject(), projects: iprojects };
       })
