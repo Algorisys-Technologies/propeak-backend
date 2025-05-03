@@ -32,6 +32,9 @@ const errors = {
   SERVER_ERROR: "Opps, something went wrong. Please try again.",
   NOT_AUTHORIZED: "Your are not authorized",
 };
+const sendNotification = require("../../utils/send-notification");
+const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
+const { xor } = require("lodash");
 
 exports.getAuditLog = (req, res) => {
   // let userRole = req.userInfo.userRole.toLowerCase();
@@ -87,9 +90,9 @@ exports.getAuditLogForProject = async (req, res) => {
   try {
     const { projectId, pagination = { page: 1, limit: 10 } } = req.body;
 
-    console.log("audit req body", req.body);
+    // console.log("audit req body", req.body);
 
-    console.log("Fetching audit log for project ID:", projectId);
+    // console.log("Fetching audit log for project ID:", projectId);
 
     // Step 1: Fetch total count of audit logs for the specified project
     const totalCount = await AuditLogs.countDocuments({
@@ -273,14 +276,14 @@ exports.getProjectDataByProjectId = (req, res) => {
 
 // CREATE
 exports.createProject = async (req, res) => {
-  console.log("req.body", req.body);
+  // console.log("req.body create project");
 
   logInfo(req.body, "createProject req.body");
   let userName = req.body.userName;
   const { title, companyId, status, taskStages, group } = req.body;
   const existingProject = await Project.findOne({ title, companyId });
 
-  console.log(existingProject, "existingProject");
+  // console.log(existingProject, "existingProject");
 
   if (existingProject) {
     // Fetch users associated with the existing project
@@ -349,7 +352,40 @@ exports.createProject = async (req, res) => {
     projectType: req.body.projectType,
   });
 
-  console.log(newProject);
+  const eventType = "PROJECT_CREATED";
+
+  const setting = new NotificationSetting({
+    companyId,
+    projectId: newProject._id,
+    taskStageId: null,
+    eventType: eventType,
+    notifyRoles: [],
+    notifyUserIds: newProject.projectUsers,
+    channel: ["inapp"],
+    mandatory: false,
+    active: true,
+    createdBy: newProject.createdBy,
+  });
+
+  await setting.save();
+
+  const createProject = [];
+
+  createProject.push({
+    companyId,
+    projectId: newProject._id,
+    taskStageId: null,
+    eventType: eventType,
+    notifyRoles: [],
+    notifyUserIds: newProject.projectUsers,
+    channel: ["inapp"],
+    mandatory: false,
+    active: true,
+    createdBy: newProject.createdBy,
+    title: newProject.title,
+  });
+
+  await sendNotification(createProject[0], eventType);
 
   newProject
     .save()
@@ -504,7 +540,7 @@ exports.updateProject = async (req, res) => {
       companyId,
       _id: { $ne: _id },
     });
-    console.log(existingProject, "existingProject..............");
+    // console.log(existingProject, "existingProject..............");
     if (existingProject) {
       const projectUsers = await User.find(
         { _id: { $in: existingProject.projectUsers } },
@@ -1773,7 +1809,7 @@ exports.getProjectsKanbanData = async (req, res) => {
 
         let iprojects = await Project.find(projectWhereCondition).limit(10);
 
-        console.log("projectsdata", iprojects);
+        // console.log("projectsdata", iprojects);
 
         return { ...stage.toObject(), projects: iprojects };
       })
@@ -1924,7 +1960,7 @@ exports.getKanbanProjectsData = async (req, res) => {
     const skip = page * limit;
     const { stageId, companyId, userId, archive } = req.body;
 
-    console.log("req.body...", req.body, "req.query", req.query);
+    // console.log("req.body...", req.body, "req.query", req.query);
 
     if (!stageId || stageId === "null" || stageId === "ALL") {
       return res.status(400).json({
@@ -1942,7 +1978,7 @@ exports.getKanbanProjectsData = async (req, res) => {
       projectType: { $ne: "Exhibition" },
     };
 
-    console.log("projectWhereCondition...", projectWhereCondition);
+    // console.log("projectWhereCondition...", projectWhereCondition);
 
     if (userId !== "ALL") {
       projectWhereCondition.projectUsers = { $in: [userId] };
@@ -1951,7 +1987,7 @@ exports.getKanbanProjectsData = async (req, res) => {
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
 
-    console.log("totalCount", totalCount, "totalPages", totalPages);
+    // console.log("totalCount", totalCount, "totalPages", totalPages);
 
     if (page < 0 || page >= totalPages) {
       return res.status(400).json({
@@ -2710,10 +2746,46 @@ exports.updateStage = async (req, res) => {
   try {
     const { projectId, newStageId, status } = req.body;
 
-    await Project.findByIdAndUpdate(
+    const project = await Project.findByIdAndUpdate(
       { _id: projectId },
       { projectStageId: newStageId, modifiedOn: new Date(), status: status }
     );
+
+    const eventType = "STAGE_CHANGED";
+
+    const setting = new NotificationSetting({
+      companyId: project.companyId,
+      projectId,
+      taskStageId: newStageId,
+      eventType: eventType,
+      notifyRoles: [],
+      notifyUserIds: project.projectUsers,
+      channel: ["inapp"],
+      mandatory: false,
+      active: true,
+      createdBy: project.createdBy,
+    });
+
+    
+    await setting.save();
+
+    const stageData = [];
+
+    stageData.push({
+      companyId,
+      projectId,
+      taskStageId: newStageId,
+      eventType: eventType,
+      notifyRoles: [],
+      notifyUserIds: project.projectUsers,
+      channel: ["inapp"],
+      mandatory: false,
+      active: true,
+      createdBy: project.createdBy,
+      title: project.title,
+    });
+
+    await sendNotification(stageData[0], eventType);
 
     return res.json({ success: true });
   } catch (error) {

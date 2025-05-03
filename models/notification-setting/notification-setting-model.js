@@ -28,6 +28,7 @@ const NotificationSettingSchema = new mongoose.Schema(
         "PROJECT_ARCHIVED",
         "CUSTOM_FIELD_UPDATE",
         "EMAIL_RECEIVED",
+        "PROJECT_CREATED",
       ],
       // required: true,
     },
