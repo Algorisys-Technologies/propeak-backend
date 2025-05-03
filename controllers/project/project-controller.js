@@ -276,21 +276,22 @@ exports.createProject = async (req, res) => {
   console.log("req.body", req.body);
 
   logInfo(req.body, "createProject req.body");
+  console.log("createProject req.body...", req.body);
   let userName = req.body.userName;
   const { title, companyId, status, taskStages, group } = req.body;
-  const existingProject = await Project.findOne({ title, companyId });
+  //const existingProject = await Project.findOne({ title, companyId });
 
-  // let projectQuery = {
-  //   title,
-  //   companyId,
-  // };
+  let projectQuery = {
+    title,
+    companyId,
+  };
 
-  // if (req.body.customFieldValues?.address) {
-  //   projectQuery["customFieldValues.address"] =
-  //     req.body.customFieldValues.address;
-  // }
+  if (req.body.customFieldValues?.address) {
+    projectQuery["customFieldValues.address"] =
+      req.body.customFieldValues.address;
+  }
 
-  // const existingProject = await Project.findOne(projectQuery);
+  const existingProject = await Project.findOne(projectQuery);
 
   console.log(existingProject, "existingProject");
 
@@ -469,8 +470,6 @@ exports.createProject = async (req, res) => {
       }
     });
 };
-
-// Directly export the createProject function
 
 // UPDATE
 exports.updateProject = async (req, res) => {
