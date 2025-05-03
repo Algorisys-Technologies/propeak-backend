@@ -8,18 +8,17 @@ router.post(
   notificationSettingController.getNotificationSettings
 );
 router.put(
-    "/toggle/:id",
-    notificationSettingController.toggleNotificationActive
-  );
+  "/toggle/:id",
+  notificationSettingController.toggleNotificationActive
+);
 router.delete("/:id", notificationSettingController.deleteNotificationSetting);
 router.put("/:id", notificationSettingController.updateNotificationSetting);
 
-router.post("/addPreferences", notificationSettingController.addPreferences);
-router.get(
-  "/getPreferences/:userId",
-  notificationSettingController.getPreferences
-);
-router.post("/:preferencesId", notificationSettingController.updatePreferences);
-
-
+// router.post("/addPreferences", notificationSettingController.addPreferences);
+// router.get(
+//   "/getPreferences/:userId",
+//   notificationSettingController.getPreferences
+// );
+// router.post("/:preferencesId", notificationSettingController.updatePreferences);
+router.post("/notifications", notificationSettingController.getNotifications);
 module.exports = router;

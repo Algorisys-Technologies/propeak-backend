@@ -8,7 +8,7 @@ const UserNotification = require("../models/notification-setting/user-notificati
 module.exports = async function sendNotification(task, eventType) {
     console.log("eventType:", eventType);
     console.log(task.projectId, "task.projectId");
-  
+    console.log(task,"task.............")
     const settings = await NotificationSetting.find({
       eventType,
       projectId: task.projectId,
@@ -72,8 +72,10 @@ module.exports = async function sendNotification(task, eventType) {
       );
   
       const channels = setting?.channel || [];
-  
+      console.log(task.companyId, "is it coming here ")
       notifications.push({
+        companyId:task.companyId,
+        isDeleted:false,
         userId: user._id,
         subject: `Task Notification`,
         message: message,
@@ -98,60 +100,3 @@ module.exports = async function sendNotification(task, eventType) {
       console.log("No users to notify.");
     }
   };
-// module.exports = async function sendNotification(task, eventType) {
-//   console.log("eventType:", eventType);
-//     console.log(task.projectId, "task.projectId")
-//   const settings = await NotificationSetting.find({
-//     eventType,
-//     projectId: task.projectId,
-//     active: true,
-//     isDeleted: false,
-//   });
-//   console.log(settings, "is it found???")
-//   if (!settings.length) {
-//     console.warn(`No NotificationSetting found for eventType: ${eventType}`);
-//     return;
-//   }
-
-//   let userIds = new Set();
-
-//   for (const setting of settings) {
-//     // Add specific users
-//     if (Array.isArray(setting.notifyUserIds)) {
-//       setting.notifyUserIds.forEach((id) => userIds.add(id.toString()));
-//     }
-
-//     // Add users based on roles
-//     if (Array.isArray(setting.notifyRoles) && setting.notifyRoles.length) {
-//       const roleUsers = await User.find({
-//         role: { $in: setting.notifyRoles },
-//         companyId: task.companyId,
-//         isDeleted: false,
-//       }).select("_id").lean();
-
-//       roleUsers.forEach((u) => userIds.add(u._id.toString()));
-//     }
-//   }
-
-//   const users = await User.find({
-//     _id: { $in: Array.from(userIds) },
-//   }).lean();
-
-//   const generateMessage = eventMessages[eventType];
-//   if (!generateMessage) {
-//     console.warn(`No message defined for event type: ${eventType}`);
-//     return;
-//   }
-
-//   const message = generateMessage(task);
-
-//   for (const user of users) {
-//     if (!user) continue;
-
-//     console.log(`[In-App] To: ${user.name} | Event: ${eventType} | ${message}`);
-//     if (user.email) {
-//       console.log(`[Email] To: ${user.email} | ${message}`);
-//       // Email logic goes here
-//     }
-//   }
-// };

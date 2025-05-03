@@ -2536,7 +2536,13 @@ exports.updateStage = async (req, res) => {
     console.log("is it coming here ?");
     const { taskId, newStageId, status } = req.body;
 
-    const task = await Task.findById(taskId); // no populate if not needed
+    const task = await Task.findById(taskId).populate({
+      path: "taskStageId",
+      select: "title",
+      model: "taskStage",
+    });
+    console.log(task.taskStageId);
+    console.log("Populated taskStageId:", task.taskStageId);
 
     if (!task)
       return res

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const { logError, logInfo } = require("../../common/logger");
 const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
-const UserNotificationModel = require("../../models/notification-setting/user-notification-model");
+const UserNotification = require("../../models/notification-setting/user-notification-model");
 const Project = require("../../models/project/project-model");
 const User = require("../../models/user/user-model");
 const errors = {
@@ -345,5 +345,41 @@ exports.updatePreferences = async (req, res) => {
   } catch (error) {
     console.error("Error updating preferences:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+exports.getNotifications = async (req, res) => {
+  try {
+    console.log(req.body, "request body..........")
+    const companyId=req.body.companyId;
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company ID is required",
+      });
+    }
+    const settings = await UserNotification.find({
+      isDeleted: false,
+      companyId
+    });
+    console.log("is it coming here ???", settings);
+    if (!settings.length) {
+      return res.status(200).json({
+        success: true,
+        message: "No notification settings found for this event",
+        settings: [],
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification settings fetched successfully",
+      settings,
+    });
+  } catch (error) {
+    console.error("Error fetching notification settings:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
