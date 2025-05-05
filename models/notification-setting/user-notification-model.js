@@ -59,6 +59,10 @@ const UserNotificationSchema = new mongoose.Schema(
       // required: true,
     },
     muteEvents: [],
+    notifyRoleNames: {
+      type: [String], // ✅ Added this line to hold role names like ['ADMIN', 'SUPPORT']
+      default: [],
+    },
     createdOn: {
       type: Date,
       default: Date.now,

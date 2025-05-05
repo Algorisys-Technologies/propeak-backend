@@ -1,0 +1,125 @@
+const mongoose = require("mongoose");
+const { logError, logInfo } = require("../../common/logger");
+const UserNotification = require("../../models/notification-setting/user-notification-model");
+
+const errors = {
+  ADDNOTIFICATIONERROR: "Error occurred while adding the notification",
+  EDITNOTIFICATIONERROR: "Error occurred while updating the notification",
+  DELETENOTIFICATIONERROR: "Error occurred while deleting the notification",
+  ADDHIDENOTIFICATIONERROR: "Error occurred while adding the hide notification",
+  NOT_AUTHORIZED: "You're not authorized",
+};
+
+exports.getNotifications = async (req, res) => {
+  try {
+    const { companyId, userId, role } = req.body;
+
+    if (!companyId || !userId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Company ID, User ID, and Role are required",
+      });
+    }
+
+    // Fetch notifications matching either direct user or role
+    const notifications = await UserNotification.find({
+      isDeleted: false,
+      companyId,
+      $or: [{ userId }, { notifyRoleNames: role }],
+    }).sort({ createdOn: -1 });
+
+    // Deduplicate by _id
+    const uniqueMap = new Map();
+    notifications.forEach((notif) => {
+      uniqueMap.set(notif._id.toString(), notif);
+    });
+
+    const uniqueNotifications = Array.from(uniqueMap.values());
+
+    return res.status(200).json({
+      success: true,
+      message: "Notifications fetched successfully",
+      settings: uniqueNotifications,
+    });
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Notification ID is required",
+      });
+    }
+
+    const updated = await UserNotification.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification deleted successfully",
+      notification: updated,
+    });
+  } catch (error) {
+    console.error("Error deleting notification:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.markNotificationAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Notification ID is required",
+      });
+    }
+
+    const updated = await UserNotification.findByIdAndUpdate(
+      id,
+      { read: true },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification marked as read successfully",
+      notification: updated,
+    });
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
