@@ -46,6 +46,7 @@ const {
   endOfDay,
 } = require("date-fns");
 const { result } = require("lodash");
+const sendNotification = require("../../utils/send-notification");
 
 exports.createTask = (req, res) => {
   console.log("create task wala ");
@@ -151,6 +152,14 @@ exports.createTask = (req, res) => {
     .save()
     .then(async (result) => {
       const taskId = result._id;
+      // Send notification here
+      const eventType = "TASK_CREATED";
+      try {
+        const notificationResult = await sendNotification(result, eventType);
+        console.log("Notification result:", notificationResult);
+      } catch (notificationError) {
+        console.error("Notification error:", notificationError);
+      }
 
       if (fileName) {
         let uploadFile = {
@@ -411,10 +420,10 @@ exports.updateTask = (req, res) => {
       companyId,
       modifiedBy,
       modifiedOn: new Date(),
-      userId, // Update the userId here
+      userId,
       publish_status: publishStatus,
     },
-    { new: true } // Options to return the updated document and run validators
+    { new: true }
   )
     .then(async (result) => {
       if (!result) {
@@ -423,10 +432,14 @@ exports.updateTask = (req, res) => {
           msg: "Task not found",
         });
       }
-
+      const eventType = "TASK_CREATED";
+      try {
+        const notificationResult = await sendNotification(result, eventType);
+        console.log("Notification result:", notificationResult);
+      } catch (notificationError) {
+        console.error("Notification error:", notificationError);
+      }
       const userIdToken = req.body.userName;
-
-      // Audit log logic
       const fields = Object.keys(result.toObject()).filter(
         (key) =>
           result[key] !== undefined &&
@@ -2338,6 +2351,7 @@ exports.getDashboardData = async (req, res) => {
 };
 
 exports.assignUsers = async (req, res) => {
+  console.log("is assign tasks is coming here ???");
   try {
     const { taskId, assignedUsers } = req.body;
 
@@ -2530,23 +2544,21 @@ exports.getTasksStagesByProjectId = async (req, res) => {
   }
 };
 
-const sendNotification = require("../../utils/send-notification");
 exports.updateStage = async (req, res) => {
   try {
     const { taskId, newStageId, status } = req.body;
 
-    const task = await Task.findById(taskId).populate({
-      path: "taskStageId",
-      select: "title",
-      model: "taskStage",
-    })
-    .populate({
-      path: "projectId",
-      select: "title",
-      model: "project",
-    })
-    ;
-
+    const task = await Task.findById(taskId)
+      .populate({
+        path: "taskStageId",
+        select: "title",
+        model: "taskStage",
+      })
+      .populate({
+        path: "projectId",
+        select: "title",
+        model: "project",
+      });
     if (!task)
       return res
         .status(404)
