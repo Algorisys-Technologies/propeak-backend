@@ -43,8 +43,9 @@ exports.searchByTasksAndProjects = async (req, res) => {
 
     // Fetch projects with pagination
     const projects = await Project.find(projectQuery)
-      .skip(limit * page)
-      .limit(limit);
+    .skip(limit * page)
+    .limit(limit)
+    .populate("group", "name");
 
     // Build account query
     const accountQuery = {
