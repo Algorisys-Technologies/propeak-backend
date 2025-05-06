@@ -30,10 +30,14 @@ const eventMessages = {
 
   TASK_COMPLETED: (task) =>
     `The task "${task.title}" has been marked as completed.`,
-  TASK_REJECTED: (task) => `The task "${task.title}" has been rejected.`,
+  // TASK_REJECTED: (task) => `The task "${task.title}" has been rejected.`,
+  TASK_REJECTED: (task) => {
+    const taskTitle = task.title || "Untitled Task";
+    return `The task "${taskTitle}" has been rejected.`;
+  },
+  
+  
   TASK_COMMENTED: (task) => `A new comment was added on task "${task.title}".`,
-  // PROJECT_ARCHIVED: (task) =>
-  //   `The project containing "${task.title}" has been archived.`,
   PROJECT_ARCHIVED: (project) => {
     const title = project.title || "Untitled Project";
     const createdOn = project.createdOn

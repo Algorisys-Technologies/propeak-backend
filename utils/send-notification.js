@@ -8,10 +8,14 @@ module.exports = async function sendNotification(task, eventType) {
   console.log("eventType:", eventType);
   console.log(task, "what is comes here??")
   const TASK_COMPLETED = "TASK_COMPLETED";
-
+  const TASK_REJECTED="TASK_REJECTED";
   if (task.status === "completed") {
     eventType = TASK_COMPLETED;
     console.log("Overridden eventType to TASK_COMPLETED");
+  }
+  if (task.status === "rejected") {
+    eventType = TASK_REJECTED;
+    console.log("Overridden eventType to TASK_REJECTED");
   }
   console.log("eventType:", eventType);
 
