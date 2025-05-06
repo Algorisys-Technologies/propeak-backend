@@ -2533,16 +2533,19 @@ exports.getTasksStagesByProjectId = async (req, res) => {
 const sendNotification = require("../../utils/send-notification");
 exports.updateStage = async (req, res) => {
   try {
-    console.log("is it coming here ?");
     const { taskId, newStageId, status } = req.body;
 
     const task = await Task.findById(taskId).populate({
       path: "taskStageId",
       select: "title",
       model: "taskStage",
-    });
-    console.log(task.taskStageId);
-    console.log("Populated taskStageId:", task.taskStageId);
+    })
+    .populate({
+      path: "projectId",
+      select: "title",
+      model: "project",
+    })
+    ;
 
     if (!task)
       return res
@@ -2555,33 +2558,14 @@ exports.updateStage = async (req, res) => {
     await task.save();
 
     const eventType = "STAGE_CHANGED";
-    console.log(eventType, "what is the event type ");
 
-    // ✅ send based on notification settings, not just assignedTo
     const check = await sendNotification(task, eventType);
-
-    console.log("Notification result:", check);
     return res.json({ success: true });
   } catch (error) {
     console.error("Error updating task stage:", error);
     return res.status(500).json({ success: false });
   }
 };
-// exports.updateStage = async (req, res) => {
-//   console.log("is it moving from here?")
-//   try {
-//     const { taskId, newStageId, status } = req.body;
-
-//     await Task.findByIdAndUpdate(
-//       { _id: taskId },
-//       { taskStageId: newStageId, modifiedOn: new Date(), status }
-//     );
-
-//     return res.json({ success: true });
-//   } catch (error) {
-//     return res.json({ success: false });
-//   }
-// };
 
 exports.deleteTask = async (req, res) => {
   try {

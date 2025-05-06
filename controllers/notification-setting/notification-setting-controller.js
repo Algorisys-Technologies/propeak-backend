@@ -347,39 +347,3 @@ exports.updatePreferences = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-exports.getNotifications = async (req, res) => {
-  try {
-    console.log(req.body, "request body..........")
-    const companyId=req.body.companyId;
-    if (!companyId) {
-      return res.status(400).json({
-        success: false,
-        message: "Company ID is required",
-      });
-    }
-    const settings = await UserNotification.find({
-      isDeleted: false,
-      companyId
-    });
-    console.log("is it coming here ???", settings);
-    if (!settings.length) {
-      return res.status(200).json({
-        success: true,
-        message: "No notification settings found for this event",
-        settings: [],
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Notification settings fetched successfully",
-      settings,
-    });
-  } catch (error) {
-    console.error("Error fetching notification settings:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};

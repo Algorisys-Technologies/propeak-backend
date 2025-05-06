@@ -6,12 +6,12 @@ const eventMessages = {
     `You have been assigned to the task "${task.title}".`,
   // STAGE_CHANGED: (task) => `The task "${task.title}" has moved to a new "${task.status}"stage.`,
   STAGE_CHANGED: (task) => {
+    const taskTitle = task.title || "Untitled Task";
     const stageTitle = task.taskStageId?.title || "UNKNOWN STAGE";
-    const taskStatus = task.status
-      ? task.status.toUpperCase()
-      : "UNKNOWN STATUS";
-
-    return `Task "${task.title}" has moved to "${taskStatus}" stage. Current Status: ${taskStatus}. Please review.`;
+    const taskStatus = task.status ? task.status.toUpperCase() : "UNKNOWN STATUS";
+    const projectTitle = task.projectId?.title || "Unknown Project";
+  
+    return `Task "${taskTitle}" from project "${projectTitle}" has moved to the "${taskStatus}" stage. Current status: ${taskStatus}. Please review it.`;
   },
 
   TASK_COMPLETED: (task) =>

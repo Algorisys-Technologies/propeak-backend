@@ -33,8 +33,6 @@ const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
 };
 const sendNotification = require("../../utils/send-notification");
-const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
-const { xor } = require("lodash");
 
 exports.getAuditLog = (req, res) => {
   // let userRole = req.userInfo.userRole.toLowerCase();
@@ -89,12 +87,6 @@ exports.getAuditLog = (req, res) => {
 exports.getAuditLogForProject = async (req, res) => {
   try {
     const { projectId, pagination = { page: 1, limit: 10 } } = req.body;
-
-    // console.log("audit req body", req.body);
-
-    // console.log("Fetching audit log for project ID:", projectId);
-
-    // Step 1: Fetch total count of audit logs for the specified project
     const totalCount = await AuditLogs.countDocuments({
       projectId,
     });
@@ -175,13 +167,10 @@ exports.getStatusOptions = (req, res) => {
 };
 
 exports.getProjectByProjectId = (req, res) => {
-  // logInfo(req.body, "getProjectByProjectId req.body");
-  // console.log(req.params)/
   Project.findById({
     _id: new mongoose.Types.ObjectId(req.params.projectId),
   }).then(
     (result) => {
-      // console.log(result)
       let messages = result.messages.filter((r) => {
         return r.isDeleted === false;
       });
@@ -276,15 +265,10 @@ exports.getProjectDataByProjectId = (req, res) => {
 
 // CREATE
 exports.createProject = async (req, res) => {
-  // console.log("req.body create project");
-
   logInfo(req.body, "createProject req.body");
   let userName = req.body.userName;
   const { title, companyId, status, taskStages, group } = req.body;
   const existingProject = await Project.findOne({ title, companyId });
-
-  // console.log(existingProject, "existingProject");
-
   if (existingProject) {
     // Fetch users associated with the existing project
     const projectUsers = await User.find(
@@ -351,46 +335,9 @@ exports.createProject = async (req, res) => {
     lead_source: "USER",
     projectType: req.body.projectType,
   });
-
-  const eventType = "PROJECT_CREATED";
-
-  const setting = new NotificationSetting({
-    companyId,
-    projectId: newProject._id,
-    taskStageId: null,
-    eventType: eventType,
-    notifyRoles: [],
-    notifyUserIds: newProject.projectUsers,
-    channel: ["inapp"],
-    mandatory: false,
-    active: true,
-    createdBy: newProject.createdBy,
-  });
-
-  await setting.save();
-
-  const createProject = [];
-
-  createProject.push({
-    companyId,
-    projectId: newProject._id,
-    taskStageId: null,
-    eventType: eventType,
-    notifyRoles: [],
-    notifyUserIds: newProject.projectUsers,
-    channel: ["inapp"],
-    mandatory: false,
-    active: true,
-    createdBy: newProject.createdBy,
-    title: newProject.title,
-  });
-
-  await sendNotification(createProject[0], eventType);
-
   newProject
     .save()
     .then((result) => {
-      // console.log("after saving", result);
       logInfo(result, "createProject result");
       let userIdToken = req.body.userName;
       let fields = [];
@@ -450,7 +397,6 @@ exports.createProject = async (req, res) => {
               );
             });
           } else if (field === "userGroups") {
-            // console.log("result[field]",result[field]);
             result[field].map((n) => {
               audit.insertAuditLog(
                 "",
@@ -495,7 +441,6 @@ exports.createProject = async (req, res) => {
 };
 exports.getProjects = async (req, res) => {
   try {
-    console.log("is this coming here or not ?");
     const { companyId } = req.query;
 
     if (!companyId) {
@@ -524,12 +469,9 @@ exports.getProjects = async (req, res) => {
     });
   }
 };
-// Directly export the createProject function
 
 // UPDATE
 exports.updateProject = async (req, res) => {
-  console.log("okay okay ");
-  // console.log("req.body updated",req.body);
   logInfo(req.body, "updateProject req.body");
   try {
     let userName = req.body.userName;
@@ -540,7 +482,6 @@ exports.updateProject = async (req, res) => {
       companyId,
       _id: { $ne: _id },
     });
-    // console.log(existingProject, "existingProject..............");
     if (existingProject) {
       const projectUsers = await User.find(
         { _id: { $in: existingProject.projectUsers } },
@@ -557,9 +498,6 @@ exports.updateProject = async (req, res) => {
     }
 
     //Add all group members to projectUsers if they are not already present
-
-    console.log(req.body.category);
-
     let updatedProject = {
       _id: req.body._id,
       title: req.body.title,
@@ -771,7 +709,6 @@ exports.updateProjectField = async (req, res) => {
     companyId,
     _id: { $ne: _id },
   });
-  console.log(existingProject, "existingProject..............");
   if (existingProject) {
     const projectUsers = await User.find(
       { _id: { $in: existingProject.projectUsers } },
@@ -834,7 +771,6 @@ exports.updateProjectField = async (req, res) => {
     })
     .catch((err) => {
       logError("updateProjectField err", err);
-      // console.log("err",err);
     });
 };
 
@@ -1251,36 +1187,28 @@ exports.getProjectDataForCompany = async (req, res) => {
 };
 
 exports.addProjectUsers = (req, res) => {
-  // console.log("req.body", req.body);
   try {
     Project.findOneAndUpdate(
       { _id: req.body.projectId },
       { $set: { projectUsers: req.body.projectUsers } }
     )
       .then((result) => {
-        // console.log("result", result);
         res.json({ msg: "Successfully added" });
       })
       .catch((err) => {
-        // console.log("err addProjectUsers", err);
         logError("addProjectUsers err", err);
       });
   } catch (err) {
-    // console.log("err", err);
     logError("addProjectUsers err", err);
   }
 };
 
-// console.log('getUserProject out')
 exports.getUserProject = (req, res) => {
   try {
     Project.find(
       {
         isDeleted: false,
-        // 'status': { $ne: 'onHold' }
         archive: false,
-
-        // miscellaneous: false
       },
       {
         _id: 1,
@@ -1292,59 +1220,93 @@ exports.getUserProject = (req, res) => {
       res.json(result);
     });
   } catch (e) {
-    // console.log('getUserProject', e)
     logError("getUserProject", e);
   }
 };
-
 exports.archiveProject = async (req, res) => {
-  console.log("in archive");
-
   try {
-    logInfo(req.body, "archiveProject req.body");
-    const projectId = req.body.projectId;
-    const isArchived = (
-      await Project.findOne({
-        _id: projectId,
-      })
-    ).archive;
+    const { projectId } = req.body;
 
-    if (isArchived) {
-      await Project.findOneAndUpdate(
-        {
-          _id: projectId,
-        },
-        {
-          $set: {
-            archive: false,
-          },
-        }
-      );
-    } else {
-      await Project.findOneAndUpdate(
-        {
-          _id: projectId,
-        },
-        {
-          $set: {
-            archive: true,
-          },
-        }
-      );
+    if (!projectId) {
+      return res.status(400).json({ success: false, message: "Project ID is required." });
     }
 
-    return res.json({ success: true, message: "toggle archive" });
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found." });
+    }
+
+    const newArchiveStatus = !project.archive;
+
+    await Project.findByIdAndUpdate(
+      projectId,
+      { $set: { archive: newArchiveStatus } },
+      { new: true }
+    );
+
+    const eventType = "PROJECT_ARCHIVED";
+    const notificationResult = await sendNotification(project, eventType);
+
+    console.log("Notification sent:", notificationResult);
+
+    return res.status(200).json({
+      success: true,
+      message: `Project has been ${newArchiveStatus ? "archived" : "unarchived"}.`,
+    });
   } catch (e) {
-    return res.json({ success: false, message: e });
+    console.error("Error archiving project:", e);
+    return res.status(500).json({
+      success: false,
+      message: e.message || "Internal server error",
+    });
   }
 };
+
+// exports.archiveProject = async (req, res) => {
+//   try {
+//     logInfo(req.body, "archiveProject req.body");
+//     const projectId = req.body.projectId;
+//     const isArchived = (
+//       await Project.findOne({
+//         _id: projectId,
+//       })
+//     ).archive;
+
+//     if (isArchived) {
+//       await Project.findOneAndUpdate(
+//         {
+//           _id: projectId,
+//         },
+//         {
+//           $set: {
+//             archive: false,
+//           },
+//         }
+//       );
+//     } else {
+//       await Project.findOneAndUpdate(
+//         {
+//           _id: projectId,
+//         },
+//         {
+//           $set: {
+//             archive: true,
+//           },
+//         }
+//       );
+//     }
+//     return res.json({ success: true, message: "toggle archive" });
+//   } catch (e) {
+//     return res.json({ success: false, message: e });
+//   }
+// };
 
 // customfields for tasks for specific projects
 
 // POST request handler to add a custom field
 exports.addCustomTaskField = async (req, res) => {
   try {
-    console.log(req.body);
     const { key, label, type, projectId, groupId, level, isMandatory } =
       req.body;
     if (!projectId && !groupId) {
@@ -1412,7 +1374,6 @@ exports.addCustomTaskField = async (req, res) => {
 
 exports.getCustomTasksField = async (req, res) => {
   try {
-    // console.log("in request");
     const projectId = req.params.projectId;
 
     const level = req.query.level;
@@ -1445,9 +1406,7 @@ exports.getCustomTasksField = async (req, res) => {
 
 exports.getCustomTasksFieldGroup = async (req, res) => {
   try {
-    // console.log("in request");
     const groupId = req.params.groupId;
-    console.log(groupId, "groupId.......");
     const level = req.query.level;
 
     let condition =
@@ -1465,7 +1424,6 @@ exports.getCustomTasksFieldGroup = async (req, res) => {
     let customTasksField = await CustomTaskField.find(condition).populate(
       "groupId"
     );
-    console.log(customTasksField, "customTasksField...............");
     return res.json({
       customTasksField,
     });
@@ -1478,11 +1436,9 @@ exports.getCustomTasksFieldGroup = async (req, res) => {
 
 exports.getCustomTaskField = async (req, res) => {
   try {
-    // console.log("in request");
     const customFieldId = req.params.customFieldId;
 
     const customTaskField = await CustomTaskField.findById(customFieldId);
-    // console.log(customTaskField);
 
     return res.json({
       customTaskField,
@@ -1542,7 +1498,6 @@ exports.updateCustomTaskField = async (req, res) => {
 };
 
 exports.deleteCustomTaskField = async (req, res) => {
-  // console.log("delete.......")
   try {
     const customFieldId = req.params.customFieldId;
     const existingField = await CustomTaskField.findOneAndUpdate(
@@ -1589,16 +1544,10 @@ exports.createProjectType = async (req, res) => {
 
 exports.getProjectTypes = async (req, res) => {
   try {
-    // console.log("Fetching project types...");
     const all = req.params.all;
-    // console.log("Parameter 'all':", all);
 
     const condition = all === "all" ? {} : {}; // Adjust if needed
-    // console.log("Condition for find:", condition);
-
     const projectTypes = await ProjectTypes.find(condition);
-    // console.log("Project types fetched:", projectTypes);
-
     res.status(200).json({ projectTypes });
   } catch (error) {
     console.error("Error fetching project types:", error);
@@ -1608,9 +1557,6 @@ exports.getProjectTypes = async (req, res) => {
 
 exports.getProjectsByCompanyId = async (req, res) => {
   try {
-    // console.log("in getProjectsByCompanyId")
-    // console.log(req.params)
-    console.log(req.params.companyId, "from company Id");
     const projects = await Project.find({
       isDeleted: false,
       companyId: req.params.companyId,
@@ -1808,9 +1754,6 @@ exports.getProjectsKanbanData = async (req, res) => {
         // ]);
 
         let iprojects = await Project.find(projectWhereCondition).limit(10);
-
-        // console.log("projectsdata", iprojects);
-
         return { ...stage.toObject(), projects: iprojects };
       })
     );
@@ -1843,15 +1786,6 @@ exports.getKanbanProjects = async (req, res) => {
     const skip = page * limit;
     const { stageId, companyId, userId } = req.body;
 
-    console.log(
-      "page...project",
-      req.query.page,
-      "stageId...",
-      stageId,
-      "companyId...",
-      companyId
-    );
-
     // Build base filter for project stages
     let stageFilter = {
       companyId,
@@ -1866,8 +1800,6 @@ exports.getKanbanProjects = async (req, res) => {
       companyId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
-
-    console.log("Fetched projectStages:", projectStages.length);
 
     const stagesWithProjects = await Promise.all(
       projectStages.map(async (stage) => {
@@ -1959,9 +1891,6 @@ exports.getKanbanProjectsData = async (req, res) => {
     const limit = 10;
     const skip = page * limit;
     const { stageId, companyId, userId, archive } = req.body;
-
-    // console.log("req.body...", req.body, "req.query", req.query);
-
     if (!stageId || stageId === "null" || stageId === "ALL") {
       return res.status(400).json({
         success: false,
@@ -1977,18 +1906,12 @@ exports.getKanbanProjectsData = async (req, res) => {
       archive: archive || false,
       projectType: { $ne: "Exhibition" },
     };
-
-    // console.log("projectWhereCondition...", projectWhereCondition);
-
     if (userId !== "ALL") {
       projectWhereCondition.projectUsers = { $in: [userId] };
     }
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
-
-    // console.log("totalCount", totalCount, "totalPages", totalPages);
-
     if (page < 0 || page >= totalPages) {
       return res.status(400).json({
         success: false,
@@ -2000,9 +1923,6 @@ exports.getKanbanProjectsData = async (req, res) => {
       .sort({ createdOn: -1 })
       .skip(skip)
       .limit(limit);
-
-    //console.log("iprojects...", iprojects);
-
     const projects = await Promise.all(
       iprojects.map(async (p) => {
         const users = await User.find({ _id: { $in: p.projectUsers } }).select(
@@ -2105,8 +2025,6 @@ exports.getExhibitionKanbanData = async (req, res) => {
       projectType: "Exhibition",
       isDeleted: false,
     });
-    console.log(totalCount, "totalCount");
-
     return res.json({
       success: true,
       projectStages: stagesWithProjects,
@@ -2339,221 +2257,10 @@ exports.getKanbanExhibitionData = async (req, res) => {
   }
 };
 
-// exports.getKanbanExhibition = async (req, res) => {
-//   try {
-//     const archive = req.query.archive == "true";
-//     let page = parseInt(req.query.page || "0");
-//     const limit = 10;
-//     const skip = page * limit;
-//     const { stageId, companyId, userId } = req.body;
-
-//     console.log(
-//       "page...project",
-//       req.query.page,
-//       "stageId...",
-//       stageId,
-//       "companyId...",
-//       companyId
-//     );
-
-//     // Build base filter for project stages
-//     let stageFilter = {
-//       companyId,
-//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-//     };
-
-//     if (stageId && stageId !== "null" && stageId !== "ALL") {
-//       stageFilter._id = stageId;
-//     }
-
-//     const projectStages = await ProjectStage.find({
-//       companyId,
-//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-//     }).sort({ sequence: "asc" });
-
-//     console.log("Fetched projectStages:", projectStages.length);
-
-//     const stagesWithProjects = await Promise.all(
-//       projectStages.map(async (stage) => {
-//         let projectWhereCondition = {
-//           projectStageId: stage._id,
-//           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-//           companyId,
-//           archive,
-//           projectType: "Exhibition",
-//         };
-
-//         if (userId !== "ALL") {
-//           projectWhereCondition.projectUsers = { $in: [userId] };
-//         }
-
-//         // Get total project count for pagination
-//         const totalCount = await Project.countDocuments(projectWhereCondition);
-//         const totalPages = Math.ceil(totalCount / limit);
-
-//         // Fetch paginated projects
-//         const iprojects = await Project.find(projectWhereCondition)
-//           .sort({ createdOn: -1 })
-//           .skip(skip)
-//           .limit(limit);
-
-//         // Enrich project data
-//         const projects = await Promise.all(
-//           iprojects.map(async (p) => {
-//             const users = await User.find({
-//               _id: { $in: p.projectUsers },
-//             }).select("name");
-//             const createdByUser = await User.findById(p.createdBy).select(
-//               "name"
-//             );
-//             const tasksCount = await Task.countDocuments({
-//               projectId: p._id,
-//               isDeleted: false,
-//             });
-//             const isFavourite = await FavoriteProject.findOne({
-//               projectId: p._id,
-//               userId,
-//             });
-
-//             return {
-//               ...p.toObject(),
-//               tasksCount,
-//               isFavourite: !!isFavourite,
-//               projectUsers: users.map((user) => user.name),
-//               createdBy: createdByUser ? createdByUser.name : "Unknown",
-//             };
-//           })
-//         );
-
-//         return {
-//           ...stage.toObject(),
-//           projects,
-//           totalCount,
-//           totalPages,
-//         };
-//       })
-//     );
-
-//     const globalTotalCount = await Project.countDocuments({
-//       isDeleted: false,
-//       companyId,
-//       archive,
-//     });
-
-//     const globalTotalPages = Math.ceil(globalTotalCount / limit);
-
-//     return res.json({
-//       success: true,
-//       projectStages: stagesWithProjects,
-//       totalCount: globalTotalCount,
-//       totalPages: globalTotalPages,
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     return res.json({
-//       message: "error fetching project kanban",
-//       success: false,
-//     });
-//   }
-// };
-
-// exports.getKanbanExhibitionData = async (req, res) => {
-//   try {
-//     let page = parseInt(req.query.page || "0");
-//     const limit = 10;
-//     const skip = page * limit;
-//     const { stageId, companyId, userId, archive } = req.body;
-
-//     console.log("req.body...", req.body, "req.query", req.query);
-
-//     if (!stageId || stageId === "null" || stageId === "ALL") {
-//       return res.status(400).json({
-//         success: false,
-//         message: "stageId is required and cannot be ALL or null.",
-//       });
-//     }
-
-//     // Project query filter
-//     const projectWhereCondition = {
-//       projectStageId: stageId || "673202ee15c8e180c21e9ad7",
-//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-//       companyId,
-//       archive: archive || false,
-//       projectType: "Exhibition",
-//     };
-
-//     console.log("projectWhereCondition...", projectWhereCondition);
-
-//     if (userId !== "ALL") {
-//       projectWhereCondition.projectUsers = { $in: [userId] };
-//     }
-
-//     const totalCount = await Project.countDocuments(projectWhereCondition);
-//     const totalPages = Math.ceil(totalCount / limit);
-
-//     console.log("totalCount", totalCount, "totalPages", totalPages);
-
-//     if (page < 0 || page >= totalPages) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid page number.",
-//       });
-//     }
-
-//     const iprojects = await Project.find(projectWhereCondition)
-//       .sort({ createdOn: -1 })
-//       .skip(skip)
-//       .limit(limit);
-
-//     //console.log("iprojects...", iprojects);
-
-//     const projects = await Promise.all(
-//       iprojects.map(async (p) => {
-//         const users = await User.find({ _id: { $in: p.projectUsers } }).select(
-//           "name"
-//         );
-//         const createdByUser = await User.findById(p.createdBy).select("name");
-//         const tasksCount = await Task.countDocuments({
-//           projectId: p._id,
-//           isDeleted: false,
-//         });
-//         const isFavourite = await FavoriteProject.findOne({
-//           projectId: p._id,
-//           userId,
-//         });
-
-//         return {
-//           ...p.toObject(),
-//           tasksCount,
-//           isFavourite: !!isFavourite,
-//           projectUsers: users.map((user) => user.name),
-//           createdBy: createdByUser ? createdByUser.name : "Unknown",
-//         };
-//       })
-//     );
-
-//     return res.json({
-//       success: true,
-//       projects,
-//       totalCount,
-//       totalPages,
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     return res.json({
-//       message: "Error fetching kanban projects",
-//       success: false,
-//     });
-//   }
-// };
-
 exports.getProjectKanbanDataByGroupId = async (req, res) => {
   try {
     const { companyId, userId, groupId } = req.params;
     const archive = req.query.archive === "true";
-
-    console.log("groupId", groupId, "companyId", companyId, "userId", userId);
-
     const groupObjectId = mongoose.Types.ObjectId.isValid(groupId)
       ? new mongoose.Types.ObjectId(groupId)
       : null;
@@ -2648,9 +2355,6 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
     const limit = 10;
     const skip = page * limit;
     const { groupId, companyId, userId, archive, stageId } = req.body;
-
-    console.log("req.body...", req.body, "req.query", req.query);
-
     if (!groupId || groupId === "null" || groupId === "ALL") {
       return res.status(400).json({
         success: false,
@@ -2687,9 +2391,6 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
-
-    console.log("totalCount", totalCount, "totalPages", totalPages);
-
     if (page < 0 || page >= totalPages) {
       return res.status(400).json({
         success: false,
