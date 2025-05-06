@@ -13,6 +13,8 @@ const errors = {
 exports.getNotifications = async (req, res) => {
   try {
     const { companyId, userId, role } = req.body;
+    const page = req.query.page ? req.query.page : 0;
+    const limit = 5;
 
     if (!companyId || !userId || !role) {
       return res.status(400).json({
@@ -26,7 +28,23 @@ exports.getNotifications = async (req, res) => {
       isDeleted: false,
       companyId,
       $or: [{ userId }, { notifyRoleNames: role }],
-    }).sort({ createdOn: -1 });
+    }).sort({ createdOn: -1 })
+      .limit(limit)
+      .skip(limit * page);
+
+    const totalPages = Math.ceil(
+      (await UserNotification.find({
+            // name: { $regex: regex },
+            // companyId: req.params.companyId,
+            isDeleted: false
+      }).countDocuments()) / limit
+    );
+
+     const unReadNotification = Math.ceil(
+          (await UserNotification.find({
+           read: false
+          }).countDocuments())
+        )
 
     // Deduplicate by _id
     const uniqueMap = new Map();
@@ -40,6 +58,8 @@ exports.getNotifications = async (req, res) => {
       success: true,
       message: "Notifications fetched successfully",
       settings: uniqueNotifications,
+      totalPages,
+      unReadNotification,
     });
   } catch (error) {
     console.error("Error fetching notifications:", error);
