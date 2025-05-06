@@ -58,6 +58,7 @@ module.exports = async function sendNotification(task, eventType) {
   }).lean();
 
   const generateMessage = eventMessages[eventType];
+  console.log(generateMessage, "from generateMessage")
   if (!generateMessage) {
     console.warn(`No message defined for event type: ${eventType}`);
     return;

@@ -23,7 +23,7 @@ const eventMessages = {
   CUSTOM_FIELD_UPDATE: (task) =>
     `Custom fields of "${task.title}" were updated.`,
   EMAIL_RECEIVED: (task) => `You received an email related to "${task.title}".`,
-  PROJECT_CREATED: (task) => `You received an email related to "${task.title}".`,
+  PROJECT_CREATED: (task) => `The Project created as Title "${task.title}".`,
 };
 
 module.exports = eventMessages;

@@ -335,6 +335,10 @@ exports.createProject = async (req, res) => {
     lead_source: "USER",
     projectType: req.body.projectType,
   });
+
+  const eventType = "PROJECT_CREATED";
+  await sendNotification(newProject, eventType);
+
   newProject
     .save()
     .then((result) => {
@@ -1246,6 +1250,7 @@ exports.archiveProject = async (req, res) => {
     );
 
     const eventType = "PROJECT_ARCHIVED";
+    console.log(project, "from project archived")
     const notificationResult = await sendNotification(project, eventType);
 
     console.log("Notification sent:", notificationResult);
@@ -2453,40 +2458,7 @@ exports.updateStage = async (req, res) => {
     );
 
     const eventType = "STAGE_CHANGED";
-
-    const setting = new NotificationSetting({
-      companyId: project.companyId,
-      projectId,
-      taskStageId: newStageId,
-      eventType: eventType,
-      notifyRoles: [],
-      notifyUserIds: project.projectUsers,
-      channel: ["inapp"],
-      mandatory: false,
-      active: true,
-      createdBy: project.createdBy,
-    });
-
-    
-    await setting.save();
-
-    const stageData = [];
-
-    stageData.push({
-      companyId,
-      projectId,
-      taskStageId: newStageId,
-      eventType: eventType,
-      notifyRoles: [],
-      notifyUserIds: project.projectUsers,
-      channel: ["inapp"],
-      mandatory: false,
-      active: true,
-      createdBy: project.createdBy,
-      title: project.title,
-    });
-
-    await sendNotification(stageData[0], eventType);
+    await sendNotification(project, eventType);
 
     return res.json({ success: true });
   } catch (error) {
