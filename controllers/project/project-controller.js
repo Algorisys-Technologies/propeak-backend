@@ -1228,6 +1228,7 @@ exports.getUserProject = (req, res) => {
   }
 };
 exports.archiveProject = async (req, res) => {
+  console.log("Un archive project code ?")
   try {
     const { projectId } = req.body;
 
@@ -1267,47 +1268,6 @@ exports.archiveProject = async (req, res) => {
     });
   }
 };
-
-// exports.archiveProject = async (req, res) => {
-//   try {
-//     logInfo(req.body, "archiveProject req.body");
-//     const projectId = req.body.projectId;
-//     const isArchived = (
-//       await Project.findOne({
-//         _id: projectId,
-//       })
-//     ).archive;
-
-//     if (isArchived) {
-//       await Project.findOneAndUpdate(
-//         {
-//           _id: projectId,
-//         },
-//         {
-//           $set: {
-//             archive: false,
-//           },
-//         }
-//       );
-//     } else {
-//       await Project.findOneAndUpdate(
-//         {
-//           _id: projectId,
-//         },
-//         {
-//           $set: {
-//             archive: true,
-//           },
-//         }
-//       );
-//     }
-//     return res.json({ success: true, message: "toggle archive" });
-//   } catch (e) {
-//     return res.json({ success: false, message: e });
-//   }
-// };
-
-// customfields for tasks for specific projects
 
 // POST request handler to add a custom field
 exports.addCustomTaskField = async (req, res) => {

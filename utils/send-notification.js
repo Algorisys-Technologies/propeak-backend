@@ -6,6 +6,7 @@ const { ObjectId } = require("mongoose").Types;
 const UserNotification = require("../models/notification-setting/user-notification-model");
 module.exports = async function sendNotification(task, eventType) {
   console.log("eventType:", eventType);
+  console.log(task, "what is comes here??")
   const TASK_COMPLETED = "TASK_COMPLETED";
 
   if (task.status === "completed") {
