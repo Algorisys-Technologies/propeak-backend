@@ -20,12 +20,14 @@ const eventMessages = {
   STAGE_CHANGED: (task) => {
     const taskTitle = task.title || "Untitled Task";
     const stageTitle = task.taskStageId?.title || "UNKNOWN STAGE";
-    const taskStatus = task.status ? task.status.toUpperCase() : "UNKNOWN STATUS";
+    const taskStatus = task.status
+      ? task.status.toUpperCase()
+      : "UNKNOWN STATUS";
     const projectTitle = task.projectId?.title;
-    if(projectTitle === undefined){
+    if (projectTitle === undefined) {
       return `Project "${taskTitle}" has moved to the "${taskStatus}" stage. Current status: ${taskStatus}. Please review it.`;
     }
-  
+
     return `Task "${taskTitle}" from project "${projectTitle}" has moved to the "${taskStatus}" stage. Current status: ${taskStatus}. Please review it.`;
   },
 
@@ -36,8 +38,7 @@ const eventMessages = {
     const taskTitle = task.title || "Untitled Task";
     return `The task "${taskTitle}" has been rejected.`;
   },
-  
-  
+
   TASK_COMMENTED: (task) => `A new comment was added on task "${task.title}".`,
   PROJECT_ARCHIVED: (project) => {
     const title = project.title || "Untitled Project";
