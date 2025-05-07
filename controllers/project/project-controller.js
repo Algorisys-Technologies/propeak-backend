@@ -1296,8 +1296,16 @@ exports.archiveProject = async (req, res) => {
 // POST request handler to add a custom field
 exports.addCustomTaskField = async (req, res) => {
   try {
-    const { key, label, type, projectId, groupId, level, isMandatory } =
-      req.body;
+    const {
+      key,
+      label,
+      type,
+      projectId,
+      groupId,
+      level,
+      isMandatory,
+      companyId,
+    } = req.body;
     if (!projectId && !groupId) {
       return res
         .status(400)
@@ -1343,6 +1351,7 @@ exports.addCustomTaskField = async (req, res) => {
       label,
       type,
       projectId,
+      companyId,
       groupId,
       level,
       isMandatory,
@@ -1447,7 +1456,7 @@ exports.getCustomTaskField = async (req, res) => {
 
 exports.updateCustomTaskField = async (req, res) => {
   try {
-    const { key, label, type, level, isMandatory } = req.body;
+    const { key, label, type, level, isMandatory ,companyId} = req.body;
     const customFieldId = req.params.customFieldId;
 
     // Check for required fields (excluding project ID as it shouldn't be updated)
@@ -1478,6 +1487,8 @@ exports.updateCustomTaskField = async (req, res) => {
     existingField.type = type;
     existingField.level = level;
     existingField.isMandatory = isMandatory;
+    existingField.companyId = companyId;
+
 
     // Save the updated field
     await existingField.save();
@@ -1487,7 +1498,7 @@ exports.updateCustomTaskField = async (req, res) => {
     } catch (notifyErr) {
       console.warn("Notification failed", notifyErr);
     }
-    
+
     res.status(200).json({
       message: "Custom field updated successfully",
       data: existingField,
