@@ -37,8 +37,7 @@ const eventMessages = {
     const taskTitle = task.title || "Untitled Task";
     return `The task "${taskTitle}" has been rejected.`;
   },
-  
-  
+
   TASK_COMMENTED: (task) => `A new comment was added on task "${task.title}".`,
   PROJECT_ARCHIVED: (project) => {
     const title = project.title || "Untitled Project";
