@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const notificationSettingController = require("../../controllers/notification-setting/notification-setting-controller");
 const notificationController = require("../../controllers/notification-setting/notifications-controller");
-
+const notificationPreferenceController = require("../../controllers/notification-setting/notification-preference-controller");
 router.post("/add", notificationSettingController.createNotificationSetting);
 router.post(
   "/notification-setting",
@@ -15,15 +15,19 @@ router.put(
 router.delete("/:id", notificationSettingController.deleteNotificationSetting);
 router.put("/:id", notificationSettingController.updateNotificationSetting);
 
-// router.post("/addPreferences", notificationSettingController.addPreferences);
-// router.get(
-//   "/getPreferences/:userId",
-//   notificationSettingController.getPreferences
-// );
-// router.post("/:preferencesId", notificationSettingController.updatePreferences);
 //Notification Center
 router.post("/notifications", notificationController.getNotifications);
 router.delete("/notificartions/:id", notificationController.deleteNotification);
-router.post("/notificartions/read/:id", notificationController.markNotificationAsRead);
+router.post(
+  "/notificartions/read/:id",
+  notificationController.markNotificationAsRead
+);
 
+//Preference os users
+router.post("/addPreference", notificationPreferenceController.addPreferences);
+router.post("/getPreferences", notificationPreferenceController.getPreferences);
+router.post(
+  "/:preferencesId",
+  notificationPreferenceController.updatePreferences
+);
 module.exports = router;
