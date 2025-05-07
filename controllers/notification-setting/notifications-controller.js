@@ -14,6 +14,8 @@ exports.getNotifications = async (req, res) => {
   try {
     const { companyId, userId, role } = req.body;
     const page = req.query.page ? req.query.page : 0;
+    const npage = req.query.npage ? req.query.npage : 0;
+    const filter = req.query.filter;
     const limit = 5;
 
     if (!companyId || !userId || !role) {
@@ -23,6 +25,24 @@ exports.getNotifications = async (req, res) => {
       });
     }
 
+    const filterQuery = {
+      isDeleted: false,
+      companyId,
+      $or: [{ userId }, { notifyRoleNames: role }],
+    };
+    
+    if (filter === "unread") {
+      filterQuery.read = false;
+    } else if (filter !== "all") {
+      filterQuery.category = filter;
+    }
+
+    const notificationCenter = await UserNotification.find(filterQuery)
+    .sort({ createdOn: -1 })
+    .limit(limit)
+    .skip(limit * page);
+
+
     // Fetch notifications matching either direct user or role
     const notifications = await UserNotification.find({
       isDeleted: false,
@@ -30,7 +50,11 @@ exports.getNotifications = async (req, res) => {
       $or: [{ userId }, { notifyRoleNames: role }],
     }).sort({ createdOn: -1 })
       .limit(limit)
-      .skip(limit * page);
+      .skip(limit * npage);
+
+    const totalDocuments = await UserNotification.countDocuments(filterQuery);
+    const centerTotalPages = Math.ceil(totalDocuments / limit);
+    
 
     const totalPages = Math.ceil(
       (await UserNotification.find({
@@ -58,6 +82,8 @@ exports.getNotifications = async (req, res) => {
       success: true,
       message: "Notifications fetched successfully",
       settings: uniqueNotifications,
+      center: notificationCenter,
+      totalCenterPages: centerTotalPages,
       totalPages,
       unReadNotification,
     });
@@ -83,7 +109,7 @@ exports.deleteNotification = async (req, res) => {
 
     const updated = await UserNotification.findByIdAndUpdate(
       id,
-      { isDeleted: true },
+      { isDeleted: true, read: true },
       { new: true }
     );
 

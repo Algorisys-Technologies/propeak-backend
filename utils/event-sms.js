@@ -20,9 +20,11 @@ const eventMessages = {
   STAGE_CHANGED: (task) => {
     const taskTitle = task.title || "Untitled Task";
     const stageTitle = task.taskStageId?.title || "UNKNOWN STAGE";
-    const taskStatus = task.status ? task.status.toUpperCase() : "UNKNOWN STATUS";
+    const taskStatus = task.status
+      ? task.status.toUpperCase()
+      : "UNKNOWN STATUS";
     const projectTitle = task.projectId?.title || "UNKNOWN PROJECT";
-  
+
     return `Task "${taskTitle}" from project "${projectTitle}" has moved to the "${taskStatus}" stage. Current status: ${taskStatus}. Please review it.`;
   },
 
@@ -50,7 +52,7 @@ const eventMessages = {
   },
 
   CUSTOM_FIELD_UPDATE: (task) =>
-    `Custom fields of "${task.title}" were updated.`,
+    `Custom fields "${task.key}" have been updated in project "${task.ProjectTitle}".`,
   EMAIL_RECEIVED: (task) => `You received an email related to "${task.title}".`,
   PROJECT_CREATED: (task) => `The Project created as Title "${task.title}".`,
 };

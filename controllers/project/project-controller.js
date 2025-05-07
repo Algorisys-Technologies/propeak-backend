@@ -1306,6 +1306,8 @@ exports.addCustomTaskField = async (req, res) => {
       isMandatory,
       companyId,
     } = req.body;
+
+    console.log(req.body, "from req.body custom field")
     if (!projectId && !groupId) {
       return res
         .status(400)
@@ -1360,9 +1362,34 @@ exports.addCustomTaskField = async (req, res) => {
 
     // Save the custom field
     await newField.save();
+
+    console.log(newField, "from new filed")
+    const custom_field = [];
+    let project;
+    if(projectId){
+      project = await Project.findById(projectId).select("title");
+      custom_field.push({
+        key,
+        label,
+        type,
+        projectId,
+        companyId,
+        groupId,
+        level,
+        isMandatory,
+        isDeleted: false,
+        ProjectTitle: project.title,
+      })
+    }
+    // if(groupId){
+    //   project = await Project.findOne({ group: groupId }).select("title");
+    //   console.log(project, "groupId level")
+    // }
+
+    // console.log(custom_field, "from custim sdf")
     try {
       const eventType = "CUSTOM_FIELD_UPDATE";
-      await sendNotification(newField, eventType);
+      await sendNotification(custom_field[0], eventType);
     } catch (notifyErr) {
       console.warn("Notification failed", notifyErr);
     }
