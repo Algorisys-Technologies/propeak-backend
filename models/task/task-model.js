@@ -61,7 +61,9 @@ const TaskSchema = new mongoose.Schema(
       ref: "user",
     },
     modifiedBy: {
-      type: String,
+      // type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
     },
     isDeleted: {
       type: Boolean,

@@ -8,7 +8,6 @@ const { logError, logInfo } = require("./common/logger.js");
 const contactModel = require("./models/contact/contact-model.js");
 require("dotenv").config();
 
-console.log(process.env.DB);
 
 // try {
 //   const j = schedule.scheduleJob(config.contactsSchedule, function () {

@@ -9,50 +9,27 @@ const checkRole = require("../../verify-token/check-role");
 const projectConfigController = require("../../controllers/project/project-config-controller");
 const companyProjectConfigController = require("../../controllers/project/company-project-config-controller");
 
-router.post(
-  "/summary",
-  // verifyToken,
-  // checkRole,
-  projectController.getAllProjectsSummary
-);
+router.post("/summary", projectController.getAllProjectsSummary);
 
 router.get("/statusOptions", verifyToken, projectController.getStatusOptions);
 
-router.get(
-  "/data/:projectId",
-  // verifyToken,
-  projectController.getProjectByProjectId
-);
+router.get("/data/:projectId", projectController.getProjectByProjectId);
 
 //get project with task
 router.get(
   "/tasks/data/:projectId",
-  // verifyToken,
   projectController.getProjectDataByProjectId
 );
 
 // READ (ALL)
 router.get("/:projectId", verifyToken, projectController.getTasksAndUsers);
 
-// CREATE
-// router.post(
-//   "/addProject",
-//   verifyToken,
-//   verifyAppLevelAccess,
-//   restrictCreation,
-//   projectController.createProject
-// );
-
 router.post("/addProject", projectController.createProject);
 // UPDATE
 router.post("/editProject", projectController.updateProject);
 
 // DELETE
-router.post(
-  "/deleteProject",
-
-  projectController.deleteProject
-);
+router.post("/deleteProject", projectController.deleteProject);
 
 router.post("/updateField", projectController.updateProjectField);
 
@@ -64,13 +41,7 @@ router.post(
 );
 
 //Get AuditLog
-router.post(
-  "/AuditLog",
-  // verifyToken,
-  // checkRole,
-  // verifyAppLevelAccess,
-  projectController.getAuditLog
-);
+router.post("/AuditLog", projectController.getAuditLog);
 
 router.post("/getAuditLogForProject", projectController.getAuditLogForProject);
 
@@ -219,14 +190,16 @@ router.get(
 router.post("/getKanbanProjects", projectController.getKanbanProjects);
 router.post("/getKanbanProjectsData", projectController.getKanbanProjectsData);
 
-//Exhibitions route 
+//Exhibitions route
 router.get(
   "/kanbane/:companyId/:userId",
   projectController.getExhibitionKanbanData
 );
 router.post("/getKanbanExhibition", projectController.getKanbanExhibition);
-router.post("/getKanbanExhibitionData", projectController.getKanbanExhibitionData);
-
+router.post(
+  "/getKanbanExhibitionData",
+  projectController.getKanbanExhibitionData
+);
 
 router.get(
   "/kanban-groupMaster/:companyId/:userId/:groupId",
@@ -237,7 +210,7 @@ router.post(
   "/getKanbanProjectsByGroup",
   projectController.getKanbanProjectsByGroup
 );
-
+router.get("/allProjects", projectController.getProjects)
 router.put("/updateStage", projectController.updateStage);
 
 module.exports = router;

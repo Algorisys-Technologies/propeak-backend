@@ -131,7 +131,6 @@ exports.getUser = (req, res) => {
 
 exports.getUsers = async (req, res) => {
   try {
-    console.log("get Usersssss")
     const { companyId } = req.body;
     const { q } = req.query;
 
@@ -154,27 +153,7 @@ exports.getUsers = async (req, res) => {
     else{
        query = { isDeleted: false, companyId, ...searchFilter };
     }
-
-    // Define the query to fetch users based on the provided companyId
-
-    // Create a cache key unique to the user's company
-    // const cacheKey = `usersData_${companyId}`;
-
-    // // Check for cached data based on the cache key
-    // var cachedData = await cacheManager.getCachedData(cacheKey);
-    // if (cachedData && cachedData.length > 0) {
-    //   console.log("Returning cached data.");
-    //   return res.json(cachedData);
-    // }
-
-    // Fetch users based on query
-    console.log(query)
     const result = await User.find(query)
-    // console.log(result, "result..............................");
-    // Cache the fetched result
-    // await cacheManager.setCachedData(cacheKey, result);
-    // console.log("Cached data set successfully.");
-    console.log("RESULT",result)
     return res.status(200).json(result);
   } catch (err) {
     console.error("Error fetching users:", err);
