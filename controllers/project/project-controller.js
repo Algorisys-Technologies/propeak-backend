@@ -2435,7 +2435,7 @@ exports.updateStage = async (req, res) => {
       { projectStageId: newStageId, modifiedOn: new Date(), status: status }
     );
 
-    const eventType = "STAGE_CHANGED";
+    const eventType = "PROJECT_STAGE_CHANGED";
     await sendNotification(project, eventType);
 
     return res.json({ success: true });
