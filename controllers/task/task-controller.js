@@ -2545,10 +2545,16 @@ exports.getTasksStagesByProjectId = async (req, res) => {
 };
 
 exports.updateStage = async (req, res) => {
+  console.log("request coming from body",req.body)
   try {
-    const { taskId, newStageId, status } = req.body;
+    const { taskId, newStageId, status,userId } = req.body;
 
     const task = await Task.findById(taskId)
+      .populate({
+        path: "modifiedBy",
+        select: "email",
+        model: "user",
+      })
       .populate({
         path: "taskStageId",
         select: "title",
@@ -2567,6 +2573,7 @@ exports.updateStage = async (req, res) => {
     task.taskStageId = newStageId;
     task.status = status;
     task.modifiedOn = new Date();
+    task.modifiedBy=userId;
     await task.save();
 
     const eventType = "STAGE_CHANGED";
