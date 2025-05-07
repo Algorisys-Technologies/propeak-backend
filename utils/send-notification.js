@@ -6,9 +6,9 @@ const { ObjectId } = require("mongoose").Types;
 const UserNotification = require("../models/notification-setting/user-notification-model");
 module.exports = async function sendNotification(task, eventType) {
   console.log("eventType:", eventType);
-  console.log(task, "what is comes here??")
+  console.log(task, "what is comes here??");
   const TASK_COMPLETED = "TASK_COMPLETED";
-  const TASK_REJECTED="TASK_REJECTED";
+  const TASK_REJECTED = "TASK_REJECTED";
   if (task.status === "completed") {
     eventType = TASK_COMPLETED;
     console.log("Overridden eventType to TASK_COMPLETED");
@@ -63,7 +63,7 @@ module.exports = async function sendNotification(task, eventType) {
   }).lean();
 
   const generateMessage = eventMessages[eventType];
-  console.log(generateMessage, "from generateMessage")
+  console.log(generateMessage, "from generateMessage");
   if (!generateMessage) {
     console.warn(`No message defined for event type: ${eventType}`);
     return;
@@ -100,7 +100,16 @@ module.exports = async function sendNotification(task, eventType) {
       companyId: task.companyId,
       isDeleted: false,
       userId: user._id,
-      subject: `Task Notification`,
+      // subject: `Task Notification`,
+      subject: [
+        "CUSTOM_FIELD_UPDATE",
+        "PROJECT_CREATED",
+        "PROJECT_ARCHIVED",
+        "PROJECT_STAGE_CHANGED",
+      ].includes(eventType)
+        ? "Project Notification"
+        : "Task Notification",
+
       message: message,
       url: `/tasks/${task._id}`,
       read: false,
@@ -124,12 +133,6 @@ module.exports = async function sendNotification(task, eventType) {
     console.log("No users to notify.");
   }
 };
-
-
-
-
-
-
 
 // module.exports = async function sendNotification(data, eventType) {
 //   console.log("eventType:", eventType);
