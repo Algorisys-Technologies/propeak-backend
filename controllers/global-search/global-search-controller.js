@@ -29,7 +29,14 @@ exports.searchByTasksAndProjects = async (req, res) => {
     // Fetch tasks with pagination
     const tasks = await Task.find(taskQuery)
       .skip(limit * page)
-      .limit(limit);
+      .limit(limit)
+      .populate({
+        path: "projectId",
+        populate: {
+          path: "group",
+          model: "groupMaster",
+        },
+      });
 
     // Build project query
     const projectQuery = {
@@ -43,9 +50,9 @@ exports.searchByTasksAndProjects = async (req, res) => {
 
     // Fetch projects with pagination
     const projects = await Project.find(projectQuery)
-    .skip(limit * page)
-    .limit(limit)
-    .populate("group", "name");
+      .skip(limit * page)
+      .limit(limit)
+      .populate("group", "name");
 
     // Build account query
     const accountQuery = {
