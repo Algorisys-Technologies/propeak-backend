@@ -21,12 +21,13 @@ const eventMessages = {
     const taskTitle = task.title || "Untitled Task";
     const stageTitle = task.taskStageId?.title || "UNKNOWN STAGE";
     const taskStatus = task.status ? task.status.toUpperCase() : "UNKNOWN STATUS";
-    const projectTitle = task.projectId?.title;
-    if(projectTitle === undefined){
-      return `Project "${taskTitle}" has moved to the "${taskStatus}" stage. Current status: ${taskStatus}. Please review it.`;
-    }
+    const projectTitle = task.projectId?.title || "UNKNOWN PROJECT";
   
     return `Task "${taskTitle}" from project "${projectTitle}" has moved to the "${taskStatus}" stage. Current status: ${taskStatus}. Please review it.`;
+  },
+
+  PROJECT_STAGE_CHANGED: (task) => {
+    return `Project '${task.title}' has been moved to '${task.status}'`;
   },
 
   TASK_COMPLETED: (task) =>
