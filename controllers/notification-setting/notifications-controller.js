@@ -33,15 +33,25 @@ exports.getNotifications = async (req, res) => {
     
     if (filter === "unread") {
       filterQuery.read = false;
-    } else if (filter !== "all") {
-      filterQuery.category = filter;
+    }
+    if (filter === "project") {
+      filterQuery.category = "project";
+    }
+    if (filter === "comment") {
+      filterQuery.category = "comment";
+    }
+    if (filter === "email") {
+      filterQuery.category = "email";
+    }
+    if (filter === "task") {
+      filterQuery.category = "task";
     }
 
     const notificationCenter = await UserNotification.find(filterQuery)
     .sort({ createdOn: -1 })
     .limit(limit)
-    .skip(limit * page);
-
+    .skip(limit * page)
+    .lean();
 
     // Fetch notifications matching either direct user or role
     const notifications = await UserNotification.find({
