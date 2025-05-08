@@ -35,20 +35,6 @@ const errors = {
 const sendNotification = require("../../utils/send-notification");
 
 exports.getAuditLog = (req, res) => {
-  // let userRole = req.userInfo.userRole.toLowerCase();
-  // let accessCheck = access.checkEntitlements(userRole);
-  // let userAccess = req.userInfo.userAccess;
-  // viewAuditLog = accessConfig.validateEntitlements(
-  //   userAccess,
-  //   req.body.id,
-  //   "Audit Report",
-  //   "view",
-  //   userRole
-  // );
-  // if (accessCheck === false && !viewAuditLog) {
-  //   res.json({ err: errors.NOT_AUTHORIZED });
-  //   return;
-  // }
   try {
     let auditObservable = fromPromise(
       AuditLogs.find({
@@ -460,6 +446,7 @@ exports.createProject = async (req, res) => {
       }
     });
 };
+
 exports.getProjects = async (req, res) => {
   try {
     const { companyId } = req.query;
@@ -1532,7 +1519,6 @@ exports.deleteCustomTaskField = async (req, res) => {
 };
 
 // Project Type
-
 exports.createProjectType = async (req, res) => {
   const { type } = req.body;
 
@@ -1618,6 +1604,7 @@ exports.getProjectsByCompanyId = async (req, res) => {
     });
   }
 };
+
 exports.getProjectsKanbanData = async (req, res) => {
   try {
     const { companyId, userId, stageId } = req.params;
@@ -1977,6 +1964,7 @@ exports.getKanbanProjectsData = async (req, res) => {
     });
   }
 };
+
 exports.getExhibitionKanbanData = async (req, res) => {
   try {
     const { companyId, userId } = req.params;
@@ -2170,6 +2158,7 @@ exports.getKanbanExhibition = async (req, res) => {
     });
   }
 };
+
 exports.getKanbanExhibitionData = async (req, res) => {
   try {
     const page = parseInt(req.query.page || "0", 10);
