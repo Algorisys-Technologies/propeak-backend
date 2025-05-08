@@ -161,6 +161,13 @@ exports.createTask = (req, res) => {
         console.error("Notification error:", notificationError);
       }
 
+      const task = await Task.findById(taskId)
+      .populate({
+        path: "projectId",
+        select: "title",
+        model: "project",
+      });
+
       if (fileName) {
         let uploadFile = {
           _id: _id,
@@ -297,13 +304,13 @@ exports.createTask = (req, res) => {
             let emailText = config.taskEmailContent
               .replace("#title#", newTask.title)
               .replace("#description#", updatedDescription)
-              .replace("#projectName#", newTask.projectId)
-              .replace("#projectId#", newTask.projectId)
+              .replace("#projectName#", newTask.projectId.title)
+              .replace("#projectId#", newTask.projectId._id)
               .replace("#priority#", newTask.priority.toUpperCase())
               .replace("#newTaskId#", newTask._id);
 
             let taskEmailLink = config.taskEmailLink
-              .replace("#projectId#", newTask.projectId)
+              .replace("#projectId#", newTask.projectId._id)
               .replace("#newTaskId#", newTask._id);
 
             if (email !== "XX") {
@@ -311,7 +318,7 @@ exports.createTask = (req, res) => {
                 from: config.from,
                 to: email,
                 // cc: emailOwner,
-                subject: `${newTask.projectId} - Task assigned - ${newTask.title}`,
+                subject: `${newTask.projectId.title} - Task assigned - ${newTask.title}`,
                 html: emailText,
               };
 
@@ -338,7 +345,7 @@ exports.createTask = (req, res) => {
           }
         };
 
-        auditTaskAndSendMail(result, emailOwner, email);
+        auditTaskAndSendMail(task, emailOwner, email);
       }
 
       res.json({
@@ -439,6 +446,14 @@ exports.updateTask = (req, res) => {
       } catch (notificationError) {
         console.error("Notification error:", notificationError);
       }
+
+      const task = await Task.findById(result.id)
+      .populate({
+        path: "projectId",
+        select: "title",
+        model: "project",
+      });
+
       const userIdToken = req.body.userName;
       const fields = Object.keys(result.toObject()).filter(
         (key) =>
@@ -475,7 +490,7 @@ exports.updateTask = (req, res) => {
       });
 
       const emailOwner = [ownerEmail, createdByEmail];
-      const email = [(await User.findOne({ _id: userId })).email];
+      const email = [(await User.findOne({ _id: userId }))?.email];
 
       if (emailOwner.length > 0 || email.length > 0) {
         const auditTaskAndSendMail = async (updatedTask, emailOwner, email) => {
@@ -487,24 +502,26 @@ exports.updateTask = (req, res) => {
             let emailText = config.taskEmailContent
               .replace("#title#", updatedTask.title)
               .replace("#description#", updatedDescription)
-              .replace("#projectName#", updatedTask.projectId)
-              .replace("#projectId#", updatedTask.projectId)
+              .replace("#projectName#", updatedTask.projectId.title)
+              .replace("#projectId#", updatedTask.projectId._id)
               .replace("#priority#", updatedTask.priority.toUpperCase())
               .replace("#newTaskId#", updatedTask._id);
 
             let taskEmailLink = config.taskEmailLink
-              .replace("#projectId#", updatedTask.projectId)
+              .replace("#projectId#", updatedTask.projectId._id)
               .replace("#newTaskId#", updatedTask._id);
 
-            if (email !== "XX") {
-              var mailOptions = {
-                from: config.from,
-                to: email,
-                // cc: emailOwner,
-                subject: `${updatedTask.projectId} - Task updated - ${updatedTask.title}`,
-                html: emailText,
-              };
-
+              
+              if (email !== "XX") {
+                var mailOptions = {
+                  from: config.from,
+                  to: email,
+                  // cc: emailOwner,
+                  subject: `${updatedTask.projectId.title} - Task updated - ${updatedTask.title}`,
+                  html: emailText,
+                };
+                
+                
               let taskArr = {
                 subject: mailOptions.subject,
                 url: taskEmailLink,
@@ -528,8 +545,9 @@ exports.updateTask = (req, res) => {
             console.error("Error in sending email", error);
           }
         };
-
-        auditTaskAndSendMail(result, emailOwner, email);
+        if(task.publish_status === "published"){
+          auditTaskAndSendMail(task, emailOwner, email);
+        }
       }
 
       res.json({
