@@ -1307,7 +1307,7 @@ exports.addCustomTaskField = async (req, res) => {
       companyId,
     } = req.body;
 
-    console.log(req.body, "from req.body custom field")
+    console.log(req.body, "from req.body custom field");
     if (!projectId && !groupId) {
       return res
         .status(400)
@@ -1363,33 +1363,10 @@ exports.addCustomTaskField = async (req, res) => {
     // Save the custom field
     await newField.save();
 
-    console.log(newField, "from new filed")
-    const custom_field = [];
-    let project;
-    if(projectId){
-      project = await Project.findById(projectId).select("title");
-      custom_field.push({
-        key,
-        label,
-        type,
-        projectId,
-        companyId,
-        groupId,
-        level,
-        isMandatory,
-        isDeleted: false,
-        ProjectTitle: project.title,
-      })
-    }
-    // if(groupId){
-    //   project = await Project.findOne({ group: groupId }).select("title");
-    //   console.log(project, "groupId level")
-    // }
-
-    // console.log(custom_field, "from custim sdf")
+    console.log(newField, "from new filed");
     try {
       const eventType = "CUSTOM_FIELD_UPDATE";
-      await sendNotification(custom_field[0], eventType);
+      await sendNotification(newField, eventType);
     } catch (notifyErr) {
       console.warn("Notification failed", notifyErr);
     }
@@ -1483,7 +1460,7 @@ exports.getCustomTaskField = async (req, res) => {
 
 exports.updateCustomTaskField = async (req, res) => {
   try {
-    const { key, label, type, level, isMandatory ,companyId} = req.body;
+    const { key, label, type, level, isMandatory, companyId } = req.body;
     const customFieldId = req.params.customFieldId;
 
     // Check for required fields (excluding project ID as it shouldn't be updated)
@@ -1515,7 +1492,6 @@ exports.updateCustomTaskField = async (req, res) => {
     existingField.level = level;
     existingField.isMandatory = isMandatory;
     existingField.companyId = companyId;
-
 
     // Save the updated field
     await existingField.save();
