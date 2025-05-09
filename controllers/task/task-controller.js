@@ -151,6 +151,13 @@ exports.createTask = (req, res) => {
     .save()
     .then(async (result) => {
       const taskId = result._id;
+      // Send notification here
+
+      const task = await Task.findById(taskId).populate({
+        path: "projectId",
+        select: "title",
+        model: "project",
+      });
 
       if (fileName) {
         let uploadFile = {
@@ -170,17 +177,16 @@ exports.createTask = (req, res) => {
         if (taskId) {
           await Task.findOneAndUpdate(
             { _id: taskId },
-            { 
-              $push: { 
-                uploadFiles: { 
-                  _id: uploadResult._id, 
-                  fileName: uploadResult.fileName 
-                } 
-              } 
+            {
+              $push: {
+                uploadFiles: {
+                  _id: uploadResult._id,
+                  fileName: uploadResult.fileName,
+                },
+              },
             },
-            { new: true } 
+            { new: true }
           );
-          
         } else {
           await Project.findOneAndUpdate(
             { _id: projectId },
@@ -289,13 +295,13 @@ exports.createTask = (req, res) => {
             let emailText = config.taskEmailContent
               .replace("#title#", newTask.title)
               .replace("#description#", updatedDescription)
-              .replace("#projectName#", newTask.projectId)
-              .replace("#projectId#", newTask.projectId)
+              .replace("#projectName#", newTask.projectId.title)
+              .replace("#projectId#", newTask.projectId._id)
               .replace("#priority#", newTask.priority.toUpperCase())
               .replace("#newTaskId#", newTask._id);
 
             let taskEmailLink = config.taskEmailLink
-              .replace("#projectId#", newTask.projectId)
+              .replace("#projectId#", newTask.projectId._id)
               .replace("#newTaskId#", newTask._id);
 
             if (email !== "XX") {
@@ -303,7 +309,7 @@ exports.createTask = (req, res) => {
                 from: config.from,
                 to: email,
                 // cc: emailOwner,
-                subject: `${newTask.projectId} - Task assigned - ${newTask.title}`,
+                subject: `${newTask.projectId.title} - Task assigned - ${newTask.title}`,
                 html: emailText,
               };
 
@@ -330,7 +336,7 @@ exports.createTask = (req, res) => {
           }
         };
 
-        auditTaskAndSendMail(result, emailOwner, email);
+        auditTaskAndSendMail(task, emailOwner, email);
       }
 
       res.json({
@@ -412,10 +418,10 @@ exports.updateTask = (req, res) => {
       companyId,
       modifiedBy,
       modifiedOn: new Date(),
-      userId, // Update the userId here
+      userId,
       publish_status: publishStatus,
     },
-    { new: true } // Options to return the updated document and run validators
+    { new: true }
   )
     .then(async (result) => {
       if (!result) {
@@ -424,10 +430,13 @@ exports.updateTask = (req, res) => {
           msg: "Task not found",
         });
       }
+      const task = await Task.findById(result.id).populate({
+        path: "projectId",
+        select: "title",
+        model: "project",
+      });
 
       const userIdToken = req.body.userName;
-
-      // Audit log logic
       const fields = Object.keys(result.toObject()).filter(
         (key) =>
           result[key] !== undefined &&
@@ -463,7 +472,7 @@ exports.updateTask = (req, res) => {
       });
 
       const emailOwner = [ownerEmail, createdByEmail];
-      const email = [(await User.findOne({ _id: userId })).email];
+      const email = [(await User.findOne({ _id: userId }))?.email];
 
       if (emailOwner.length > 0 || email.length > 0) {
         const auditTaskAndSendMail = async (updatedTask, emailOwner, email) => {
@@ -475,13 +484,13 @@ exports.updateTask = (req, res) => {
             let emailText = config.taskEmailContent
               .replace("#title#", updatedTask.title)
               .replace("#description#", updatedDescription)
-              .replace("#projectName#", updatedTask.projectId)
-              .replace("#projectId#", updatedTask.projectId)
+              .replace("#projectName#", updatedTask.projectId.title)
+              .replace("#projectId#", updatedTask.projectId._id)
               .replace("#priority#", updatedTask.priority.toUpperCase())
               .replace("#newTaskId#", updatedTask._id);
 
             let taskEmailLink = config.taskEmailLink
-              .replace("#projectId#", updatedTask.projectId)
+              .replace("#projectId#", updatedTask.projectId._id)
               .replace("#newTaskId#", updatedTask._id);
 
             if (email !== "XX") {
@@ -489,7 +498,7 @@ exports.updateTask = (req, res) => {
                 from: config.from,
                 to: email,
                 // cc: emailOwner,
-                subject: `${updatedTask.projectId} - Task updated - ${updatedTask.title}`,
+                subject: `${updatedTask.projectId.title} - Task updated - ${updatedTask.title}`,
                 html: emailText,
               };
 
@@ -516,8 +525,9 @@ exports.updateTask = (req, res) => {
             console.error("Error in sending email", error);
           }
         };
-
-        auditTaskAndSendMail(result, emailOwner, email);
+        if (task.publish_status === "published") {
+          auditTaskAndSendMail(task, emailOwner, email);
+        }
       }
 
       res.json({
@@ -1139,46 +1149,45 @@ exports.deleteTask = (req, res) => {
 
   // Update the task to set isDeleted to true
   Task.findByIdAndUpdate(taskId, { $set: { isDeleted: true } }, { new: true })
-  .then(async (task) => {
-    if (!task) {
-      return res.status(404).json({
-        success: false,
-        msg: "Task not found",
+    .then(async (task) => {
+      if (!task) {
+        return res.status(404).json({
+          success: false,
+          msg: "Task not found",
+        });
+      }
+
+      // Update all upload files related to this task
+      await UploadFile.updateOne(
+        { _id: { $in: task.uploadFiles._id } },
+        { $set: { isDeleted: true } }
+      );
+
+      // Insert an audit log for the task marked as deleted
+      audit.insertAuditLog(
+        "",
+        "Task deletion",
+        "Task",
+        "delete",
+        taskId,
+        req.body.userName || "unknown",
+        taskId
+      );
+
+      res.json({
+        success: true,
+        msg: "Task and related files marked as deleted successfully!",
+        task,
       });
-    }
-
-    // Update all upload files related to this task
-    await UploadFile.updateOne(
-      { _id: { $in: task.uploadFiles._id } },
-      { $set: { isDeleted: true } }
-    );
-
-    // Insert an audit log for the task marked as deleted
-    audit.insertAuditLog(
-      "",
-      "Task deletion",
-      "Task",
-      "delete",
-      taskId,
-      req.body.userName || "unknown",
-      taskId
-    );
-
-    res.json({
-      success: true,
-      msg: "Task and related files marked as deleted successfully!",
-      task,
+    })
+    .catch((err) => {
+      console.error("DELETE_TASK ERROR", err);
+      res.status(400).json({
+        success: false,
+        msg: "Failed to mark task as deleted",
+        error: err.message,
+      });
     });
-  })
-  .catch((err) => {
-    console.error("DELETE_TASK ERROR", err);
-    res.status(400).json({
-      success: false,
-      msg: "Failed to mark task as deleted",
-      error: err.message,
-    });
-  });
-
 };
 exports.deleteSelectedTasks = async (req, res) => {
   const { taskIds, modifiedBy } = req.body;
@@ -1201,8 +1210,10 @@ exports.deleteSelectedTasks = async (req, res) => {
   try {
     // Step 1: Fetch the tasks to be deleted
     const tasksToDelete = await Task.find({ _id: { $in: taskIds } });
-    // const fileIds = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.id)); 
-    const fileNames = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.fileName));
+    // const fileIds = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.id));
+    const fileNames = tasksToDelete.flatMap((task) =>
+      task.uploadFiles.map((file) => file.fileName)
+    );
 
     if (!tasksToDelete || tasksToDelete.length === 0) {
       return res.status(404).json({
@@ -1213,7 +1224,7 @@ exports.deleteSelectedTasks = async (req, res) => {
 
     // Step 2: Delete tasks
     const deletedTasks = await Task.updateMany(
-      { _id: { $in: taskIds } }, 
+      { _id: { $in: taskIds } },
       { $set: { isDeleted: true } }
     );
 
@@ -1221,10 +1232,10 @@ exports.deleteSelectedTasks = async (req, res) => {
 
     // const uploadFileIds = deleteFile.map(file => file._id);
 
-    if(deleteFile)
+    if (deleteFile)
       if (fileNames.length > 0) {
         await UploadFile.updateMany(
-          { fileName: { $in: fileNames } }, 
+          { fileName: { $in: fileNames } },
           { $set: { isDeleted: true } }
         );
       }
@@ -2461,12 +2472,16 @@ exports.getTasksStagesByProjectId = async (req, res) => {
         {
           $lookup: {
             from: "products",
-            let: { companyId: "$companyId"},
+            let: { companyId: "$companyId" },
             pipeline: [
-              { $match: { $expr: { $eq: ["$companyId", { $toObjectId: companyId }] } } }
+              {
+                $match: {
+                  $expr: { $eq: ["$companyId", { $toObjectId: companyId }] },
+                },
+              },
             ],
-            as: "companyProducts"
-          }
+            as: "companyProducts",
+          },
         },
         {
           $lookup: {
@@ -2491,28 +2506,29 @@ exports.getTasksStagesByProjectId = async (req, res) => {
         {
           $lookup: {
             from: "tasks",
-            let: { projectId: "$_id" }, 
+            let: { projectId: "$_id" },
             pipeline: [
-              { 
-                $match: { 
-                  $expr: { $eq: ["$projectId", "$$projectId"] } } 
+              {
+                $match: {
+                  $expr: { $eq: ["$projectId", "$$projectId"] },
+                },
               },
-              { 
-                $unwind: "$tag" 
+              {
+                $unwind: "$tag",
               },
-              { 
-                $group: { 
+              {
+                $group: {
                   _id: "$tag", // Group by tag
                   // count: { $sum: 1 } // Count occurrences of each tag
-                } 
-              }
+                },
+              },
             ],
-            as: "taskTags"
-          }
-        }
+            as: "taskTags",
+          },
+        },
       ])
     )[0];
-    const taskStagesTitles = project.taskStages; 
+    const taskStagesTitles = project.taskStages;
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       companyId: companyId,
@@ -2545,7 +2561,11 @@ exports.deleteTask = async (req, res) => {
     const { taskId } = req.body;
 
     await Task.findByIdAndUpdate({ _id: taskId }, { isDeleted: true });
-    await UploadFile.findOneAndUpdate({ taskId }, { $set: { isDeleted: true } }, { new: true });
+    await UploadFile.findOneAndUpdate(
+      { taskId },
+      { $set: { isDeleted: true } },
+      { new: true }
+    );
 
     return res.json({ success: true });
   } catch (error) {
@@ -3211,7 +3231,7 @@ exports.deleteFiltered = async (req, res) => {
             case "interested_products": {
               condition["interested_products.product_id"] = value;
               break;
-            } 
+            }
             default:
               break;
           }
@@ -3223,7 +3243,7 @@ exports.deleteFiltered = async (req, res) => {
 
     if (condition["uploadFiles.fileName"]) {
       await UploadFile.updateMany(
-        { fileName: condition["uploadFiles.fileName"] }, 
+        { fileName: condition["uploadFiles.fileName"] },
         { $set: { isDeleted: true } }
       );
     }
