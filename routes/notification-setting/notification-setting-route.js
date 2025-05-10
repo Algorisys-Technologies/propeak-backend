@@ -23,6 +23,11 @@ router.post(
   notificationController.markNotificationAsRead
 );
 
+router.post(
+  "/notificartions/readAll",
+  notificationController.markNotificationAsAllRead
+);
+
 //Preference os users
 router.post("/addPreference", notificationPreferenceController.addPreferences);
 router.post("/getPreferences", notificationPreferenceController.getPreferences);

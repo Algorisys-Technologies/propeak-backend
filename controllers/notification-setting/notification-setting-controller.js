@@ -168,6 +168,7 @@ exports.toggleNotificationActive = async (req, res) => {
 exports.getNotificationSettings = async (req, res) => {
   try {
     const { companyId } = req.body;
+    const query = req.query.query;
     if (!companyId) {
       return res.status(400).json({
         success: false,
@@ -175,10 +176,17 @@ exports.getNotificationSettings = async (req, res) => {
       });
     }
 
-    const settings = await NotificationSetting.find({
+    const filter = {
       companyId,
-      isDeleted: { $ne: true },
-    })
+      isDeleted: false,
+    };
+    if (query) {
+      filter.projectId = query;
+    }
+
+    const settings = await NotificationSetting.find(
+      filter
+    )
       .populate({
         path: "projectId",
         select: "title",

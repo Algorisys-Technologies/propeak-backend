@@ -179,3 +179,41 @@ exports.markNotificationAsRead = async (req, res) => {
     });
   }
 };
+
+exports.markNotificationAsAllRead = async (req, res) => {
+  try {
+
+    const notReadPresent = await UserNotification.find({ read: false });
+
+    if (notReadPresent.length === 0) {
+      return res.status(200).json({
+        success: false,
+        message: "No unread notifications found.",
+      });
+    }
+
+    const updated = await UserNotification.updateMany(
+      { read: false }, 
+      { $set: { read: true } }
+    );
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification marked all as read successfully",
+      notification: updated,
+    });
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
