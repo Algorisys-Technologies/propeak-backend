@@ -239,5 +239,7 @@ router.post(
 );
 
 router.put("/updateStage", projectController.updateStage);
+router.post("/allProjects", projectController.allProjects);
+
 
 module.exports = router;

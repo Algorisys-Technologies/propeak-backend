@@ -2707,3 +2707,17 @@ exports.updateStage = async (req, res) => {
     return res.json({ success: false });
   }
 };
+
+exports.allProjects = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+
+    const allprojects = await Project.find(
+      { companyId },
+    );
+
+    return res.json({ success: true, allprojects });
+  } catch (error) {
+    return res.json({ success: false });
+  }
+}
