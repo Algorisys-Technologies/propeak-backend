@@ -240,6 +240,7 @@ router.post(
 
 router.put("/updateStage", projectController.updateStage);
 router.post("/allProjects", projectController.allProjects);
+router.post("/getProjectTable", projectController.getProjectTable);
 
 
 module.exports = router;
