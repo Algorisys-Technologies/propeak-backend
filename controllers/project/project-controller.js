@@ -1909,7 +1909,8 @@ exports.getKanbanProjectsData = async (req, res) => {
     let page = parseInt(req.query.page || "0");
     const limit = 10;
     const skip = page * limit;
-    const { stageId, companyId, userId, archive } = req.body;
+    const { stageId, companyId, userId, archive, startDate, searchTitle } =
+      req.body;
 
     console.log("req.body...", req.body, "req.query", req.query);
 
@@ -1933,6 +1934,14 @@ exports.getKanbanProjectsData = async (req, res) => {
 
     if (userId !== "ALL") {
       projectWhereCondition.projectUsers = { $in: [userId] };
+    }
+
+    if (startDate) {
+      projectWhereCondition.startdate = { $gte: new Date(startDate) };
+    }
+
+    if (searchTitle) {
+      projectWhereCondition.title = { $regex: searchTitle, $options: "i" };
     }
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
