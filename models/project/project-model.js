@@ -32,7 +32,8 @@ const ProjectSchema = new mongoose.Schema(
       type: Array,
     },
     userid: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
     },
     createdBy: {
       type: String,
@@ -55,7 +56,7 @@ const ProjectSchema = new mongoose.Schema(
     userGroups: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "userGroup",
+        ref: "group",
       },
     ],
     // group: {
@@ -84,13 +85,13 @@ const ProjectSchema = new mongoose.Schema(
     projectUsers: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "projectuser",
+        ref: "user",
       },
     ],
     notifyUsers: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "notifyuser",
+        ref: "user",
       },
     ],
 

@@ -2793,3 +2793,261 @@ exports.getProjectsCalendar = async (req, res) => {
     });
   }
 };
+exports.allProjects = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+
+    const allprojects = await Project.find({ companyId });
+
+    return res.json({ success: true, allprojects });
+  } catch (error) {
+    return res.json({ success: false });
+  }
+};
+
+exports.getProjectTable = async (req, res) => {
+  try {
+    const {
+      companyId,
+      pagination = { page: 1, limit: 10 },
+      filters = [],
+      searchTitle,
+    } = req.body;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        msg: "Company ID is required to fetch tasks",
+      });
+    }
+
+    const { page, limit: rawLimit } = pagination;
+    const limit = parseInt(rawLimit, 10);
+    const skip = (page - 1) * limit;
+
+    // Validate project ID format
+    if (!mongoose.Types.ObjectId.isValid(companyId)) {
+      return res
+        .status(400)
+        .json({ success: false, msg: "Invalid company ID format." });
+    }
+
+    // Base condition for fetching tasks
+    let condition = {
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: false,
+    };
+
+    // Apply search filter if provided
+    if (searchTitle) {
+      console.log(searchTitle, "from search filter ")
+      const regex = new RegExp(searchTitle, "i");
+      condition.title = { $regex: regex };
+    }
+
+    // Apply additional filters
+    if (filters.length && filters[0].value) {
+      for (const filter of filters) {
+        // Changed to 'for...of' loop
+        const { field, value, isSystem } = filter;
+
+        if (!field || value === undefined) return;
+
+        if (isSystem == "false") {
+          const regex = new RegExp(value, "i");
+          condition[`customFieldValues.${field}`] = { $regex: regex };
+        }
+
+        if (field === "userid") {
+          const user = await User.findOne({ name: value }).select("_id");
+
+          if (user) {
+            condition.userId = user._id;
+          } else {
+            return res.status(400).json({
+              success: false,
+              msg: "User not found",
+            });
+          }
+        } else {
+          switch (field) {
+            case "title":
+              console.log("test title from title")
+            case "description":
+            case "tag":
+            case "status":
+            case "depId":
+            case "taskType":
+            case "priority":
+            case "createdBy":
+            case "modifiedBy":
+            case "sequence":
+            case "dateOfCompletion": {
+              const regex = new RegExp(value, "i");
+              condition[field] = { $regex: regex };
+              break;
+            }
+            case "completed": {
+              condition[field] = value === "true";
+              break;
+            }
+            case "storyPoint": {
+              condition[field] = Number(value);
+              break;
+            }
+            case "startDate":
+            case "endDate":
+            case "createdOn":
+            case "modifiedOn": {
+              condition[field] = {
+                $lte: new Date(new Date(value).setUTCHours(23, 59, 59, 999)),
+                $gte: new Date(new Date(value).setUTCHours(0, 0, 0, 0)),
+              };
+              break;
+            }
+            case "userId":
+            case "taskStageId": {
+              condition[field] = value;
+              break;
+            }
+            case "selectUsers": {
+              condition["userId"] = value;
+              break;
+            }
+            case "interested_products": {
+              condition["interested_products.product_id"] = value;
+              break;
+            }
+            case "uploadFiles": {
+              condition["uploadFiles.fileName"] = value;
+              break;
+            }
+            default:
+              break;
+          }
+        }
+      }
+    }
+    // Count total tasks matching the condition
+    const totalCount = await Project.countDocuments(condition);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Fetch tasks with pagination and filtering
+    const projects = await Project.find(condition)
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .populate("userid", "name")
+      .populate("group", "name")
+      .populate("projectTypeId", "projectType")
+      .populate({
+        path: "projectUsers",
+        select: "name", 
+      })
+      .populate({
+        path: "notifyUsers",
+        select: "name",  
+      })
+      .populate({
+        path: "userGroups",
+        select: "groupName", 
+      })
+      
+    res.json({
+      success: true,
+      data: projects,
+      totalCount,
+      page,
+      totalPages,
+      filters,
+      searchTitle,
+    });
+  } catch (error) {
+    console.error("Error in getTasksTable:", error);
+    res.status(500).json({
+      success: false,
+      msg: "Server error occurred while retrieving tasks",
+      error: error.message,
+    });
+  }
+};
+
+exports.deleteSelectedTasks = async (req, res) => {
+  const { projectIds, modifiedBy } = req.body;
+  // Validate input
+  if (!Array.isArray(projectIds) || projectIds.length === 0 || !modifiedBy) {
+    return res.status(400).json({
+      success: false,
+      msg: "projectIds and modifiedBy must be provided and valid.",
+    });
+  }
+
+  // Validate that projectIds are valid ObjectIds
+  if (projectIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+    return res.status(400).json({
+      success: false,
+      msg: "Invalid taskIds format.",
+    });
+  }
+
+  try {
+    // Step 1: Fetch the tasks to be deleted
+    const projectToDelete = await Project.find({ _id: { $in: projectIds } });
+    // const fileIds = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.id));
+    // const fileNames = tasksToDelete.flatMap((task) =>
+    //   task.uploadFiles.map((file) => file.fileName)
+    // );
+
+    if (!projectToDelete || projectToDelete.length === 0) {
+      return res.status(404).json({
+        success: false,
+        msg: "No tasks found to delete.",
+      });
+    }
+
+    // Step 2: Delete tasks
+    const deletedProjects = await Project.updateMany(
+      { _id: { $in: projectIds } },
+      { $set: { isDeleted: true } }
+    );
+
+    // const deleteFile = await UploadFile.find({ fileName: { $in: fileNames } });
+
+    // const uploadFileIds = deleteFile.map(file => file._id);
+
+    // if (deleteFile)
+    //   if (fileNames.length > 0) {
+    //     await UploadFile.updateMany(
+    //       { fileName: { $in: fileNames } },
+    //       { $set: { isDeleted: true } }
+    //     );
+    //   }
+
+    if (deletedProjects.deletedCount === 0) {
+      return res.status(500).json({
+        success: false,
+        msg: "Failed to delete projects.",
+      });
+    }
+
+    // // Step 3: Log the deletion of each task (if needed)
+    // tasksToDelete.forEach((task) => {
+    //   // Assuming you want to log the task deletion (optional)
+    //   audit.insertAuditLog("", "Task", "deleted", task._id, modifiedBy);
+    // });
+
+    // Step 4: Send a success response
+    res.json({
+      success: true,
+      msg: "Tasks deleted successfully!",
+      deletedProjectsIds: projectIds,
+    });
+  } catch (err) {
+    console.error("Error deleting tasks:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Failed to delete tasks.",
+      error: err.message,
+    });
+  }
+};
