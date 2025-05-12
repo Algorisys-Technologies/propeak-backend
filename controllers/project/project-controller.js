@@ -2727,7 +2727,7 @@ exports.getProjectTable = async (req, res) => {
       companyId,
       pagination = { page: 1, limit: 10 },
       filters = [],
-      searchFilter,
+      searchTitle,
     } = req.body;
 
     if (!companyId) {
@@ -2755,8 +2755,9 @@ exports.getProjectTable = async (req, res) => {
     };
 
     // Apply search filter if provided
-    if (searchFilter) {
-      const regex = new RegExp(searchFilter, "i");
+    if (searchTitle) {
+      console.log(searchTitle, "from search filter ")
+      const regex = new RegExp(searchTitle, "i");
       condition.title = { $regex: regex };
     }
 
@@ -2867,10 +2868,7 @@ exports.getProjectTable = async (req, res) => {
         path: "userGroups",
         select: "groupName", 
       })
-      .sort({ createdOn: -1 })
       
-      
-
     res.json({
       success: true,
       data: projects,
@@ -2878,7 +2876,7 @@ exports.getProjectTable = async (req, res) => {
       page,
       totalPages,
       filters,
-      searchFilter,
+      searchTitle,
     });
   } catch (error) {
     console.error("Error in getTasksTable:", error);
@@ -2886,6 +2884,86 @@ exports.getProjectTable = async (req, res) => {
       success: false,
       msg: "Server error occurred while retrieving tasks",
       error: error.message,
+    });
+  }
+};
+
+exports.deleteSelectedTasks = async (req, res) => {
+  const { projectIds, modifiedBy } = req.body;
+  // Validate input
+  if (!Array.isArray(projectIds) || projectIds.length === 0 || !modifiedBy) {
+    return res.status(400).json({
+      success: false,
+      msg: "projectIds and modifiedBy must be provided and valid.",
+    });
+  }
+
+  // Validate that projectIds are valid ObjectIds
+  if (projectIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+    return res.status(400).json({
+      success: false,
+      msg: "Invalid taskIds format.",
+    });
+  }
+
+  try {
+    // Step 1: Fetch the tasks to be deleted
+    const projectToDelete = await Project.find({ _id: { $in: projectIds } });
+    // const fileIds = tasksToDelete.flatMap(task => task.uploadFiles.map(file => file.id));
+    // const fileNames = tasksToDelete.flatMap((task) =>
+    //   task.uploadFiles.map((file) => file.fileName)
+    // );
+
+    if (!projectToDelete || projectToDelete.length === 0) {
+      return res.status(404).json({
+        success: false,
+        msg: "No tasks found to delete.",
+      });
+    }
+
+    // Step 2: Delete tasks
+    const deletedProjects = await Project.updateMany(
+      { _id: { $in: projectIds } },
+      { $set: { isDeleted: true } }
+    );
+
+    // const deleteFile = await UploadFile.find({ fileName: { $in: fileNames } });
+
+    // const uploadFileIds = deleteFile.map(file => file._id);
+
+    // if (deleteFile)
+    //   if (fileNames.length > 0) {
+    //     await UploadFile.updateMany(
+    //       { fileName: { $in: fileNames } },
+    //       { $set: { isDeleted: true } }
+    //     );
+    //   }
+
+    if (deletedProjects.deletedCount === 0) {
+      return res.status(500).json({
+        success: false,
+        msg: "Failed to delete projects.",
+      });
+    }
+
+    // // Step 3: Log the deletion of each task (if needed)
+    // tasksToDelete.forEach((task) => {
+    //   // Assuming you want to log the task deletion (optional)
+    //   audit.insertAuditLog("", "Task", "deleted", task._id, modifiedBy);
+    // });
+
+    // Step 4: Send a success response
+    res.json({
+      success: true,
+      msg: "Tasks deleted successfully!",
+      deletedProjectsIds: projectIds,
+    });
+  } catch (err) {
+    console.error("Error deleting tasks:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Failed to delete tasks.",
+      error: err.message,
     });
   }
 };
