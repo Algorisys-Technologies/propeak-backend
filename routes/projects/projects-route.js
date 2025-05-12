@@ -219,14 +219,16 @@ router.get(
 router.post("/getKanbanProjects", projectController.getKanbanProjects);
 router.post("/getKanbanProjectsData", projectController.getKanbanProjectsData);
 
-//Exhibitions route 
+//Exhibitions route
 router.get(
   "/kanbane/:companyId/:userId",
   projectController.getExhibitionKanbanData
 );
 router.post("/getKanbanExhibition", projectController.getKanbanExhibition);
-router.post("/getKanbanExhibitionData", projectController.getKanbanExhibitionData);
-
+router.post(
+  "/getKanbanExhibitionData",
+  projectController.getKanbanExhibitionData
+);
 
 router.get(
   "/kanban-groupMaster/:companyId/:userId/:groupId",
@@ -239,5 +241,6 @@ router.post(
 );
 
 router.put("/updateStage", projectController.updateStage);
+router.post("/getProjectsCalendar", projectController.getProjectsCalendar);
 
 module.exports = router;

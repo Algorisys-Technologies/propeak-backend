@@ -32,6 +32,14 @@ const errors = {
   SERVER_ERROR: "Opps, something went wrong. Please try again.",
   NOT_AUTHORIZED: "Your are not authorized",
 };
+const {
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  startOfDay,
+  endOfDay,
+} = require("date-fns");
 
 exports.getAuditLog = (req, res) => {
   // let userRole = req.userInfo.userRole.toLowerCase();
@@ -2714,5 +2722,74 @@ exports.updateStage = async (req, res) => {
     return res.json({ success: true });
   } catch (error) {
     return res.json({ success: false });
+  }
+};
+
+exports.getProjectsCalendar = async (req, res) => {
+  try {
+    const { companyId, calenderView, date } = req.body;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        msg: "Company ID is required to fetch projects for the calendar",
+      });
+    }
+
+    const referenceDate = date ? new Date(date) : new Date();
+    if (isNaN(referenceDate)) {
+      return res.status(400).json({
+        success: false,
+        msg: "Invalid date format. Please provide a valid date.",
+      });
+    }
+
+    let dateRange = {};
+    if (calenderView === "month") {
+      dateRange = {
+        startdate: { $gte: startOfMonth(referenceDate) },
+        enddate: { $lte: endOfMonth(referenceDate) },
+      };
+    } else if (calenderView === "week") {
+      dateRange = {
+        startdate: { $gte: startOfWeek(referenceDate) },
+        enddate: { $lte: endOfWeek(referenceDate) },
+      };
+    } else if (calenderView === "day") {
+      dateRange = {
+        startdate: { $gte: startOfDay(referenceDate) },
+        enddate: { $lte: endOfDay(referenceDate) },
+      };
+    }
+
+    const condition = {
+      companyId,
+      isDeleted: false,
+      startdate: { $exists: true, $ne: null },
+      enddate: { $exists: true, $ne: null },
+      ...dateRange,
+    };
+
+    const projects = await Project.find(condition).lean();
+
+    const calendarEvents = projects.map((project) => ({
+      id: project._id,
+      title: project.title,
+      start: project.startdate,
+      end: project.enddate,
+      status: project.status || "No Status",
+    }));
+
+    res.json({
+      success: true,
+      data: calendarEvents,
+    });
+  } catch (error) {
+    console.error("Error in getProjectsCalendar:", error);
+    res.status(500).json({
+      success: false,
+      msg: "Server error occurred while retrieving project calendar data",
+      error: error.message,
+    });
   }
 };
