@@ -2793,9 +2793,11 @@ exports.getProjectsCalendar = async (req, res) => {
     });
   }
 };
+
 exports.allProjects = async (req, res) => {
   try {
     const { companyId } = req.body;
+    const { sort } = req.query;
 
     const allprojects = await Project.find({ companyId, isDeleted: false });
 
@@ -2811,7 +2813,7 @@ exports.getProjectTable = async (req, res) => {
       companyId,
       pagination = { page: 1, limit: 10 },
       filters = [],
-      searchTitle,
+      searchFilter,
     } = req.body;
 
     if (!companyId) {
@@ -2839,9 +2841,9 @@ exports.getProjectTable = async (req, res) => {
     };
 
     // Apply search filter if provided
-    if (searchTitle) {
-      console.log(searchTitle, "from search filter ");
-      const regex = new RegExp(searchTitle, "i");
+    if (searchFilter) {
+      console.log(searchFilter, "from searchfilter")
+      const regex = new RegExp(searchFilter, "i");
       condition.title = { $regex: regex };
     }
 
@@ -2960,7 +2962,7 @@ exports.getProjectTable = async (req, res) => {
       page,
       totalPages,
       filters,
-      searchTitle,
+      searchFilter,
     });
   } catch (error) {
     console.error("Error in getTasksTable:", error);
