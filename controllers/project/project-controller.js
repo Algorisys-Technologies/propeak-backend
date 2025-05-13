@@ -2797,7 +2797,7 @@ exports.allProjects = async (req, res) => {
   try {
     const { companyId } = req.body;
 
-    const allprojects = await Project.find({ companyId });
+    const allprojects = await Project.find({ companyId, isDeleted: false });
 
     return res.json({ success: true, allprojects });
   } catch (error) {
@@ -2840,7 +2840,7 @@ exports.getProjectTable = async (req, res) => {
 
     // Apply search filter if provided
     if (searchTitle) {
-      console.log(searchTitle, "from search filter ")
+      console.log(searchTitle, "from search filter ");
       const regex = new RegExp(searchTitle, "i");
       condition.title = { $regex: regex };
     }
@@ -2872,7 +2872,7 @@ exports.getProjectTable = async (req, res) => {
         } else {
           switch (field) {
             case "title":
-              console.log("test title from title")
+              console.log("test title from title");
             case "description":
             case "tag":
             case "status":
@@ -2942,17 +2942,17 @@ exports.getProjectTable = async (req, res) => {
       .populate("projectTypeId", "projectType")
       .populate({
         path: "projectUsers",
-        select: "name", 
+        select: "name",
       })
       .populate({
         path: "notifyUsers",
-        select: "name",  
+        select: "name",
       })
       .populate({
         path: "userGroups",
-        select: "groupName", 
-      })
-      
+        select: "groupName",
+      });
+
     res.json({
       success: true,
       data: projects,
