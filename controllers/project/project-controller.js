@@ -2814,7 +2814,17 @@ exports.getProjectTable = async (req, res) => {
       pagination = { page: 1, limit: 10 },
       filters = [],
       searchFilter,
+      sort,
     } = req.body;
+    let sortOption = {};
+
+    if (sort === 'titleAsc') {
+      sortOption = { title: 1 };  // Ascending
+    } else if (sort === 'titleDesc') {
+      sortOption = { title: -1 }; // Descending
+    } else {
+      sortOption = {}; // Default sorting, or you can add a fallback like {_id: 1}
+    }
 
     if (!companyId) {
       return res.status(400).json({
@@ -2842,7 +2852,6 @@ exports.getProjectTable = async (req, res) => {
 
     // Apply search filter if provided
     if (searchFilter) {
-      console.log(searchFilter, "from searchfilter")
       const regex = new RegExp(searchFilter, "i");
       condition.title = { $regex: regex };
     }
@@ -2953,7 +2962,8 @@ exports.getProjectTable = async (req, res) => {
       .populate({
         path: "userGroups",
         select: "groupName",
-      });
+      }).sort(sortOption);
+
 
     res.json({
       success: true,
