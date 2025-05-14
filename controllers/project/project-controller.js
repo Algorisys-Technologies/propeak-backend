@@ -2818,15 +2818,31 @@ exports.getProjectTable = async (req, res) => {
       filters = [],
       searchFilter,
       sort,
+      dateSort,
+      duedateSort,
     } = req.body;
     let sortOption = {};
 
     if (sort === "titleAsc") {
-      sortOption = { title: 1 }; // Ascending
+      sortOption = { title: 1 }; 
     } else if (sort === "titleDesc") {
-      sortOption = { title: -1 }; // Descending
-    } else {
-      sortOption = {}; // Default sorting, or you can add a fallback like {_id: 1}
+      sortOption = { title: -1 };
+    }
+
+    if (dateSort === "asc") {
+      sortOption = { startdate: 1 };
+    } else if (dateSort === "desc") {
+      sortOption = { startdate: -1 };
+    }
+
+    if (duedateSort === "asc") {
+      sortOption = { enddate: 1 };
+    } else if (duedateSort === "desc") {
+      sortOption = { enddate: -1 };
+    }
+
+    if (!sort && !dateSort && !duedateSort) {
+      sortOption = { createdOn: 1 }; 
     }
 
     if (!companyId) {
