@@ -1944,8 +1944,11 @@ exports.getKanbanProjectsData = async (req, res) => {
       projectWhereCondition.projectUsers = { $in: [userId] };
     }
 
+    // if (startDate) {
+    //   projectWhereCondition.startdate = { $gte: new Date(startDate) };
+    // }
     if (startDate) {
-      projectWhereCondition.startdate = { $gte: new Date(startDate) };
+      projectWhereCondition.startdate = { $eq: new Date(startDate) };
     }
 
     if (searchTitle) {
@@ -2818,9 +2821,9 @@ exports.getProjectTable = async (req, res) => {
     } = req.body;
     let sortOption = {};
 
-    if (sort === 'titleAsc') {
-      sortOption = { title: 1 };  // Ascending
-    } else if (sort === 'titleDesc') {
+    if (sort === "titleAsc") {
+      sortOption = { title: 1 }; // Ascending
+    } else if (sort === "titleDesc") {
       sortOption = { title: -1 }; // Descending
     } else {
       sortOption = {}; // Default sorting, or you can add a fallback like {_id: 1}
@@ -2962,8 +2965,8 @@ exports.getProjectTable = async (req, res) => {
       .populate({
         path: "userGroups",
         select: "groupName",
-      }).sort(sortOption);
-
+      })
+      .sort(sortOption);
 
     res.json({
       success: true,
