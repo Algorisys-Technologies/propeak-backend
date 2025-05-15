@@ -1917,8 +1917,16 @@ exports.getKanbanProjectsData = async (req, res) => {
     let page = parseInt(req.query.page || "0");
     const limit = 10;
     const skip = page * limit;
-    const { stageId, companyId, userId, archive, startDate, searchTitle } =
-      req.body;
+    const {
+      stageId,
+      companyId,
+      userId,
+      archive,
+      startDate,
+      searchTitle,
+      dueDateSort,
+      dateSort,
+    } = req.body;
 
     console.log("req.body...", req.body, "req.query", req.query);
 
@@ -1967,8 +1975,21 @@ exports.getKanbanProjectsData = async (req, res) => {
       });
     }
 
+    // const iprojects = await Project.find(projectWhereCondition)
+    //   .sort({ createdOn: -1 })
+    //   .skip(skip)
+    //   .limit(limit);
+
+    let sortCondition;
+
+    if (dueDateSort) {
+      sortCondition = { enddate: dueDateSort === "asc" ? 1 : -1 };
+    } else if (dateSort) {
+      sortCondition = { startdate: dateSort === "asc" ? 1 : -1 };
+    }
+
     const iprojects = await Project.find(projectWhereCondition)
-      .sort({ createdOn: -1 })
+      .sort(sortCondition ? sortCondition : { createdOn: -1 })
       .skip(skip)
       .limit(limit);
 
