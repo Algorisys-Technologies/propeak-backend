@@ -1925,6 +1925,7 @@ exports.getKanbanProjectsData = async (req, res) => {
       startDate,
       searchTitle,
       dueDateSort,
+      dateSort,
     } = req.body;
 
     console.log("req.body...", req.body, "req.query", req.query);
@@ -1979,12 +1980,16 @@ exports.getKanbanProjectsData = async (req, res) => {
     //   .skip(skip)
     //   .limit(limit);
 
+    let sortCondition;
+
+    if (dueDateSort) {
+      sortCondition = { enddate: dueDateSort === "asc" ? 1 : -1 };
+    } else if (dateSort) {
+      sortCondition = { startdate: dateSort === "asc" ? 1 : -1 };
+    }
+
     const iprojects = await Project.find(projectWhereCondition)
-      .sort(
-        dueDateSort
-          ? { enddate: dueDateSort === "asc" ? 1 : -1 }
-          : { createdOn: -1 }
-      )
+      .sort(sortCondition ? sortCondition : { createdOn: -1 })
       .skip(skip)
       .limit(limit);
 
