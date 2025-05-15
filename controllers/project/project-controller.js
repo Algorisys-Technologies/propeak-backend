@@ -2841,7 +2841,9 @@ exports.getProjectTable = async (req, res) => {
       sort,
       dateSort,
       duedateSort,
+      startDate,
     } = req.body;
+    console.log(pagination, "from pagination")
     let sortOption = {};
 
     if (sort === "titleAsc") {
@@ -2896,6 +2898,17 @@ exports.getProjectTable = async (req, res) => {
       condition.title = { $regex: regex };
     }
 
+    if (startDate && !isNaN(new Date(startDate))) {
+      const start = new Date(startDate);
+      const end = new Date(startDate);
+      end.setDate(end.getDate() + 1);
+    
+      condition.startdate = {
+        $gte: start,
+        $lt: end
+      };
+    }
+
     // Apply additional filters
     if (filters.length && filters[0].value) {
       for (const filter of filters) {
@@ -2923,7 +2936,6 @@ exports.getProjectTable = async (req, res) => {
         } else {
           switch (field) {
             case "title":
-              console.log("test title from title");
             case "description":
             case "tag":
             case "status":
