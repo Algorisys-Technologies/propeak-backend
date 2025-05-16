@@ -27,6 +27,22 @@ exports.createNotificationSetting = async (req, res) => {
       active,
     } = req.body;
 
+    // Check if a setting already exists for the given projectId and eventType
+    const existingSetting = await NotificationSetting.findOne({
+      projectId,
+      eventType,
+      isDeleted: false,
+    });
+    console.log(existingSetting, "existingSetting........");
+
+    if (existingSetting) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Notification setting for this project and event already exists",
+      });
+    }
+
     const setting = new NotificationSetting({
       companyId,
       projectId,
@@ -39,7 +55,9 @@ exports.createNotificationSetting = async (req, res) => {
       active,
       createdBy: req.body.userId,
     });
+
     const savedSetting = await setting.save();
+
     res.status(201).json({
       success: true,
       message: "Notification setting created successfully",
@@ -184,9 +202,7 @@ exports.getNotificationSettings = async (req, res) => {
       filter.projectId = query;
     }
 
-    const settings = await NotificationSetting.find(
-      filter
-    )
+    const settings = await NotificationSetting.find(filter)
       .populate({
         path: "projectId",
         select: "title",

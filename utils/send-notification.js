@@ -13,6 +13,7 @@ module.exports = async function sendNotification(task, eventType) {
 
   if (task.status === "completed") eventType = TASK_COMPLETED;
   if (task.status === "rejected") eventType = TASK_REJECTED;
+
   const projectEvents = [
     "CUSTOM_FIELD_UPDATE",
     "PROJECT_CREATED",
@@ -21,14 +22,7 @@ module.exports = async function sendNotification(task, eventType) {
   ];
 
   const isProjectEvent = projectEvents.includes(eventType);
-
-  // For project events, use task._id as projectId
   const notificationProjectId = isProjectEvent ? task._id : task.projectId;
-
-  console.log(
-    "Resolved projectId for NotificationSetting query:",
-    notificationProjectId
-  );
 
   const settings = await NotificationSetting.find({
     eventType,
@@ -36,42 +30,62 @@ module.exports = async function sendNotification(task, eventType) {
     active: true,
     isDeleted: false,
   }).populate("notifyRoles");
-  // console.log(task, "what comes here ?");
-  // const settings = await NotificationSetting.find({
-  //   eventType,
-  //   projectId: task.projectId,
-  //   active: true,
-  //   isDeleted: false,
-  // }).populate("notifyRoles");
-  console.log(settings, "settings????");
+
   if (!settings.length) {
     console.warn(`No NotificationSetting found for eventType: ${eventType}`);
     return;
   }
 
-  const userIds = new Set();
+  const userIdSet = new Set();
 
   for (const setting of settings) {
+    // Add explicitly mentioned users
     if (Array.isArray(setting.notifyUserIds)) {
-      setting.notifyUserIds.forEach((id) => userIds.add(id.toString()));
+      setting.notifyUserIds.forEach((id) => {
+        if (id) userIdSet.add(id.toString());
+      });
     }
 
-    if (Array.isArray(setting.notifyRoles) && setting.notifyRoles.length) {
-      const roleUsers = await User.find({
-        role: { $in: setting.notifyRoles },
-        companyId: task.companyId,
-        isDeleted: false,
-      })
-        .select("_id")
-        .lean();
+    // Add users from roles
+    if (Array.isArray(setting.notifyRoles)) {
+      const roleNames = [];
 
-      roleUsers.forEach((u) => userIds.add(u._id.toString()));
+      for (const role of setting.notifyRoles) {
+        if (typeof role === "object" && role.name) {
+          roleNames.push(role.name);
+        } else {
+          const roleDoc = await Role.findById(role).select("name");
+          if (roleDoc?.name) roleNames.push(roleDoc.name);
+        }
+      }
+
+      if (roleNames.length) {
+        const roleUsers = await User.find({
+          role: { $in: roleNames },
+          companyId: task.companyId,
+          isDeleted: false,
+          isActive: true,
+        })
+          .select("_id")
+          .lean();
+
+        roleUsers.forEach((u) => userIdSet.add(u._id.toString()));
+      }
     }
   }
 
+  const userIds = Array.from(userIdSet);
+
   const users = await User.find({
-    _id: { $in: Array.from(userIds) },
+    _id: { $in: userIds },
+    isDeleted: false,
+    isActive: true,
   }).lean();
+  console.log(users, "users.......................");
+  if (!users.length) {
+    console.log("No users found to notify.");
+    return;
+  }
 
   const notificationPreferences = await NotificationPreference.find({
     userId: { $in: users.map((u) => u._id) },
@@ -85,23 +99,38 @@ module.exports = async function sendNotification(task, eventType) {
 
   const message = generateMessage(task);
   const notifications = [];
-
-  const category = projectEvents.includes(eventType) ? "project" : "task";
+  const category = isProjectEvent ? "project" : "task";
 
   for (const user of users) {
     if (!user) continue;
 
+    // Find which setting applies to this user
     const setting = settings.find(
       (s) =>
         (s.notifyUserIds || []).some(
           (id) => id.toString() === user._id.toString()
-        ) || (s.notifyRoles || []).includes(user.role?.toString())
+        ) ||
+        (s.notifyRoles || []).some((role) =>
+          typeof role === "object"
+            ? role.name === user.role
+            : role.toString() === user.role
+        )
     );
 
     const channels = setting?.channel || [];
-    const roleNames = (setting?.notifyRoles || []).map((r) =>
-      typeof r === "object" && r.name ? r.name : r.toString()
-    );
+
+    // Extract notify role names
+    const roleNames = [];
+    if (setting?.notifyRoles?.length) {
+      for (const role of setting.notifyRoles) {
+        if (typeof role === "object" && role.name) {
+          roleNames.push(role.name);
+        } else {
+          const roleDoc = await Role.findById(role).select("name");
+          if (roleDoc) roleNames.push(roleDoc.name);
+        }
+      }
+    }
 
     const userPreference = notificationPreferences.find(
       (p) => p.userId.toString() === user._id.toString()
@@ -135,18 +164,10 @@ module.exports = async function sendNotification(task, eventType) {
       companyId: task.companyId,
       isDeleted: false,
       userId: user._id,
-      subject: [
-        "CUSTOM_FIELD_UPDATE",
-        "PROJECT_CREATED",
-        "PROJECT_ARCHIVED",
-        "PROJECT_STAGE_CHANGED",
-      ].includes(eventType)
-        ? "Project Notification"
-        : "Task Notification",
+      subject: isProjectEvent ? "Project Notification" : "Task Notification",
       message,
       url: `/tasks/${task._id}`,
       read: false,
-      // category: "task",
       category,
       eventType,
       projectId: task.projectId,
@@ -164,6 +185,6 @@ module.exports = async function sendNotification(task, eventType) {
     await UserNotification.insertMany(notifications);
     console.log("Notifications stored in UserNotification collection.");
   } else {
-    console.log("No users to notify.");
+    console.log("No notifications to store.");
   }
 };
