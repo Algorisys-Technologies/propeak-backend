@@ -2840,14 +2840,14 @@ exports.getProjectTable = async (req, res) => {
       searchFilter,
       sort,
       dateSort,
-      duedateSort,
+      dueDateSort,
       startDate,
     } = req.body;
-    console.log(pagination, "from pagination")
+    console.log(pagination, "from pagination");
     let sortOption = {};
 
     if (sort === "titleAsc") {
-      sortOption = { title: 1 }; 
+      sortOption = { title: 1 };
     } else if (sort === "titleDesc") {
       sortOption = { title: -1 };
     }
@@ -2858,14 +2858,14 @@ exports.getProjectTable = async (req, res) => {
       sortOption = { startdate: -1 };
     }
 
-    if (duedateSort === "asc") {
+    if (dueDateSort === "asc") {
       sortOption = { enddate: 1 };
-    } else if (duedateSort === "desc") {
+    } else if (dueDateSort === "desc") {
       sortOption = { enddate: -1 };
     }
 
-    if (!sort && !dateSort && !duedateSort) {
-      sortOption = { createdOn: 1 }; 
+    if (!sort && !dateSort && !dueDateSort) {
+      sortOption = { createdOn: 1 };
     }
 
     if (!companyId) {
@@ -2902,10 +2902,10 @@ exports.getProjectTable = async (req, res) => {
       const start = new Date(startDate);
       const end = new Date(startDate);
       end.setDate(end.getDate() + 1);
-    
+
       condition.startdate = {
         $gte: start,
-        $lt: end
+        $lt: end,
       };
     }
 
