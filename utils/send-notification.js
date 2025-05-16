@@ -81,7 +81,6 @@ module.exports = async function sendNotification(task, eventType) {
     isDeleted: false,
     isActive: true,
   }).lean();
-  console.log(users, "users.......................");
   if (!users.length) {
     console.log("No users found to notify.");
     return;
