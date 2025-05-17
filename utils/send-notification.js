@@ -10,7 +10,6 @@ const sendEmail = require("./send-email");
 module.exports = async function sendNotification(task, eventType) {
   const TASK_COMPLETED = "TASK_COMPLETED";
   const TASK_REJECTED = "TASK_REJECTED";
-
   if (task.status === "completed") eventType = TASK_COMPLETED;
   if (task.status === "rejected") eventType = TASK_REJECTED;
   const projectEvents = [

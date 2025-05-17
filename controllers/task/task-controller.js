@@ -154,11 +154,18 @@ exports.createTask = (req, res) => {
       const taskId = result._id;
       // Send notification here
 
-      const task = await Task.findById(taskId).populate({
-        path: "projectId",
-        select: "title",
-        model: "project",
-      });
+      const task = await Task.findById(taskId)
+        .populate({
+          path: "projectId",
+          select: "title",
+          model: "project",
+        })
+        .populate({
+          path: "createdBy",
+          select: "name",
+          model: "user",
+        });
+
       const eventType = "TASK_CREATED";
       try {
         const notificationResult = await sendNotification(task, eventType);
@@ -2558,9 +2565,9 @@ exports.getTasksStagesByProjectId = async (req, res) => {
 };
 
 exports.updateStage = async (req, res) => {
-  console.log("request coming from body",req.body)
+  console.log("request coming from body", req.body);
   try {
-    const { taskId, newStageId, status,userId } = req.body;
+    const { taskId, newStageId, status, userId } = req.body;
 
     const task = await Task.findById(taskId)
       .populate({
@@ -2586,7 +2593,7 @@ exports.updateStage = async (req, res) => {
     task.taskStageId = newStageId;
     task.status = status;
     task.modifiedOn = new Date();
-    task.modifiedBy=userId;
+    task.modifiedBy = userId;
     await task.save();
 
     const eventType = "STAGE_CHANGED";

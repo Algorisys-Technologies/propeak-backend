@@ -7,7 +7,7 @@ const eventMessages = {
   
   Title: ${task.title}
   Project: ${task.projectName || task.projectId.title}
-  Created By: ${task.createdByName || task.createdBy}
+  Created By: ${task.createdByName || task.createdBy.name}
   Created On: ${createdDate}
   Priority: ${task.priority || "N/A"}
   Description: ${task.description || "No description"}`;
