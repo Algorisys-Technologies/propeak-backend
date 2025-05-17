@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const { ObjectId } = require("mongoose").Types;
 const UserNotification = require("../models/notification-setting/user-notification-model");
 const NotificationPreference = require("../models/notification-setting/notification-preference-model");
-const sendEmail = require("../utils/sendEmail");
+const sendEmail = require("./send-email");
 
 module.exports = async function sendNotification(task, eventType) {
   const TASK_COMPLETED = "TASK_COMPLETED";
@@ -13,7 +13,6 @@ module.exports = async function sendNotification(task, eventType) {
 
   if (task.status === "completed") eventType = TASK_COMPLETED;
   if (task.status === "rejected") eventType = TASK_REJECTED;
-
   const projectEvents = [
     "CUSTOM_FIELD_UPDATE",
     "PROJECT_CREATED",

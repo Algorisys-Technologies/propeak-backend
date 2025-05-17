@@ -161,7 +161,7 @@ exports.createTask = (req, res) => {
       });
       const eventType = "TASK_CREATED";
       try {
-        const notificationResult = await sendNotification(result, eventType);
+        const notificationResult = await sendNotification(task, eventType);
         console.log("Notification result:", notificationResult);
       } catch (notificationError) {
         console.error("Notification error:", notificationError);
