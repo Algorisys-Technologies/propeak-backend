@@ -46,6 +46,7 @@ const {
   endOfDay,
 } = require("date-fns");
 const { result } = require("lodash");
+const sendNotification = require("../../utils/send-notification");
 
 exports.createTask = (req, res) => {
   console.log("create task wala ");
@@ -158,6 +159,13 @@ exports.createTask = (req, res) => {
         select: "title",
         model: "project",
       });
+      const eventType = "TASK_CREATED";
+      try {
+        const notificationResult = await sendNotification(result, eventType);
+        console.log("Notification result:", notificationResult);
+      } catch (notificationError) {
+        console.error("Notification error:", notificationError);
+      }
 
       if (fileName) {
         let uploadFile = {
@@ -436,6 +444,13 @@ exports.updateTask = (req, res) => {
         model: "project",
       });
 
+      const eventType = "TASK_CREATED";
+      try {
+        const notificationResult = await sendNotification(result, eventType);
+        console.log("Notification result:", notificationResult);
+      } catch (notificationError) {
+        console.error("Notification error:", notificationError);
+      }
       const userIdToken = req.body.userName;
       const fields = Object.keys(result.toObject()).filter(
         (key) =>
@@ -2349,6 +2364,7 @@ exports.getDashboardData = async (req, res) => {
 };
 
 exports.assignUsers = async (req, res) => {
+  console.log("is assign tasks is coming here ???");
   try {
     const { taskId, assignedUsers } = req.body;
 
@@ -2542,17 +2558,44 @@ exports.getTasksStagesByProjectId = async (req, res) => {
 };
 
 exports.updateStage = async (req, res) => {
+  console.log("request coming from body",req.body)
   try {
-    const { taskId, newStageId, status } = req.body;
+    const { taskId, newStageId, status,userId } = req.body;
 
-    await Task.findByIdAndUpdate(
-      { _id: taskId },
-      { taskStageId: newStageId, modifiedOn: new Date(), status }
-    );
+    const task = await Task.findById(taskId)
+      .populate({
+        path: "modifiedBy",
+        select: "email",
+        model: "user",
+      })
+      .populate({
+        path: "taskStageId",
+        select: "title",
+        model: "taskStage",
+      })
+      .populate({
+        path: "projectId",
+        select: "title",
+        model: "project",
+      });
+    if (!task)
+      return res
+        .status(404)
+        .json({ success: false, message: "Task not found" });
 
+    task.taskStageId = newStageId;
+    task.status = status;
+    task.modifiedOn = new Date();
+    task.modifiedBy=userId;
+    await task.save();
+
+    const eventType = "STAGE_CHANGED";
+
+    const check = await sendNotification(task, eventType);
     return res.json({ success: true });
   } catch (error) {
-    return res.json({ success: false });
+    console.error("Error updating task stage:", error);
+    return res.status(500).json({ success: false });
   }
 };
 
