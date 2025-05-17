@@ -163,7 +163,12 @@ module.exports = async function sendNotification(task, eventType) {
       userId: user._id,
       subject: isProjectEvent ? "Project Notification" : "Task Notification",
       message,
-      url: `/tasks/${task._id}`,
+      // url: `/tasks/${task._id}`,
+      url:
+      category === "task"
+        ? `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`
+        : `/tasks/${task._id}/kanban/stage`,
+    
       read: false,
       category,
       eventType,
