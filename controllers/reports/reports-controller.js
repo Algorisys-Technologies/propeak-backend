@@ -263,6 +263,111 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
   }
 };
 
+exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
+  try {
+    const {
+      companyId,
+      reportParams: { year, month, dateFrom, dateTo },
+    } = req.body;
+
+    console.log("Request body task report for company:", req.body);
+
+    // Validate company ID format
+    if (!mongoose.Types.ObjectId.isValid(companyId)) {
+      console.log("Invalid company ID format.");
+      return res.json({ err: "Invalid company ID format." });
+    }
+
+    // Get all projects for the specified company
+    const projects = await Project.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+    }).select("_id");
+    const projectIds = projects.map((project) => project._id);
+
+    if (projectIds.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        totalCount: 0,
+      });
+    }
+
+    // Base filter condition
+    let condition = { projectId: { $in: projectIds } };
+
+    // Set date range based on year/month or custom date range
+    if (year && month) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 1);
+
+      condition = {
+        ...condition,
+        startDate: { $gte: startDate, $lt: endDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+
+      console.log("Condition for tasks with year/month range:", condition);
+    } else if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return res.json({ err: "Invalid date range provided." });
+      }
+
+      condition = {
+        ...condition,
+        startDate: { $gte: fromDate, $lte: toDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else {
+      return res.json({ err: "Required search parameters are missing." });
+    }
+
+    const tasks = await Task.find(condition)
+      .lean()
+      .populate("projectId", "title")
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" });
+
+    let maxTask = null;
+    let maxKeys = 0;
+
+    for (const task of tasks) {
+      const cfv = task.customFieldValues || {};
+      const keyCount = Object.keys(cfv).length;
+
+      if (keyCount > maxKeys) {
+        maxKeys = keyCount;
+        maxTask = task;
+      }
+    }
+
+    let keyValuePairs = [];
+
+    if (maxTask && maxTask.customFieldValues) {
+      keyValuePairs = Object.entries(maxTask.customFieldValues).map(([key, value]) => ({
+        key,
+        value,
+      }));
+    }
+
+
+    res.json({
+      success: true,
+      data: tasks.length > 0 ? tasks : [],
+      totalCount: tasks.length,
+      customFields: keyValuePairs,
+    });
+  } catch (error) {
+    console.error("Error in getMonthlyTaskReportForCompany:", error);
+    res.json({
+      err: "Server error occurred while processing the task report.",
+    });
+  }
+};
+
+
 exports.getMonthlyUserReportForCompany = async (req, res) => {
   try {
     const {
