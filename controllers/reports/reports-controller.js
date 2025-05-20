@@ -166,23 +166,20 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
   try {
     const {
       companyId,
+      role,
+      userId,
       reportParams: { year, month, dateFrom, dateTo },
       pagination = { page: 1, limit: 10 },
     } = req.body;
-
-    console.log("Request body task report for company:", req.body);
-
+console.log(req.body, "req.bodyreq.body???s")
     const { page, limit: rawLimit } = pagination;
     const limit = parseInt(rawLimit, 10);
     const skip = (page - 1) * limit;
 
-    // Validate company ID format
     if (!mongoose.Types.ObjectId.isValid(companyId)) {
-      console.log("Invalid company ID format.");
       return res.json({ err: "Invalid company ID format." });
     }
 
-    // Get all projects for the specified company
     const projects = await Project.find({
       companyId: new mongoose.Types.ObjectId(companyId),
     }).select("_id");
@@ -198,46 +195,36 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
       });
     }
 
-    // Base filter condition
-    let condition = { projectId: { $in: projectIds } };
+    // Base condition
+    let condition = {
+      projectId: { $in: projectIds },
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    };
 
-    // Set date range based on year/month or custom date range
+    // ⛔ Limit to user's own tasks if not ADMIN or OWNER
+    if (role !== "ADMIN" && role !== "OWNER") {
+      condition.userId = new mongoose.Types.ObjectId(userId);
+    }
+
     if (year && month) {
-      const startDate = new Date(year, month - 1, 1); // Start of the month
-      const endDate = new Date(year, month, 1); // Start of the next month
-
-      condition = {
-        ...condition,
-        startDate: { $gte: startDate, $lt: endDate },
-        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-      };
-
-      console.log("Condition for tasks with year/month range:", condition);
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 1);
+      condition.startDate = { $gte: startDate, $lt: endDate };
     } else if (dateFrom && dateTo) {
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
 
-      // Ensure the dates are valid
       if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
         return res.json({ err: "Invalid date range provided." });
       }
 
-      condition = {
-        ...condition,
-        startDate: { $gte: fromDate, $lte: toDate },
-        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-      };
-
-      console.log("Condition for tasks with custom date range:", condition);
+      condition.startDate = { $gte: fromDate, $lte: toDate };
     } else {
       return res.json({ err: "Required search parameters are missing." });
     }
 
-    // Count total matching tasks
     const totalCount = await Task.countDocuments(condition);
-    console.log("Total task count:", totalCount);
 
-    // Fetch paginated tasks
     const tasks = await Task.find(condition)
       .skip(skip)
       .limit(limit)
@@ -246,28 +233,27 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
       .populate("userId", "name")
       .populate({ path: "interested_products.product_id" });
 
-    console.log("Fetched tasks:", tasks);
-
-    res.json({
+    return res.json({
       success: true,
-      data: tasks.length > 0 ? tasks : [],
+      data: tasks,
       totalCount,
       page,
       totalPages: Math.ceil(totalCount / limit),
     });
   } catch (error) {
     console.error("Error in getMonthlyTaskReportForCompany:", error);
-    res.json({
-      err: "Server error occurred while processing the task report.",
-    });
+    res.json({ err: "Server error occurred while processing the task report." });
   }
 };
+
 
 exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
   try {
     const {
       companyId,
-      reportParams: { year, month, dateFrom, dateTo },
+      role,
+      userId,
+      reportParams: { year, month, dateFrom, dateTo  },
     } = req.body;
 
     console.log("Request body task report for company:", req.body);
@@ -293,20 +279,21 @@ exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
     }
 
     // Base filter condition
-    let condition = { projectId: { $in: projectIds } };
+    let condition = {
+      projectId: { $in: projectIds },
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    };
+
+    // ⛔ Limit to user's own tasks if not ADMIN or OWNER
+    if (role !== "ADMIN" && role !== "OWNER") {
+      condition.userId = new mongoose.Types.ObjectId(userId);
+    }
 
     // Set date range based on year/month or custom date range
     if (year && month) {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 1);
-
-      condition = {
-        ...condition,
-        startDate: { $gte: startDate, $lt: endDate },
-        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-      };
-
-      console.log("Condition for tasks with year/month range:", condition);
+      condition.startDate = { $gte: startDate, $lt: endDate };
     } else if (dateFrom && dateTo) {
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
@@ -315,11 +302,7 @@ exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
         return res.json({ err: "Invalid date range provided." });
       }
 
-      condition = {
-        ...condition,
-        startDate: { $gte: fromDate, $lte: toDate },
-        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-      };
+      condition.startDate = { $gte: fromDate, $lte: toDate };
     } else {
       return res.json({ err: "Required search parameters are missing." });
     }
