@@ -22,6 +22,12 @@ router.post(
 );
 
 router.post(
+  "/getMonthlyAllTaskReportForCompany",
+  reportsController.getMonthlyAllTaskReportForCompany
+);
+
+
+router.post(
   "/getMonthlyUserReportForCompany",
   reportsController.getMonthlyUserReportForCompany
 );
