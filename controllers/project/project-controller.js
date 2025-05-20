@@ -708,7 +708,7 @@ exports.updateProject = async (req, res) => {
 
 exports.updateProjectField = async (req, res) => {
   logInfo("updateProjectField");
-  logInfo(req.body, "req.body in update fields");
+  logInfo(req.body, "req.body in update fields...here...");
   console.log("req.body in update fields...", req.body.customFieldValues);
   const { _id, title, companyId, status } = req.body;
 
@@ -717,21 +717,22 @@ exports.updateProjectField = async (req, res) => {
     companyId,
     _id: { $ne: _id },
   });
+
   console.log(existingProject, "existingProject..............");
-  if (existingProject) {
-    const projectUsers = await User.find(
-      { _id: { $in: existingProject.projectUsers } },
-      "name"
-    );
-    return res.status(400).json({
-      success: false,
-      msg: `A project with the title "${
-        existingProject.title
-      }" already exists and is being worked on by ${
-        projectUsers[0]?.name || "someone"
-      }.`,
-    });
-  }
+  // if (existingProject) {
+  //   const projectUsers = await User.find(
+  //     { _id: { $in: existingProject.projectUsers } },
+  //     "name"
+  //   );
+  //   return res.status(400).json({
+  //     success: false,
+  //     msg: `A project with the title "${
+  //       existingProject.title
+  //     }" already exists and is being worked on by ${
+  //       projectUsers[0]?.name || "someone"
+  //     }.`,
+  //   });
+  // }
 
   let updatedProject = new Project({
     _id: req.body._id,
