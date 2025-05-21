@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Company = require("../../models/company/company-model.js");
 const userModel = require("../../models/user/user-model.js");
+const { companyCode } = require("../../config/config.js");
 
 // Create a Company
 exports.createCompany = async (req, res) => {
@@ -49,20 +50,57 @@ exports.createCompany = async (req, res) => {
 exports.getAllCompanies = async (req, res) => {
   const query = req.query.q;
   try {
-    const companies = await Company.find({
-      isDeleted: false,
-      ...(query && { 
-        $or: [{ companyName: { $regex: query, $options: "i" } }] 
-      })
-    }); //
-    // console.log(companies, "companiess...............")
-    if (companies.length === 0) {
+    const result = await Company.aggregate([
+      {
+        $match: {
+          isDeleted: false,
+          ...(query && {
+            companyName: { $regex: query, $options: "i" }
+          })
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          let: { companyId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: [{ $toObjectId: "$companyId" }, "$$companyId"] },
+                    { $ne: ["$isDeleted", true] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: "users"
+        }
+      },
+      {
+        $addFields: {
+          userCount: { $size: "$users" }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          companyName: 1,
+          companyCode: 1,
+          userCount: 1,
+          createdAt: 1 
+        }
+      }
+    ]);
+
+    if (result.length === 0) {
       return res
         .status(404)
         .json({ success: false, error: "No companies found." });
     }
 
-    return res.status(200).json({ success: true, companies });
+    return res.status(200).json({ success: true, companies: result });
   } catch (error) {
     console.error("Error fetching companies:", error);
     return res
@@ -70,6 +108,7 @@ exports.getAllCompanies = async (req, res) => {
       .json({ success: false, error: "Failed to load companies." });
   }
 };
+
 exports.getCompanyById = async (req, res) => {
   try {
     const { id: companyId } = req.params;
@@ -133,20 +172,19 @@ exports.deleteCompany = async (req, res) => {
   console.log("Attempting to delete company with ID:", id);
 
   try {
-    const deletedCompany = await Company.findOneAndUpdate(
-      { _id: id },
-      { isDeleted: true },
-      { new: true }
-    );
+      const deletedCompany = await Company.findOneAndUpdate(
+        { _id: id },
+        { isDeleted: true },
+        { new: true }
+      );
 
-    console.log(deletedCompany, "deletedCompany............");
+        console.log(deletedCompany, "deletedCompany............");
 
-    if (!deletedCompany) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Company not found." });
-    }
-
+        if (!deletedCompany) {
+          return res
+            .status(404)
+            .json({ success: false, error: "Company not found." });
+      }
     return res.status(204).send();
   } catch (error) {
     console.error("Error deleting company:", error);
