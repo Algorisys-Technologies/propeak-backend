@@ -20,7 +20,8 @@ module.exports = async function sendNotification(task, eventType) {
   ];
 
   const isProjectEvent = projectEvents.includes(eventType);
-  const notificationProjectId = isProjectEvent ? task._id : task.projectId;
+  // const notificationProjectId = isProjectEvent ? task._id : task.projectId;
+  const notificationProjectId = isProjectEvent ? (task.projectId || null) : task.projectId;
 
   const settings = await NotificationSetting.find({
     eventType,
