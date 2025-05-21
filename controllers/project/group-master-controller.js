@@ -63,13 +63,81 @@ const getGroups = async (req, res) => {
       GroupMaster.countDocuments(filter),
     ]);
 
+    const groupMasterProjectAndTaskCount = await GroupMaster.aggregate([
+      {
+        $match: { 
+          companyId: new mongoose.Types.ObjectId(companyId), 
+          isDeleted: { $ne: true } 
+        }
+      },
+      {
+        $lookup: {
+          from: "projects",
+          let: { groupId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$group", "$$groupId"] },
+                    { $ne: ["$isDeleted", true] }
+                  ]
+                }
+              }
+            },
+            {
+              $lookup: {
+                from: "tasks",
+                let: { projectId: "$_id" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          { $eq: ["$projectId", "$$projectId"] },
+                          { $ne: ["$isDeleted", true] }
+                        ]
+                      }
+                    }
+                  }
+                ],
+                as: "tasks"
+              }
+            }
+          ],
+          as: "projects"
+        }
+      },
+      {
+        $addFields: {
+          projectCount: { $size: "$projects" },
+          totalTasks: {
+            $sum: {
+              $map: {
+                input: "$projects",
+                as: "proj",
+                in: { $size: "$$proj.tasks" }
+              }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          projectCount: 1,
+          totalTasks: 1
+        }
+      }
+    ]);
+
     if (!groups.length) {
       return res
         .status(404)
         .json({ success: false, message: "No groups found" });
     }
 
-    return res.status(200).json({ success: true, groups, totalCount });
+    return res.status(200).json({ success: true, groups, totalCount, groupMasterProjectAndTaskCount });
   } catch (error) {
     console.error("Error fetching groups:", error);
     return res.status(500).json({ success: false, message: error.message });
