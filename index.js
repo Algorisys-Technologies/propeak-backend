@@ -171,6 +171,10 @@ try {
     "/api/notifications",
     require("./routes/notification/notification-route")
   );
+  app.use(
+    "/api/notification-setting",
+    require("./routes/notification-setting/notification-setting-route")
+  );
   app.use("/api/reminders", require("./routes/reminder/reminder-route"));
   app.use(
     "/api/accessRights",

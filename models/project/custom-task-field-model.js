@@ -17,6 +17,11 @@ const CustomTaskFieldSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "project",
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Company",
+    // required: true,
+  },
   label: {
     type: String,
     required: true,
@@ -38,7 +43,7 @@ const CustomTaskFieldSchema = new mongoose.Schema({
   isDeleted: {
     type: Boolean,
     required: true,
-  }
+  },
 });
 
 module.exports = {

@@ -87,7 +87,6 @@ exports.createEmailConfig = async (req, res) => {
       emailPatterns,
       // schedule,
     } = req.body;
-    console.log(companyId, "companyId........");
 
     if (!companyId) {
       return res.status(400).json({
