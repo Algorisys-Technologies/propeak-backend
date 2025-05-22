@@ -212,5 +212,11 @@ router.post(
 );
 router.get("/allProjects", projectController.getProjects)
 router.put("/updateStage", projectController.updateStage);
+router.post("/getProjectsCalendar", projectController.getProjectsCalendar);
+router.post("/allProjects", projectController.allProjects);
+router.post("/getProjectTable", projectController.getProjectTable);
+router.post("/selectedDelete", projectController.deleteSelectedTasks);
+
+
 
 module.exports = router;

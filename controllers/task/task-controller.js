@@ -794,6 +794,8 @@ exports.getTasksTable = async (req, res) => {
 
     // Apply search filter if provided
     if (searchFilter) {
+      console.log(searchFilter, "from search filter ")
+
       const regex = new RegExp(searchFilter, "i");
       condition.title = { $regex: regex };
     }
