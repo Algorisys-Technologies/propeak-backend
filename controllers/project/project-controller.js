@@ -1921,11 +1921,13 @@ exports.getKanbanProjectsData = async (req, res) => {
       stageId,
       companyId,
       userId,
-      archive,
-      startDate,
-      searchTitle,
-      dueDateSort,
-      dateSort,
+      archive,  
+      // startDate,
+      // dueDateSort,
+      dueDate,
+      dateStartSort,
+      searchFilter,
+      startDateFilter,
     } = req.body;
 
     console.log("req.body...", req.body, "req.query", req.query);
@@ -1937,6 +1939,7 @@ exports.getKanbanProjectsData = async (req, res) => {
       });
     }
 
+
     // Project query filter
     const projectWhereCondition = {
       projectStageId: stageId || "673202ee15c8e180c21e9ad7",
@@ -1945,6 +1948,15 @@ exports.getKanbanProjectsData = async (req, res) => {
       archive: archive || false,
       projectType: { $ne: "Exhibition" },
     };
+
+    if (searchFilter) {
+      const regex = new RegExp(searchFilter, "i");
+      projectWhereCondition.$or = [
+        { title: { $regex: regex } },
+        { description: { $regex: regex } },
+        { tag: { $regex: regex } },
+      ];
+    }
 
     console.log("projectWhereCondition...", projectWhereCondition);
 
@@ -1955,12 +1967,8 @@ exports.getKanbanProjectsData = async (req, res) => {
     // if (startDate) {
     //   projectWhereCondition.startdate = { $gte: new Date(startDate) };
     // }
-    if (startDate) {
-      projectWhereCondition.startdate = { $eq: new Date(startDate) };
-    }
-
-    if (searchTitle) {
-      projectWhereCondition.title = { $regex: searchTitle, $options: "i" };
+    if (startDateFilter) {
+      projectWhereCondition.startdate = { $eq: new Date(startDateFilter) };
     }
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
@@ -1982,10 +1990,10 @@ exports.getKanbanProjectsData = async (req, res) => {
 
     let sortCondition;
 
-    if (dueDateSort) {
-      sortCondition = { enddate: dueDateSort === "asc" ? 1 : -1 };
-    } else if (dateSort) {
-      sortCondition = { startdate: dateSort === "asc" ? 1 : -1 };
+    if (dueDate) {
+      sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
+    } else if (dateStartSort) {
+      sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
     }
 
     const iprojects = await Project.find(projectWhereCondition)
