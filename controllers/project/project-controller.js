@@ -2415,7 +2415,17 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
     let page = parseInt(req.query.page || "0");
     const limit = 10;
     const skip = page * limit;
-    const { groupId, companyId, userId, archive, stageId } = req.body;
+    const {
+      groupId,
+      companyId,
+      userId,
+      archive,
+      stageId,
+      dueDate,
+      dateStartSort,
+      searchFilter,
+      startDateFilter,
+    } = req.body;
     if (!groupId || groupId === "null" || groupId === "ALL") {
       return res.status(400).json({
         success: false,
@@ -2442,12 +2452,25 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       projectType: { $ne: "Exhibition" },
     };
 
+    if (searchFilter) {
+      const regex = new RegExp(searchFilter, "i");
+      projectWhereCondition.$or = [
+        { title: { $regex: regex } },
+        { description: { $regex: regex } },
+        { tag: { $regex: regex } },
+      ];
+    }
+
     if (stageId && stageId !== "ALL" && stageId !== "null") {
       projectWhereCondition.projectStageId = stageId;
     }
 
     if (userId !== "ALL") {
       projectWhereCondition.projectUsers = { $in: [userId] };
+    }
+
+    if (startDateFilter) {
+      projectWhereCondition.startdate = { $eq: new Date(startDateFilter) };
     }
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
@@ -2459,8 +2482,20 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       });
     }
 
+    // const iprojects = await Project.find(projectWhereCondition)
+    //   .sort({ createdOn: -1 })
+    //   .skip(skip)
+    //   .limit(limit);
+    let sortCondition;
+
+    if (dueDate) {
+      sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
+    } else if (dateStartSort) {
+      sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
+    }
+
     const iprojects = await Project.find(projectWhereCondition)
-      .sort({ createdOn: -1 })
+      .sort(sortCondition ? sortCondition : { createdOn: -1 })
       .skip(skip)
       .limit(limit);
 
