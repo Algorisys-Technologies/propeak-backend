@@ -1906,7 +1906,7 @@ exports.getKanbanProjectsData = async (req, res) => {
       stageId,
       companyId,
       userId,
-      archive,  
+      archive,
       // startDate,
       // dueDateSort,
       dueDate,
@@ -1923,7 +1923,6 @@ exports.getKanbanProjectsData = async (req, res) => {
         message: "stageId is required and cannot be ALL or null.",
       });
     }
-
 
     // Project query filter
     const projectWhereCondition = {
@@ -1958,10 +1957,11 @@ exports.getKanbanProjectsData = async (req, res) => {
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
-    if (page < 0 || page >= totalPages) {
+
+    if (page >= totalPages && totalPages > 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid page number.",
+        message: "Page number exceeds available pages.",
       });
     }
 
@@ -2255,13 +2255,13 @@ exports.getKanbanExhibitionData = async (req, res) => {
       projectStageId: stageId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       companyId,
-      archive: archive === true, // defaults to false if not true
+      archive: archive || false,
       projectType: "Exhibition",
     };
 
-    if (userId !== "ALL") {
-      projectWhereCondition.projectUsers = { $in: [userId] };
-    }
+    // if (userId !== "ALL") {
+    //   projectWhereCondition.projectUsers = { $in: [userId] };
+    // }
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
@@ -2452,10 +2452,10 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
-    if (page < 0 || page >= totalPages) {
+    if (page >= totalPages && totalPages > 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid page number.",
+        message: "Page number exceeds available pages.",
       });
     }
 
