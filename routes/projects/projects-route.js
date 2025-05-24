@@ -216,7 +216,7 @@ router.post("/getProjectsCalendar", projectController.getProjectsCalendar);
 router.post("/allProjects", projectController.allProjects);
 router.post("/getProjectTable", projectController.getProjectTable);
 router.post("/selectedDelete", projectController.deleteSelectedTasks);
-
-
+router.post("/allProjectsForGroup", projectController.allProjectsForGroup);
+router.post("/getProjectTableForGroup", projectController.getProjectTableForGroup);
 
 module.exports = router;
