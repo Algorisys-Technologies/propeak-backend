@@ -213,12 +213,15 @@ router.post(
 router.get("/allProjects", projectController.getProjects);
 router.put("/updateStage", projectController.updateStage);
 router.post("/getProjectsCalendar", projectController.getProjectsCalendar);
+router.post("/getProjectsExhibitionCalendar", projectController.getProjectsExhibitionCalendar);
 router.post("/allProjects", projectController.allProjects);
 router.post("/getProjectTable", projectController.getProjectTable);
-router.post("/selectedDelete", projectController.deleteSelectedTasks);
 router.get(
   "/getGroupIdOfProject/:projectId",
   projectController.getGroupIdOfProject
 );
-
+router.post("/selectedDelete", projectController.deleteSelectedProjects);
+router.post("/selectedDeleteExhibition", projectController.selectedDeleteExhibition);
+router.post("/allProjectsExhibition", projectController.allProjectsExhibition);
+router.post("/getProjectExhibitionTable", projectController.getProjectExhibitionTable);
 module.exports = router;
