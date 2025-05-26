@@ -2888,3 +2888,48 @@ exports.deleteSelectedTasks = async (req, res) => {
     });
   }
 };
+
+exports.getGroupIdOfProject = async (req, res) => {
+  const { projectId } = req.params;
+
+  // Step 1: Validate projectId
+  if (!projectId || !mongoose.Types.ObjectId.isValid(projectId)) {
+    return res.status(400).json({
+      success: false,
+      msg: "Invalid or missing projectId.",
+    });
+  }
+
+  try {
+    // Step 2: Fetch the project and select only group field
+    const project = await Project.findById(projectId).select("group");
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        msg: "Project not found.",
+      });
+    }
+
+    if (!project.group) {
+      return res.status(404).json({
+        success: false,
+        msg: "Group ID not found in this project.",
+      });
+    }
+
+    // Step 3: Send response
+    res.status(200).json({
+      success: true,
+      msg: "Group ID fetched successfully.",
+      groupId: project.group.toString(),
+    });
+  } catch (err) {
+    console.error("Error fetching groupId:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Failed to fetch groupId of project.",
+      error: err.message,
+    });
+  }
+};

@@ -210,13 +210,15 @@ router.post(
   "/getKanbanProjectsByGroup",
   projectController.getKanbanProjectsByGroup
 );
-router.get("/allProjects", projectController.getProjects)
+router.get("/allProjects", projectController.getProjects);
 router.put("/updateStage", projectController.updateStage);
 router.post("/getProjectsCalendar", projectController.getProjectsCalendar);
 router.post("/allProjects", projectController.allProjects);
 router.post("/getProjectTable", projectController.getProjectTable);
 router.post("/selectedDelete", projectController.deleteSelectedTasks);
-
-
+router.get(
+  "/getGroupIdOfProject/:projectId",
+  projectController.getGroupIdOfProject
+);
 
 module.exports = router;
