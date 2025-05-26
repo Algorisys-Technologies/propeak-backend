@@ -2436,7 +2436,17 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
     let page = parseInt(req.query.page || "0");
     const limit = 10;
     const skip = page * limit;
-    const { groupId, companyId, userId, archive, stageId } = req.body;
+    const {
+      groupId,
+      companyId,
+      userId,
+      archive,
+      stageId,
+      dueDate,
+      dateStartSort,
+      searchFilter,
+      startDateFilter,
+    } = req.body;
     if (!groupId || groupId === "null" || groupId === "ALL") {
       return res.status(400).json({
         success: false,
@@ -2459,9 +2469,18 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       group: groupObjectId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       companyId,
-      archive: archive || false,
+      archive,
       projectType: { $ne: "Exhibition" },
     };
+
+    if (searchFilter) {
+      const regex = new RegExp(searchFilter, "i");
+      projectWhereCondition.$or = [
+        { title: { $regex: regex } },
+        { description: { $regex: regex } },
+        { tag: { $regex: regex } },
+      ];
+    }
 
     if (stageId && stageId !== "ALL" && stageId !== "null") {
       projectWhereCondition.projectStageId = stageId;
@@ -2469,6 +2488,10 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
 
     if (userId !== "ALL") {
       projectWhereCondition.projectUsers = { $in: [userId] };
+    }
+
+    if (startDateFilter) {
+      projectWhereCondition.startdate = { $eq: new Date(startDateFilter) };
     }
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
@@ -2480,8 +2503,20 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       });
     }
 
+    // const iprojects = await Project.find(projectWhereCondition)
+    //   .sort({ createdOn: -1 })
+    //   .skip(skip)
+    //   .limit(limit);
+    let sortCondition;
+
+    if (dueDate) {
+      sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
+    } else if (dateStartSort) {
+      sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
+    }
+
     const iprojects = await Project.find(projectWhereCondition)
-      .sort({ createdOn: -1 })
+      .sort(sortCondition ? sortCondition : { createdOn: -1 })
       .skip(skip)
       .limit(limit);
 
@@ -2545,7 +2580,7 @@ exports.updateStage = async (req, res) => {
 
 exports.getProjectsCalendar = async (req, res) => {
   try {
-    const { companyId, calenderView, date } = req.body;
+    const { companyId, calenderView, date, groupId } = req.body;
 
     if (!companyId) {
       return res.status(400).json({
@@ -2588,6 +2623,10 @@ exports.getProjectsCalendar = async (req, res) => {
       ...dateRange,
     };
 
+    if(groupId){
+      condition.group = groupId;
+    }
+
     const projects = await Project.find(condition).lean();
 
     const calendarEvents = projects.map((project) => ({
@@ -2614,14 +2653,233 @@ exports.getProjectsCalendar = async (req, res) => {
 
 exports.allProjects = async (req, res) => {
   try {
-    const { companyId } = req.body;
-    const { sort } = req.query;
-
-    const allprojects = await Project.find({ companyId, isDeleted: false });
+    const { companyId,  groupId } = req.body;
+    const allprojects = await Project.find({companyId, isDeleted: false})
 
     return res.json({ success: true, allprojects });
   } catch (error) {
     return res.json({ success: false });
+  }
+};
+
+
+exports.allProjectsForGroup = async (req, res) => {
+  try {
+    const { companyId, groupId } = req.body;
+    
+    const allprojects = await Project.find({companyId, isDeleted: false, group: groupId})
+
+    return res.json({ success: true, allprojects });
+  } catch (error) {
+    return res.json({ success: false });
+  }
+};
+
+exports.getProjectTableForGroup = async (req, res) => {
+  try {
+    const {
+      companyId,
+      pagination = { page: 1, limit: 10 },
+      filters = [],
+      searchFilter,
+      sort,
+      dateSort,
+      dueDateSort,
+      startDate,
+      groupId,
+    } = req.body;
+    // console.log(pagination, "from pagination");
+    let sortOption = {};
+
+    if (sort === "titleAsc") {
+      sortOption = { title: 1 };
+    } else if (sort === "titleDesc") {
+      sortOption = { title: -1 };
+    }
+
+    if (dateSort === "asc") {
+      sortOption = { startdate: 1 };
+    } else if (dateSort === "desc") {
+      sortOption = { startdate: -1 };
+    }
+
+    if (dueDateSort === "asc") {
+      sortOption = { enddate: 1 };
+    } else if (dueDateSort === "desc") {
+      sortOption = { enddate: -1 };
+    }
+
+    if (!sort && !dateSort && !dueDateSort) {
+      sortOption = { createdOn: 1 };
+    }
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        msg: "Company ID is required to fetch tasks",
+      });
+    }
+
+    const { page, limit: rawLimit } = pagination;
+    const limit = parseInt(rawLimit, 10);
+    const skip = (page - 1) * limit;
+
+    // Validate project ID format
+    if (!mongoose.Types.ObjectId.isValid(companyId)) {
+      return res
+        .status(400)
+        .json({ success: false, msg: "Invalid company ID format." });
+    }
+
+    // Base condition for fetching tasks
+    let condition = {
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: false,
+      group: groupId,
+      archive: false,
+    };
+
+    // Apply search filter if provided
+    if (searchFilter) {
+      const regex = new RegExp(searchFilter, "i");
+      condition.title = { $regex: regex };
+    }
+
+    if (startDate && !isNaN(new Date(startDate))) {
+      const start = new Date(startDate);
+      const end = new Date(startDate);
+      end.setDate(end.getDate() + 1);
+
+      condition.startdate = {
+        $gte: start,
+        $lt: end,
+      };
+    }
+
+    // Apply additional filters
+    if (filters.length && filters[0].value) {
+      for (const filter of filters) {
+        // Changed to 'for...of' loop
+        const { field, value, isSystem } = filter;
+
+        if (!field || value === undefined) return;
+
+        if (isSystem == "false") {
+          const regex = new RegExp(value, "i");
+          condition[`customFieldValues.${field}`] = { $regex: regex };
+        }
+
+        if (field === "userid") {
+          const user = await User.findOne({ name: value }).select("_id");
+
+          if (user) {
+            condition.userId = user._id;
+          } else {
+            return res.status(400).json({
+              success: false,
+              msg: "User not found",
+            });
+          }
+        } else {
+          switch (field) {
+            case "title":
+            case "description":
+            case "tag":
+            case "status":
+            case "depId":
+            case "taskType":
+            case "priority":
+            case "createdBy":
+            case "modifiedBy":
+            case "sequence":
+            case "dateOfCompletion": {
+              const regex = new RegExp(value, "i");
+              condition[field] = { $regex: regex };
+              break;
+            }
+            case "completed": {
+              condition[field] = value === "true";
+              break;
+            }
+            case "storyPoint": {
+              condition[field] = Number(value);
+              break;
+            }
+            case "startDate":
+            case "endDate":
+            case "createdOn":
+            case "modifiedOn": {
+              condition[field] = {
+                $lte: new Date(new Date(value).setUTCHours(23, 59, 59, 999)),
+                $gte: new Date(new Date(value).setUTCHours(0, 0, 0, 0)),
+              };
+              break;
+            }
+            case "userId":
+            case "taskStageId": {
+              condition[field] = value;
+              break;
+            }
+            case "selectUsers": {
+              condition["userId"] = value;
+              break;
+            }
+            case "interested_products": {
+              condition["interested_products.product_id"] = value;
+              break;
+            }
+            case "uploadFiles": {
+              condition["uploadFiles.fileName"] = value;
+              break;
+            }
+            default:
+              break;
+          }
+        }
+      }
+    }
+    // Count total tasks matching the condition
+    const totalCount = await Project.countDocuments(condition);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Fetch tasks with pagination and filtering
+    const projects = await Project.find(condition)
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .populate("userid", "name")
+      .populate("group", "name")
+      .populate("projectTypeId", "projectType")
+      .populate({
+        path: "projectUsers",
+        select: "name",
+      })
+      .populate({
+        path: "notifyUsers",
+        select: "name",
+      })
+      .populate({
+        path: "userGroups",
+        select: "groupName",
+      })
+      .sort(sortOption);
+
+    res.json({
+      success: true,
+      data: projects,
+      totalCount,
+      page,
+      totalPages,
+      filters,
+      searchFilter,
+    });
+  } catch (error) {
+    console.error("Error in getTasksTable:", error);
+    res.status(500).json({
+      success: false,
+      msg: "Server error occurred while retrieving tasks",
+      error: error.message,
+    });
   }
 };
 
@@ -2684,6 +2942,7 @@ exports.getProjectTable = async (req, res) => {
     let condition = {
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: false,
+      archive: false,
     };
 
     // Apply search filter if provided

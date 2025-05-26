@@ -224,4 +224,6 @@ router.post("/selectedDelete", projectController.deleteSelectedProjects);
 router.post("/selectedDeleteExhibition", projectController.selectedDeleteExhibition);
 router.post("/allProjectsExhibition", projectController.allProjectsExhibition);
 router.post("/getProjectExhibitionTable", projectController.getProjectExhibitionTable);
+router.post("/allProjectsForGroup", projectController.allProjectsForGroup);
+router.post("/getProjectTableForGroup", projectController.getProjectTableForGroup);
 module.exports = router;
