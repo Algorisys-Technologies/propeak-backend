@@ -46,7 +46,11 @@ exports.getNotifications = async (req, res) => {
       .skip(limit * page)
       .lean();
 
-    const notifications = await UserNotification.find(filterQuery)
+    const notifications = await UserNotification.find({isDeleted: false,
+      companyId,
+      userId,
+      read: false
+    })
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * npage);
@@ -55,7 +59,11 @@ exports.getNotifications = async (req, res) => {
     const centerTotalPages = Math.ceil(totalDocuments / limit);
 
     const totalPages = Math.ceil(
-      (await UserNotification.countDocuments({ isDeleted: false })) / limit
+      (await UserNotification.countDocuments({ isDeleted: false,
+        companyId,
+        userId,
+        read: false
+      })) / limit
     );
 
     const unReadNotification = await UserNotification.countDocuments({

@@ -8,6 +8,7 @@ const audit = require("../audit-log/audit-log-controller");
 const AuditLogs = require("../../models/auditlog/audit-log-model");
 const ProjectStatus = require("../../models/project/project-status-model");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
+const rabbitMQ = require("../../rabbitmq");
 
 const {
   CustomTaskField,
@@ -33,6 +34,9 @@ const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
 };
 const sendNotification = require("../../utils/send-notification");
+const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
+const Role = require("../../models/role/role-model");
+const config = require("../../config/config");
 const {
   startOfMonth,
   endOfMonth,
@@ -260,7 +264,7 @@ exports.getProjectDataByProjectId = (req, res) => {
 // CREATE
 exports.createProject = async (req, res) => {
   logInfo(req.body, "createProject req.body");
-  console.log("createProject req.body...", req.body);
+  // console.log("createProject req.body...", req.body);
   let userName = req.body.userName;
   const { title, companyId, status, taskStages, group } = req.body;
   //const existingProject = await Project.findOne({ title, companyId });
@@ -277,7 +281,7 @@ exports.createProject = async (req, res) => {
 
   const existingProject = await Project.findOne(projectQuery);
 
-  console.log(existingProject, "existingProject");
+  // console.log(existingProject, "existingProject");
 
   // const existingProject = await Project.findOne({ title, companyId });
   if (existingProject) {
@@ -349,6 +353,101 @@ exports.createProject = async (req, res) => {
 
   const eventType = "PROJECT_CREATED";
   await sendNotification(newProject, eventType);
+
+  const channel = await NotificationSetting.find({
+    companyId,
+    projectId: null,
+    channel: { $in: ["email"] },
+    active: true
+  });
+
+  const data = [];
+
+  for (const ch of channel) {
+    // 1. Get role names from Role model
+    const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
+    const roleNames = roles.map(role => role.name);
+  
+    // 2. Get all users whose _id is in notifyUserIds
+    const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
+
+    const filteredUsers = usersById.filter(user =>
+      ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
+    );
+  
+    // 4. Extract emails and deduplicate
+    const emails = [...new Set(filteredUsers.map(user => user.email))];
+  
+    data.push({
+      emails,
+    });
+  }
+  const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+    try {
+      let updatedDescription = newTask.description
+        .split("\n")
+        .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+      let emailText = config.projectEmailCreateContent
+        .replace("#title#", newTask.title)
+        .replace("#description#", updatedDescription)
+        .replace("#projectName#", newTask.title)
+        .replace("#status#", newTask.status)
+        .replace("#projectId#", newTask._id)
+        // .replace("#priority#", newTask.priority.toUpperCase())
+        // .replace("#newTaskId#", newTask._id);
+
+      let taskEmailLink = config.taskEmailLink
+        .replace("#projectId#", newTask._id)
+        // .replace("#newTaskId#", newTask._id);
+
+       
+      if (email !== "XX") {
+        var mailOptions = {
+          from: config.from,
+          to: email,
+          // cc: emailOwner,
+          subject: ` PROJECT_CREATED - ${newTask.title}`,
+          html: emailText,
+        };
+
+        console.log(mailOptions, "from mailOptions")
+
+        let taskArr = {
+          subject: mailOptions.subject,
+          url: taskEmailLink,
+          userId: newTask.assignedUser,
+        };
+
+        rabbitMQ
+          .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+          .then((resp) => {
+            logInfo(
+              "Task add mail message sent to the message_queue: " + resp
+            );
+            addMyNotification(taskArr);
+          })
+          .catch((err) => {
+            console.error("Failed to send email via RabbitMQ", err);
+          });
+      }
+    } catch (error) {
+      console.error("Error in sending email", error);
+    }
+  };
+
+  if (channel.length > 0) {
+    // if (emailOwner.length > 0 || email.length > 0) {
+    //   await auditTaskAndSendMail(task, emailOwner, email);
+    // }
+
+    for (const channel of data) {
+      const { emails } = channel;
+    
+      for (const email of emails) {
+        await auditTaskAndSendMail(newProject, [], email);
+      }
+    }
+  }
 
   newProject
     .save()
@@ -1270,10 +1369,113 @@ exports.archiveProject = async (req, res) => {
     );
 
     const eventType = "PROJECT_ARCHIVED";
-    console.log(project, "from project archived");
-    const notificationResult = await sendNotification(project, eventType);
+    // console.log(project, "from project archived");
+    await sendNotification(project, eventType);
 
-    console.log("Notification sent:", notificationResult);
+    // console.log("Notification sent:", notificationResult);
+    const channel = await NotificationSetting.find({
+      companyId: project.companyId,
+      projectId: null,
+      eventType,
+      channel: { $in: ["email"] },
+      active: true
+    });
+
+    console.log(channel, "from channel")
+
+    const data = [];
+
+    for (const ch of channel) {
+      // 1. Get role names from Role model
+      const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
+      const roleNames = roles.map(role => role.name);
+    
+      // 2. Get all users whose _id is in notifyUserIds
+      const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
+  
+      const filteredUsers = usersById.filter(user =>
+        ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
+      );
+    
+      // 4. Extract emails and deduplicate
+      const emails = [...new Set(filteredUsers.map(user => user.email))];
+    
+      data.push({
+        emails,
+      });
+    }
+
+    
+    // if (emailOwner.length > 0 || email.length > 0) {
+      const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+        try {
+          let updatedDescription = newTask.description
+            .split("\n")
+            .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+          let emailText = config.projectEmailArchiveContent
+            // .replace("#title#", newTask.title)
+            .replace("#description#", updatedDescription)
+            .replace("#projectName#", newTask.title)
+            .replace("#projectId#", newTask._id)
+            // .replace("#priority#", newTask.priority.toUpperCase())
+            .replace("#newTaskId#", newTask._id);
+
+          let taskEmailLink = config.taskEmailLink
+            // .replace("#projectId#", newTask.projectId._id)
+            .replace("#newTaskId#", newTask._id);
+
+            console.log(emailText, "from mailOptions")
+
+          if (email !== "XX") {
+            var mailOptions = {
+              from: config.from,
+              to: email,
+              // cc: emailOwner,
+              subject: ` PROJECT_ARCHIVED - ${newTask.title}`,
+              html: emailText,
+            };
+
+            console.log(mailOptions, "from mailOptions")
+
+            let taskArr = {
+              subject: mailOptions.subject,
+              url: taskEmailLink,
+              userId: newTask.assignedUser,
+            };
+
+            rabbitMQ
+              .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+              .then((resp) => {
+                logInfo(
+                  "Task add mail message sent to the message_queue: " + resp
+                );
+                addMyNotification(taskArr);
+              })
+              .catch((err) => {
+                console.error("Failed to send email via RabbitMQ", err);
+              });
+          }
+        } catch (error) {
+          console.error("Error in sending email", error);
+        }
+      };
+
+      // auditTaskAndSendMail(task, emailOwner, email);
+    // }
+
+    if (channel.length > 0) {
+      // if (emailOwner.length > 0 || email.length > 0) {
+      //   await auditTaskAndSendMail(task, emailOwner, email);
+      // }
+
+      for (const channel of data) {
+        const { emails } = channel;
+      
+        for (const email of emails) {
+          await auditTaskAndSendMail(project, [], email);
+        }
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -1355,15 +1557,115 @@ exports.addCustomTaskField = async (req, res) => {
       level,
       isMandatory,
       isDeleted: false,
-    });
+    })
 
     // Save the custom field
     await newField.save();
 
-    console.log(newField, "from new filed");
+    console.log(newField, "from newFiled")
+
+    // console.log(newField, "from new filed");
     try {
       const eventType = "CUSTOM_FIELD_UPDATE";
       await sendNotification(newField, eventType);
+      const channel = await NotificationSetting.find({
+        companyId,
+        projectId,
+        eventType,
+        channel: { $in: ["email"] },
+        active: true
+      });
+
+      console.log(channel, "from channel")
+    
+      const data = [];
+    
+      for (const ch of channel) {
+        // 1. Get role names from Role model
+        const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
+        const roleNames = roles.map(role => role.name);
+      
+        // 2. Get all users whose _id is in notifyUserIds
+        const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
+    
+        const filteredUsers = usersById.filter(user =>
+          ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
+        );
+      
+        // 4. Extract emails and deduplicate
+        const emails = [...new Set(filteredUsers.map(user => user.email))];
+      
+        data.push({
+          emails,
+        });
+      }
+      const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+        try {
+          // let updatedDescription = newTask.description
+          //   .split("\n")
+          //   .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+          let emailText = config.projectEmailFieldContent
+            .replace("#title#", newTask.title)
+            // .replace("#description#", updatedDescription)
+            .replace("#projectName#", newTask.title)
+            .replace("#status#", newTask.status)
+            .replace("#projectId#", newTask._id)
+            // .replace("#priority#", newTask.priority.toUpperCase())
+            // .replace("#newTaskId#", newTask._id);
+    
+          let taskEmailLink = config.taskEmailLink
+            .replace("#projectId#", newTask._id)
+            // .replace("#newTaskId#", newTask._id);
+    
+           
+          if (email !== "XX") {
+            var mailOptions = {
+              from: config.from,
+              to: email,
+              // cc: emailOwner,
+              subject: ` CUSTOM_FIELD_UPDATE - ${newTask.title}`,
+              html: emailText,
+            };
+    
+            console.log(mailOptions, "from mailOptions")
+    
+            let taskArr = {
+              subject: mailOptions.subject,
+              url: taskEmailLink,
+              userId: newTask.assignedUser,
+            };
+    
+            rabbitMQ
+              .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+              .then((resp) => {
+                logInfo(
+                  "Task add mail message sent to the message_queue: " + resp
+                );
+                addMyNotification(taskArr);
+              })
+              .catch((err) => {
+                console.error("Failed to send email via RabbitMQ", err);
+              });
+          }
+        } catch (error) {
+          console.error("Error in sending email", error);
+        }
+      };
+    
+      if (channel.length > 0) {
+        // if (emailOwner.length > 0 || email.length > 0) {
+        //   await auditTaskAndSendMail(task, emailOwner, email);
+        // }
+    
+        for (const channel of data) {
+          const { emails } = channel;
+        
+          for (const email of emails) {
+            await auditTaskAndSendMail(newField, [], email);
+          }
+        }
+      }
+      
     } catch (notifyErr) {
       console.warn("Notification failed", notifyErr);
     }
@@ -2571,6 +2873,103 @@ exports.updateStage = async (req, res) => {
 
     const eventType = "PROJECT_STAGE_CHANGED";
     await sendNotification(project, eventType);
+    const channel = await NotificationSetting.find({
+      companyId: project.companyId,
+      projectId: null,
+      eventType,
+      channel: { $in: ["email"] },
+      active: true
+    });
+
+    console.log(channel, "from channel")
+  
+    const data = [];
+  
+    for (const ch of channel) {
+      // 1. Get role names from Role model
+      const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
+      const roleNames = roles.map(role => role.name);
+    
+      // 2. Get all users whose _id is in notifyUserIds
+      const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
+  
+      const filteredUsers = usersById.filter(user =>
+        ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
+      );
+    
+      // 4. Extract emails and deduplicate
+      const emails = [...new Set(filteredUsers.map(user => user.email))];
+    
+      data.push({
+        emails,
+      });
+    }
+    const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+      try {
+        let updatedDescription = newTask.description
+          .split("\n")
+          .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+        let emailText = config.projectEmailCreateContent
+          .replace("#title#", newTask.title)
+          .replace("#description#", updatedDescription)
+          .replace("#projectName#", newTask.title)
+          .replace("#status#", newTask.status)
+          .replace("#projectId#", newTask._id)
+          // .replace("#priority#", newTask.priority.toUpperCase())
+          // .replace("#newTaskId#", newTask._id);
+  
+        let taskEmailLink = config.taskEmailLink
+          .replace("#projectId#", newTask._id)
+          // .replace("#newTaskId#", newTask._id);
+  
+         
+        if (email !== "XX") {
+          var mailOptions = {
+            from: config.from,
+            to: email,
+            // cc: emailOwner,
+            subject: ` PROJECT_STAGE_CHANGED - ${newTask.title}`,
+            html: emailText,
+          };
+  
+          console.log(mailOptions, "from mailOptions")
+  
+          let taskArr = {
+            subject: mailOptions.subject,
+            url: taskEmailLink,
+            userId: newTask.assignedUser,
+          };
+  
+          rabbitMQ
+            .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+            .then((resp) => {
+              logInfo(
+                "Task add mail message sent to the message_queue: " + resp
+              );
+              // addMyNotification(taskArr);
+            })
+            .catch((err) => {
+              console.error("Failed to send email via RabbitMQ", err);
+            });
+        }
+      } catch (error) {
+        console.error("Error in sending email", error);
+      }
+    };
+  
+    if (channel.length > 0) {
+      // if (emailOwner.length > 0 || email.length > 0) {
+      //   await auditTaskAndSendMail(task, emailOwner, email);
+      // }
+  
+      for (const channel of data) {
+        const { emails } = channel;
+      
+        for (const email of emails) {
+          await auditTaskAndSendMail(project, [], email);
+        }
+      }
+    }
 
     return res.json({ success: true });
   } catch (error) {
@@ -2735,7 +3134,7 @@ exports.getProjectTableForGroup = async (req, res) => {
     let condition = {
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: false,
-      group: groupId,
+      group: new mongoose.Types.ObjectId(groupId),
       archive: false,
     };
 

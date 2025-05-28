@@ -8,27 +8,72 @@ const NotificationPreference = require("../models/notification-setting/notificat
 const sendEmail = require("./send-email");
 
 module.exports = async function sendNotification(task, eventType) {
-  const TASK_COMPLETED = "TASK_COMPLETED";
-  const TASK_REJECTED = "TASK_REJECTED";
-  if (task.status === "completed") eventType = TASK_COMPLETED;
-  if (task.status === "rejected") eventType = TASK_REJECTED;
-  const projectEvents = [
-    "CUSTOM_FIELD_UPDATE",
-    "PROJECT_CREATED",
-    "PROJECT_ARCHIVED",
-    "PROJECT_STAGE_CHANGED",
-  ];
+  // const TASK_COMPLETED = "TASK_COMPLETED";
+  // const TASK_REJECTED = "TASK_REJECTED";
+  // if (task.status === "completed") eventType = TASK_COMPLETED;
+  // if (task.status === "rejected") eventType = TASK_REJECTED;
 
-  const isProjectEvent = projectEvents.includes(eventType);
-  // const notificationProjectId = isProjectEvent ? task._id : task.projectId;
-  const notificationProjectId = isProjectEvent ? (task.projectId || null) : task.projectId;
+  console.log(task, "from task");
+console.log(eventType, "from eventType");
 
-  const settings = await NotificationSetting.find({
+const projectEvents = [
+  "CUSTOM_FIELD_UPDATE",
+  "PROJECT_CREATED",
+  "PROJECT_ARCHIVED",
+  "PROJECT_STAGE_CHANGED",
+];
+
+const isProjectEvent = projectEvents.includes(eventType);
+
+
+const notificationProjectId = isProjectEvent
+  ? task.projectId || null
+  : task.projectId?._id || null;
+
+
+  let condition = {
     eventType,
     projectId: notificationProjectId,
     active: true,
     isDeleted: false,
-  }).populate("notifyRoles");
+  };
+
+// STAGE_CHANGED logic
+    if (task.projectId?._id && eventType === "STAGE_CHANGED") {
+      const data = await NotificationSetting.find({
+        projectId: task.projectId._id,
+        taskStageId: null,
+        eventType,
+      });
+
+      condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
+    }  
+
+    if (task._id && eventType === "PROJECT_STAGE_CHANGED") {
+      const data = await NotificationSetting.find({
+        projectId: task._id,
+        taskStageId: null,
+        eventType,
+      });
+
+      condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
+    }
+
+    // console.log(task, "from task")                    
+
+    if (task.projectId?._id && eventType === "TASK_CREATED") {
+      const data = await NotificationSetting.find({
+        projectId: task.projectId._id,
+        taskStageId: null,
+        eventType,
+      });
+
+      if (task.publish_status === "published") {
+        condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
+      }
+    }
+
+  const settings = await NotificationSetting.find(condition).populate("notifyRoles");
 
   if (!settings.length) {
     console.warn(`No NotificationSetting found for eventType: ${eventType}`);
@@ -145,18 +190,18 @@ module.exports = async function sendNotification(task, eventType) {
       continue;
     }
 
-    if (shouldSendEmail) {
-      try {
-        await sendEmail(
-          user.email,
-          "Notification - " + eventType.replace(/_/g, " "),
-          message
-        );
-        console.log(`Email sent to ${user.email}`);
-      } catch (err) {
-        console.error(`Failed to send email to ${user.email}:`, err);
-      }
-    }
+    // if (shouldSendEmail) {
+    //   try {
+    //     await sendEmail(
+    //       user.email,
+    //       "Notification - " + eventType.replace(/_/g, " "),
+    //       message
+    //     );
+    //     console.log(`Email sent to ${user.email}`);
+    //   } catch (err) {
+    //     console.error(`Failed to send email to ${user.email}:`, err);
+    //   }
+    // }
 
     notifications.push({
       companyId: task.companyId,

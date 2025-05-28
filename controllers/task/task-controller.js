@@ -17,6 +17,8 @@ const { logError, logInfo } = require("../../common/logger");
 const { sendEmail } = require("../../common/mailer");
 const accessConfig = require("../../common/validate-entitlements");
 const objectId = require("../../common/common");
+const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
+const Role = require("../../models/role/role-model");
 const errors = {
   TASK_DOESNT_EXIST: "Task does not exist",
   ADD_TASK_ERROR: "Error occurred while adding the Task",
@@ -49,8 +51,8 @@ const { result } = require("lodash");
 const sendNotification = require("../../utils/send-notification");
 
 exports.createTask = (req, res) => {
-  console.log("create task wala ");
-  console.log(req.body, "request body in create tasks ");
+  // console.log("create task wala ");
+  // console.log(req.body, "request body in create tasks ");
   const { taskData, fileName, projectId } = req.body;
   const { task, multiUsers } = JSON.parse(taskData);
   const {
@@ -151,6 +153,7 @@ exports.createTask = (req, res) => {
   newTask
     .save()
     .then(async (result) => {
+
       const taskId = result._id;
       // Send notification here
 
@@ -167,11 +170,22 @@ exports.createTask = (req, res) => {
         });
 
       const eventType = "TASK_CREATED";
+      // console.log(projectId, "from projectId")
       try {
-        const notificationResult = await sendNotification(task, eventType);
-        console.log("Notification result:", notificationResult);
+        const channel = await NotificationSetting.find({
+          companyId,
+          projectId,
+          eventType,
+          channel: { $in: ["inapp"] },
+          active: true
+        });
+        console.log(channel, "from channel")
+        if (channel.length > 0) {
+          await sendNotification(task, eventType);
+        }
+        // console.log("Notification result:", notificationResult);
       } catch (notificationError) {
-        console.error("Notification error:", notificationError);
+        // console.error("Notification error:", notificationError);
       }
 
       if (fileName) {
@@ -298,10 +312,41 @@ exports.createTask = (req, res) => {
         }
       });
 
-      const emailOwner = [ownerEmail, createdByEmail];
-      const email = [(await User.findOne({ _id: userId }))?.email];
+      // const emailOwner = [ownerEmail, createdByEmail];
+      // const email = [(await User.findOne({ _id: userId }))?.email];
+      // console.log(emailOwner, email, "from email owner")
+      // console.log(projectId, "from projectId")
+      const channel = await NotificationSetting.find({
+        companyId,
+        projectId,
+        channel: { $in: ["email"] },
+        active: true
+      });
 
-      if (emailOwner.length > 0 || email.length > 0) {
+      const data = [];
+
+      for (const ch of channel) {
+        // 1. Get role names from Role model
+        const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
+        const roleNames = roles.map(role => role.name);
+      
+        // 2. Get all users whose _id is in notifyUserIds
+        const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
+    
+        const filteredUsers = usersById.filter(user =>
+          ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
+        );
+      
+        // 4. Extract emails and deduplicate
+        const emails = [...new Set(filteredUsers.map(user => user.email))];
+      
+        data.push({
+          emails,
+        });
+      }
+
+      
+      // if (emailOwner.length > 0 || email.length > 0) {
         const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
           try {
             let updatedDescription = newTask.description
@@ -319,14 +364,18 @@ exports.createTask = (req, res) => {
               .replace("#projectId#", newTask.projectId._id)
               .replace("#newTaskId#", newTask._id);
 
+              console.log(emailText, "from mailOptions")
+
             if (email !== "XX") {
               var mailOptions = {
                 from: config.from,
                 to: email,
                 // cc: emailOwner,
-                subject: `${newTask.projectId.title} - Task assigned - ${newTask.title}`,
+                subject: ` Task Created - ${newTask.projectId.title} - Task Created - ${newTask.title}`,
                 html: emailText,
               };
+
+              // console.log(mailOptions, "from mailOptions")
 
               let taskArr = {
                 subject: mailOptions.subject,
@@ -351,7 +400,21 @@ exports.createTask = (req, res) => {
           }
         };
 
-        auditTaskAndSendMail(task, emailOwner, email);
+        // auditTaskAndSendMail(task, emailOwner, email);
+      // }
+
+      if (channel.length > 0) {
+        // if (emailOwner.length > 0 || email.length > 0) {
+        //   await auditTaskAndSendMail(task, emailOwner, email);
+        // }
+
+        for (const channel of data) {
+          const { emails } = channel;
+        
+          for (const email of emails) {
+            await auditTaskAndSendMail(task, [], email);
+          }
+        }
       }
 
       res.json({
@@ -371,10 +434,10 @@ exports.createTask = (req, res) => {
 };
 
 exports.updateTask = (req, res) => {
-  console.log("is it coming th task update");
-  console.log(req.body, "request body of update task ");
+  // console.log("is it coming th task update");
+  // console.log(req.body, "request body of update task ");
   const { taskId } = req.body;
-  const { projectId, task } = req.body;
+  const { projectId, task, companyId } = req.body;
 
   const {
     title,
@@ -394,7 +457,6 @@ exports.updateTask = (req, res) => {
     multiUsers = [],
     notifyUsers = [],
     customFieldValues = {},
-    companyId,
     modifiedBy,
     userId,
     createdByEmail,
@@ -449,15 +511,64 @@ exports.updateTask = (req, res) => {
         path: "projectId",
         select: "title",
         model: "project",
+      }).populate({
+        path: "createdBy",
+        select: "name",
+        model: "user",
       });
 
-      const eventType = "TASK_CREATED";
-      try {
-        const notificationResult = await sendNotification(result, eventType);
-        console.log("Notification result:", notificationResult);
-      } catch (notificationError) {
-        console.error("Notification error:", notificationError);
+      // if(task.userId){
+      //   const eventType = "TASK_ASSIGNED"
+      //   await sendNotification(task, eventType);
+      // }
+      // if(task.publish_status === "published"){
+      //   const eventType = "TASK_CREATED";
+      //   try {
+      //     const notificationResult = await sendNotification(task, eventType);
+      //     console.log("Notification result:", notificationResult);
+      //   } catch (notificationError) {
+      //     console.error("Notification error:", notificationError);
+      //   }
+      // }
+
+      // if(task.userId){
+      //   const eventType = "TASK_ASSIGNED"
+      //   await sendNotification(task, eventType);
+      // }
+      if (task.publish_status === "published") {
+        const eventType = "TASK_ASSIGNED";
+      
+        // Update each matching NotificationSetting document
+        await NotificationSetting.updateMany(
+          {
+            companyId,
+            projectId,
+            eventType,
+            channel: { $in: ["inapp"] },
+            active: true,
+          },
+          {
+            $set: {
+              notifyUserIds: [task.userId],
+              notifyRoles: [],
+            },
+          }
+        );
+      
+        // Re-fetch after update, if needed for sending notifications
+        const channel = await NotificationSetting.find({
+          companyId,
+          projectId,
+          eventType,
+          channel: { $in: ["inapp"] },
+          active: true,
+        });
+      
+        if (channel.length > 0) {
+          await sendNotification(task, eventType);
+        }
       }
+
       const userIdToken = req.body.userName;
       const fields = Object.keys(result.toObject()).filter(
         (key) =>
@@ -493,23 +604,53 @@ exports.updateTask = (req, res) => {
         }
       });
 
-      const emailOwner = [ownerEmail, createdByEmail];
-      const email = [(await User.findOne({ _id: userId }))?.email];
+      // const emailOwner = [ownerEmail, createdByEmail];
+      // const email = [(await User.findOne({ _id: userId }))?.email];
+      const eventType = "TASK_ASSIGNED";
+      const channel = await NotificationSetting.find({
+        companyId,
+        projectId,
+        eventType,
+        channel: { $in: ["email"] },
+        active: true,
+      });
 
-      if (emailOwner.length > 0 || email.length > 0) {
+      const data = [];
+
+      for (const ch of channel) {
+        // 1. Get role names from Role model
+        const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
+        const roleNames = roles.map(role => role.name);
+        const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
+    
+        const filteredUsers = usersById.filter(user =>
+          ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
+        );
+      
+        // 4. Extract emails and deduplicate
+        const emails = [...new Set(filteredUsers.map(user => user.email))];
+      
+        data.push({
+          emails,
+        });
+      }
+
+      // if (emailOwner.length > 0 || email.length > 0) {
         const auditTaskAndSendMail = async (updatedTask, emailOwner, email) => {
           try {
             let updatedDescription = updatedTask.description
               .split("\n")
               .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
 
-            let emailText = config.taskEmailContent
+            let emailText = config.taskEmailAssignContent
               .replace("#title#", updatedTask.title)
               .replace("#description#", updatedDescription)
               .replace("#projectName#", updatedTask.projectId.title)
               .replace("#projectId#", updatedTask.projectId._id)
               .replace("#priority#", updatedTask.priority.toUpperCase())
               .replace("#newTaskId#", updatedTask._id);
+
+              console.log(emailText, "from emailText")
 
             let taskEmailLink = config.taskEmailLink
               .replace("#projectId#", updatedTask.projectId._id)
@@ -520,7 +661,7 @@ exports.updateTask = (req, res) => {
                 from: config.from,
                 to: email,
                 // cc: emailOwner,
-                subject: `${updatedTask.projectId.title} - Task updated - ${updatedTask.title}`,
+                subject: `${updatedTask.projectId.title} - Task Assigned - ${updatedTask.title}`,
                 html: emailText,
               };
 
@@ -548,9 +689,21 @@ exports.updateTask = (req, res) => {
           }
         };
         if (task.publish_status === "published") {
-          auditTaskAndSendMail(task, emailOwner, email);
+          if (channel.length > 0) {
+            // if (emailOwner.length > 0 || email.length > 0) {
+            //   await auditTaskAndSendMail(task, emailOwner, email);
+            // }
+    
+            for (const channel of data) {
+              const { emails } = channel;
+            
+              for (const email of emails) {
+                await auditTaskAndSendMail(task, [], email);
+              }
+            }
+          }
         }
-      }
+      // }
 
       res.json({
         success: true,
@@ -2553,6 +2706,7 @@ exports.getTasksStagesByProjectId = async (req, res) => {
         },
       ])
     )[0];
+    // console.log(project, "from project")
     const taskStagesTitles = project.taskStages;
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
@@ -2567,7 +2721,7 @@ exports.getTasksStagesByProjectId = async (req, res) => {
 };
 
 exports.updateStage = async (req, res) => {
-  console.log("request coming from body", req.body);
+  // console.log("request coming from body", req.body);
   try {
     const { taskId, newStageId, status, userId } = req.body;
 
@@ -2596,11 +2750,119 @@ exports.updateStage = async (req, res) => {
     task.status = status;
     task.modifiedOn = new Date();
     task.modifiedBy = userId;
+    // console.log(newStageId, "from new Stage")
     await task.save();
-
     const eventType = "STAGE_CHANGED";
+    try {
+      const channel = await NotificationSetting.find({
+        companyId: task.companyId,
+        projectId: task.projectId,
+        eventType,
+        channel: { $in: ["inapp"] },
+        active: true
+      });
+      if (channel.length > 0) {
+        await sendNotification(task, eventType);
+      }
+      // console.log("Notification result:", notificationResult);
+    } catch (notificationError) {
+      // console.error("Notification error:", notificationError);
+    }
+    const channel = await NotificationSetting.find({
+      companyId: task.companyId,
+      projectId: task.projectId,
+      channel: { $in: ["email"] },
+      active: true
+    });
 
-    const check = await sendNotification(task, eventType);
+    const data = [];
+
+    for (const ch of channel) {
+      // 1. Get role names from Role model
+      const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
+      const roleNames = roles.map(role => role.name);
+    
+      // 2. Get all users whose _id is in notifyUserIds
+      const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
+  
+      const filteredUsers = usersById.filter(user =>
+        ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
+      );
+    
+      // 4. Extract emails and deduplicate
+      const emails = [...new Set(filteredUsers.map(user => user.email))];
+    
+      data.push({
+        emails,
+      });
+    }
+    const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+      try {
+        let updatedDescription = newTask.description
+          .split("\n")
+          .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+        let emailText = config.taskEmailStageContent
+          .replace("#title#", newTask.title)
+          .replace("#description#", updatedDescription)
+          .replace("#projectName#", newTask.projectId.title)
+          .replace("#status#", newTask.status)
+          .replace("#projectId#", newTask.projectId._id)
+          .replace("#priority#", newTask.priority.toUpperCase())
+          .replace("#newTaskId#", newTask._id);
+
+        let taskEmailLink = config.taskEmailLink
+          .replace("#projectId#", newTask.projectId._id)
+          .replace("#newTaskId#", newTask._id);
+
+          console.log(emailText, "from mailOptions")
+
+        if (email !== "XX") {
+          var mailOptions = {
+            from: config.from,
+            to: email,
+            // cc: emailOwner,
+            subject: ` STAGE_CHANGED - ${newTask.title}`,
+            html: emailText,
+          };
+
+          // console.log(mailOptions, "from mailOptions")
+
+          let taskArr = {
+            subject: mailOptions.subject,
+            url: taskEmailLink,
+            userId: newTask.assignedUser,
+          };
+
+          rabbitMQ
+            .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+            .then((resp) => {
+              logInfo(
+                "Task add mail message sent to the message_queue: " + resp
+              );
+              addMyNotification(taskArr);
+            })
+            .catch((err) => {
+              console.error("Failed to send email via RabbitMQ", err);
+            });
+        }
+      } catch (error) {
+        console.error("Error in sending email", error);
+      }
+    };
+
+    if (channel.length > 0) {
+      // if (emailOwner.length > 0 || email.length > 0) {
+      //   await auditTaskAndSendMail(task, emailOwner, email);
+      // }
+
+      for (const channel of data) {
+        const { emails } = channel;
+      
+        for (const email of emails) {
+          await auditTaskAndSendMail(task, [], email);
+        }
+      }
+    }
     return res.json({ success: true });
   } catch (error) {
     console.error("Error updating task stage:", error);
