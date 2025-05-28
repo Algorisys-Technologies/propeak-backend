@@ -11,7 +11,7 @@ router.post(
   // checkRole,
   // verifyAppLevelAccess,
   reportsController.getMonthlyTaskReport
-); 
+);
 router.post(
   "/getMonthlyTaskReportExcel",
   reportsController.getMonthlyTaskReportExcel
@@ -25,7 +25,6 @@ router.post(
   "/getMonthlyAllTaskReportForCompany",
   reportsController.getMonthlyAllTaskReportForCompany
 );
-
 
 router.post(
   "/getMonthlyUserReportForCompany",
@@ -94,5 +93,7 @@ router.post(
   // verifyAppLevelAccess,
   reportsController.getUserPerformanceReport
 );
+
+router.post("/generate", reportsController.generateExport);
 
 module.exports = router;

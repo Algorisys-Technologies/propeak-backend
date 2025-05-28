@@ -61,7 +61,10 @@ const eventMessages = {
   EMAIL_RECEIVED: (task) => `You received an email related to "${task.title}".`,
 
   PROJECT_CREATED: (task) => `The Project created as Title "${task.title}".`,
+
+  EXPORT_READY: (task) => {
+    return `Your export is ready for download: ${task.title} and ${task.description}`;
+  },
 };
 
 module.exports = eventMessages;
-

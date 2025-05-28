@@ -17,11 +17,14 @@ module.exports = async function sendNotification(task, eventType) {
     "PROJECT_CREATED",
     "PROJECT_ARCHIVED",
     "PROJECT_STAGE_CHANGED",
+    "EXPORT_READY",
   ];
 
   const isProjectEvent = projectEvents.includes(eventType);
   // const notificationProjectId = isProjectEvent ? task._id : task.projectId;
-  const notificationProjectId = isProjectEvent ? (task.projectId || null) : task.projectId;
+  const notificationProjectId = isProjectEvent
+    ? task.projectId || null
+    : task.projectId;
 
   const settings = await NotificationSetting.find({
     eventType,
@@ -164,12 +167,16 @@ module.exports = async function sendNotification(task, eventType) {
       userId: user._id,
       subject: isProjectEvent ? "Project Notification" : "Task Notification",
       message,
-      // url: `/tasks/${task._id}`,
+      // url:
+      //   category === "task"
+      //     ? `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`
+      //     : `/tasks/${task._id}/kanban/stage`,
       url:
-      category === "task"
-        ? `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`
-        : `/tasks/${task._id}/kanban/stage`,
-    
+        eventType === "EXPORT_READY"
+          ? `/reports/task-report`
+          : category === "task"
+          ? `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`
+          : `/tasks/${task._id}/kanban/stage`,
       read: false,
       category,
       eventType,

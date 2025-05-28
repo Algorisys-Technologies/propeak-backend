@@ -17,6 +17,15 @@ const config = require("../../config/config");
 const LeaveApplication = require("../../models/leave/leave-model");
 const { ObjectId } = require("mongodb");
 const totalSundays = require("../../common/common");
+const rabbitMQ = require("../../rabbitmq");
+const { addMyNotification } = require("../../common/add-my-notifications");
+const sendNotification = require("../../utils/send-notification");
+const fs = require("fs");
+const path = require("path");
+const PDFDocument = require("pdfkit");
+const createCsvWriter = require("csv-writer").createObjectCsvWriter;
+let uploadFolder = config.UPLOAD_PATH;
+const puppeteer = require("puppeteer");
 
 const errors = {
   SEARCH_PARAM_MISSING:
@@ -73,12 +82,12 @@ exports.getMonthlyTaskReport = async (req, res) => {
     const totalCount = await Task.countDocuments(condition);
     // const tasks = await Task.find(condition).skip(skip).limit(limit).lean();
     const tasks = await Task.find(condition)
-    .skip(skip)
-    .limit(limit)
-    .lean()
-    .populate("projectId", "title")
-    .populate("userId", "name")
-    .populate({ path: "interested_products.product_id" });
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .populate("projectId", "title")
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" });
 
     res.json({
       success: true,
@@ -171,7 +180,7 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
       reportParams: { year, month, dateFrom, dateTo },
       pagination = { page: 1, limit: 10 },
     } = req.body;
-console.log(req.body, "req.bodyreq.body???s")
+    console.log(req.body, "req.bodyreq.body???s");
     const { page, limit: rawLimit } = pagination;
     const limit = parseInt(rawLimit, 10);
     const skip = (page - 1) * limit;
@@ -242,10 +251,11 @@ console.log(req.body, "req.bodyreq.body???s")
     });
   } catch (error) {
     console.error("Error in getMonthlyTaskReportForCompany:", error);
-    res.json({ err: "Server error occurred while processing the task report." });
+    res.json({
+      err: "Server error occurred while processing the task report.",
+    });
   }
 };
-
 
 exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
   try {
@@ -253,7 +263,7 @@ exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
       companyId,
       role,
       userId,
-      reportParams: { year, month, dateFrom, dateTo  },
+      reportParams: { year, month, dateFrom, dateTo },
     } = req.body;
 
     console.log("Request body task report for company:", req.body);
@@ -329,12 +339,13 @@ exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
     let keyValuePairs = [];
 
     if (maxTask && maxTask.customFieldValues) {
-      keyValuePairs = Object.entries(maxTask.customFieldValues).map(([key, value]) => ({
-        key,
-        value,
-      }));
+      keyValuePairs = Object.entries(maxTask.customFieldValues).map(
+        ([key, value]) => ({
+          key,
+          value,
+        })
+      );
     }
-
 
     res.json({
       success: true,
@@ -350,6 +361,258 @@ exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
   }
 };
 
+async function generateHtmlPdf({ filePath, headers, flatData, filename }) {
+  const tableHtml = `
+    <html>
+      <head>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            padding: 30px;
+          }
+          h2 {
+            text-align: center;
+            margin-bottom: 20px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+            word-wrap: break-word;
+          }
+          th {
+            background-color: #f2f2f2;
+          }
+        </style>
+      </head>
+      <body>
+        <h2>${filename} Report</h2>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map((h) => `<th>${h.title}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${flatData
+              .map(
+                (row) => `
+                <tr>
+                  ${headers
+                    .map((h) => `<td>${row[h.accessor] || ""}</td>`)
+                    .join("")}
+                </tr>
+              `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+  await page.setContent(tableHtml, { waitUntil: "networkidle0" });
+  await page.pdf({
+    path: filePath,
+    format: "A4",
+    margin: { top: "30px", right: "30px", bottom: "30px", left: "30px" },
+    printBackground: true,
+  });
+  await browser.close();
+}
+
+exports.generateExport = async (req, res) => {
+  try {
+    const { type, data, headers, filename, userId, companyId } = req.body;
+
+    // Retrieve user details
+    const user = await User.findById(userId);
+    const email = [user?.email];
+
+    // Validate export type
+    if (!["pdf", "csv"].includes(type)) {
+      return res.status(400).json({ error: "Invalid export type" });
+    }
+
+    // Set file path
+    const filePath = path.resolve(uploadFolder, `${filename}.${type}`);
+
+    // Flatten data if necessary
+    const flatData = data.map((item) => ({
+      ...item,
+      interested_products: item.interested_products?.join(", ") || "",
+      userId: item.userId?.name || "",
+      projectId: item.projectId?.title || "",
+      status: item.status || "",
+      company_name: item.companyId?.name || "",
+      address: item.address || "",
+    }));
+
+    // 1. Generate CSV file
+    if (type === "csv") {
+      const csvWriter = createCsvWriter({
+        path: filePath,
+        header: headers.map((h) => ({
+          id: h.accessor,
+          title: h.title,
+        })),
+      });
+      await csvWriter.writeRecords(flatData); // Use the flattened data
+    }
+    // 2. Generate PDF file
+    else if (type === "pdf") {
+      await generateHtmlPdf({ filePath, headers, flatData, filename });
+    }
+    // else if (type === "pdf") {
+    //   const doc = new PDFDocument();
+    //   doc.pipe(fs.createWriteStream(filePath));
+
+    //   // Header
+    //   headers.forEach((h, i) => {
+    //     doc.text(h.title, { continued: i !== headers.length - 1 });
+    //   });
+    //   doc.moveDown();
+
+    //   // Data Rows
+    //   flatData.forEach((row) => {
+    //     headers.forEach((h, i) => {
+    //       doc.text(row[h.accessor], { continued: i !== headers.length - 1 });
+    //     });
+    //     doc.moveDown();
+    //   });
+
+    //   doc.end();
+    // }
+
+    // URL for file download
+    const downloadUrl = `http://localhost:3001/uploads/${filename}.${type}`;
+
+    // 3. Send email notification
+    const emailHtml = `
+      <p>Hello,</p>
+      <p>Your <strong>${type.toUpperCase()} report</strong> has been generated.</p>
+      <p>You can download it here: <a href="${downloadUrl}">${downloadUrl}</a></p>
+    `;
+    const mailOptions = {
+      from: config.from,
+      to: email,
+      subject: `Report Ready: ${filename}.${type}`,
+      html: emailHtml,
+    };
+    await rabbitMQ.sendMessageToQueue(mailOptions, "message_queue", "msgRoute");
+
+    // 4. Send in-app notification
+    await addMyNotification({
+      subject: `Your ${type.toUpperCase()} report is ready`,
+      url: downloadUrl,
+      userId: userId,
+    });
+
+    await sendNotification(
+      {
+        title: `${type.toUpperCase()} Export`,
+        description: `URL: <a href="${downloadUrl}" style="color: blue; text-decoration: underline;">${downloadUrl}</a>`,
+        createdBy: userId,
+        projectId: null,
+        companyId: companyId,
+      },
+      "EXPORT_READY"
+    );
+
+    // 5. Respond to frontend with download URL
+    // return res.status(200).json({
+    //   message: "Export file generated successfully",
+    //   downloadUrl,
+    // });
+
+    return res.status(200).json({
+      message: `${type.toUpperCase()} generation started. You will receive a notification and email when it is ready.`,
+    });
+  } catch (error) {
+    console.error("Error generating export file:", error);
+    return res.status(500).json({ error: "Failed to generate export file" });
+  }
+};
+
+// exports.generateExport = async (req, res) => {
+//   try {
+//     const { type, data, headers, filename, userId } = req.body;
+//     const email = [(await User.findOne({ _id: userId }))?.email];
+
+//     if (!["pdf", "csv"].includes(type)) {
+//       return res.status(400).json({ error: "Invalid export type" });
+//     }
+
+//     // 1. Push job to RabbitMQ export queue
+//     await rabbitMQ.sendMessageToQueue(
+//       {
+//         data,
+//         headers,
+//         filename,
+//         email,
+//         userId,
+//       },
+//       `-${type}-report`,
+//       `generate-${type}-report`
+//     );
+
+//     // 2. Create a notification
+//     const notification = {
+//       subject: `Your ${type.toUpperCase()} report is being generated`,
+//       url: "#",
+//       userId: userId,
+//     };
+//     addMyNotification(notification);
+
+//     // 3. Send in-app notification using sendNotification
+//     try {
+//       const taskObject = {
+//         title: `${type.toUpperCase()} Export`,
+//         description: `Report generation started for file: ${filename}.${type}`,
+//         createdBy: userId,
+//         projectId: null, // optional, only if needed
+//       };
+//       const eventType = "EXPORT_STARTED";
+//       await sendNotification(taskObject, eventType);
+//     } catch (notifyErr) {
+//       console.error("Error sending in-app export notification:", notifyErr);
+//     }
+
+//     // 4. Prepare and queue email
+//     const downloadPlaceholderLink = `http://localhost:3000/downloads/${filename}.${type}`;
+//     const emailHtml = `
+//       <p>Hello,</p>
+//       <p>Your <strong>${type.toUpperCase()} report</strong> generation has started.</p>
+//       <p>You will be notified and emailed once it is ready for download.</p>
+//       <p>Expected filename: <code>${filename}.${type}</code></p>
+//       <p>When ready, you can access it here: <a href="${downloadPlaceholderLink}">${downloadPlaceholderLink}</a></p>
+//     `;
+
+//     const mailOptions = {
+//       from: config.from,
+//       to: email,
+//       subject: `Report generation started: ${filename}.${type}`,
+//       html: emailHtml,
+//     };
+
+//     await rabbitMQ.sendMessageToQueue(mailOptions, "message_queue", "msgRoute");
+
+//     // 5. Final response
+//     return res.status(200).json({
+//       message: `${type.toUpperCase()} generation started. You will receive a notification and email when it is ready.`,
+//     });
+//   } catch (error) {
+//     console.error(`Error generating ${req.body.type}:`, error);
+//     return res.status(500).json({ error: "Failed to start export process" });
+//   }
+// };
 
 exports.getMonthlyUserReportForCompany = async (req, res) => {
   try {
