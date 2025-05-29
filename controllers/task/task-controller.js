@@ -17,8 +17,8 @@ const { logError, logInfo } = require("../../common/logger");
 const { sendEmail } = require("../../common/mailer");
 const accessConfig = require("../../common/validate-entitlements");
 const objectId = require("../../common/common");
-const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
-const Role = require("../../models/role/role-model");
+// const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
+// const Role = require("../../models/role/role-model");
 const errors = {
   TASK_DOESNT_EXIST: "Task does not exist",
   ADD_TASK_ERROR: "Error occurred while adding the Task",
@@ -39,6 +39,7 @@ const { response } = require("express");
 const { skip } = require("rxjs-compat/operator/skip");
 let uploadFolder = config.UPLOAD_PATH;
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
+// const NotificationPreference = require("../../models/notification-setting/notification-preference-model");
 const {
   startOfMonth,
   endOfMonth,
@@ -49,6 +50,7 @@ const {
 } = require("date-fns");
 const { result } = require("lodash");
 const sendNotification = require("../../utils/send-notification");
+const { handleNotifications } = require("../../utils/notification-service");
 
 exports.createTask = (req, res) => {
   // console.log("create task wala ");
@@ -168,25 +170,6 @@ exports.createTask = (req, res) => {
           select: "name",
           model: "user",
         });
-
-      const eventType = "TASK_CREATED";
-      // console.log(projectId, "from projectId")
-      try {
-        const channel = await NotificationSetting.find({
-          companyId,
-          projectId,
-          eventType,
-          channel: { $in: ["inapp"] },
-          active: true
-        });
-        console.log(channel, "from channel")
-        if (channel.length > 0) {
-          await sendNotification(task, eventType);
-        }
-        // console.log("Notification result:", notificationResult);
-      } catch (notificationError) {
-        // console.error("Notification error:", notificationError);
-      }
 
       if (fileName) {
         let uploadFile = {
@@ -312,38 +295,8 @@ exports.createTask = (req, res) => {
         }
       });
 
-      // const emailOwner = [ownerEmail, createdByEmail];
-      // const email = [(await User.findOne({ _id: userId }))?.email];
-      // console.log(emailOwner, email, "from email owner")
-      // console.log(projectId, "from projectId")
-      const channel = await NotificationSetting.find({
-        companyId,
-        projectId,
-        channel: { $in: ["email"] },
-        active: true
-      });
-
-      const data = [];
-
-      for (const ch of channel) {
-        // 1. Get role names from Role model
-        const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
-        const roleNames = roles.map(role => role.name);
-      
-        // 2. Get all users whose _id is in notifyUserIds
-        const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
-    
-        const filteredUsers = usersById.filter(user =>
-          ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
-        );
-      
-        // 4. Extract emails and deduplicate
-        const emails = [...new Set(filteredUsers.map(user => user.email))];
-      
-        data.push({
-          emails,
-        });
-      }
+      const eventType = "TASK_CREATED";
+      const notification = await handleNotifications(task, eventType);
 
       
       // if (emailOwner.length > 0 || email.length > 0) {
@@ -364,7 +317,7 @@ exports.createTask = (req, res) => {
               .replace("#projectId#", newTask.projectId._id)
               .replace("#newTaskId#", newTask._id);
 
-              console.log(emailText, "from mailOptions")
+              // console.log(emailText, "from mailOptions")
 
             if (email !== "XX") {
               var mailOptions = {
@@ -403,12 +356,8 @@ exports.createTask = (req, res) => {
         // auditTaskAndSendMail(task, emailOwner, email);
       // }
 
-      if (channel.length > 0) {
-        // if (emailOwner.length > 0 || email.length > 0) {
-        //   await auditTaskAndSendMail(task, emailOwner, email);
-        // }
-
-        for (const channel of data) {
+      if (notification.length > 0) {
+        for (const channel of notification) {
           const { emails } = channel;
         
           for (const email of emails) {
@@ -535,39 +484,6 @@ exports.updateTask = (req, res) => {
       //   const eventType = "TASK_ASSIGNED"
       //   await sendNotification(task, eventType);
       // }
-      if (task.publish_status === "published") {
-        const eventType = "TASK_ASSIGNED";
-      
-        // Update each matching NotificationSetting document
-        await NotificationSetting.updateMany(
-          {
-            companyId,
-            projectId,
-            eventType,
-            channel: { $in: ["inapp"] },
-            active: true,
-          },
-          {
-            $set: {
-              notifyUserIds: [task.userId],
-              notifyRoles: [],
-            },
-          }
-        );
-      
-        // Re-fetch after update, if needed for sending notifications
-        const channel = await NotificationSetting.find({
-          companyId,
-          projectId,
-          eventType,
-          channel: { $in: ["inapp"] },
-          active: true,
-        });
-      
-        if (channel.length > 0) {
-          await sendNotification(task, eventType);
-        }
-      }
 
       const userIdToken = req.body.userName;
       const fields = Object.keys(result.toObject()).filter(
@@ -603,37 +519,6 @@ exports.updateTask = (req, res) => {
           );
         }
       });
-
-      // const emailOwner = [ownerEmail, createdByEmail];
-      // const email = [(await User.findOne({ _id: userId }))?.email];
-      const eventType = "TASK_ASSIGNED";
-      const channel = await NotificationSetting.find({
-        companyId,
-        projectId,
-        eventType,
-        channel: { $in: ["email"] },
-        active: true,
-      });
-
-      const data = [];
-
-      for (const ch of channel) {
-        // 1. Get role names from Role model
-        const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
-        const roleNames = roles.map(role => role.name);
-        const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
-    
-        const filteredUsers = usersById.filter(user =>
-          ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
-        );
-      
-        // 4. Extract emails and deduplicate
-        const emails = [...new Set(filteredUsers.map(user => user.email))];
-      
-        data.push({
-          emails,
-        });
-      }
 
       // if (emailOwner.length > 0 || email.length > 0) {
         const auditTaskAndSendMail = async (updatedTask, emailOwner, email) => {
@@ -689,12 +574,10 @@ exports.updateTask = (req, res) => {
           }
         };
         if (task.publish_status === "published") {
-          if (channel.length > 0) {
-            // if (emailOwner.length > 0 || email.length > 0) {
-            //   await auditTaskAndSendMail(task, emailOwner, email);
-            // }
-    
-            for (const channel of data) {
+          const eventType = "TASK_ASSIGNED";
+          const notification = await handleNotifications(task, eventType);
+          if (notification.length > 0) {
+            for (const channel of notification) {
               const { emails } = channel;
             
               for (const email of emails) {
@@ -2752,50 +2635,10 @@ exports.updateStage = async (req, res) => {
     task.modifiedBy = userId;
     // console.log(newStageId, "from new Stage")
     await task.save();
-    const eventType = "STAGE_CHANGED";
-    try {
-      const channel = await NotificationSetting.find({
-        companyId: task.companyId,
-        projectId: task.projectId,
-        eventType,
-        channel: { $in: ["inapp"] },
-        active: true
-      });
-      if (channel.length > 0) {
-        await sendNotification(task, eventType);
-      }
-      // console.log("Notification result:", notificationResult);
-    } catch (notificationError) {
-      // console.error("Notification error:", notificationError);
-    }
-    const channel = await NotificationSetting.find({
-      companyId: task.companyId,
-      projectId: task.projectId,
-      channel: { $in: ["email"] },
-      active: true
-    });
-
-    const data = [];
-
-    for (const ch of channel) {
-      // 1. Get role names from Role model
-      const roles = await Role.find({ _id: { $in: ch.notifyRoles } }, 'name');
-      const roleNames = roles.map(role => role.name);
+    const eventType = "STAGE_CHANGED"; 
     
-      // 2. Get all users whose _id is in notifyUserIds
-      const usersById = await User.find({ _id: { $in: ch.notifyUserIds } }, 'email role');
-  
-      const filteredUsers = usersById.filter(user =>
-        ch.notifyUserIds.includes(user._id) || roleNames.includes(user.role)
-      );
+    const notification = await handleNotifications(task, eventType);
     
-      // 4. Extract emails and deduplicate
-      const emails = [...new Set(filteredUsers.map(user => user.email))];
-    
-      data.push({
-        emails,
-      });
-    }
     const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
       try {
         let updatedDescription = newTask.description
@@ -2814,7 +2657,7 @@ exports.updateStage = async (req, res) => {
           .replace("#projectId#", newTask.projectId._id)
           .replace("#newTaskId#", newTask._id);
 
-          console.log(emailText, "from mailOptions")
+          // console.log(emailText, "from mailOptions")
 
         if (email !== "XX") {
           var mailOptions = {
@@ -2825,7 +2668,7 @@ exports.updateStage = async (req, res) => {
             html: emailText,
           };
 
-          // console.log(mailOptions, "from mailOptions")
+          console.log(mailOptions, "from mailOptions")
 
           let taskArr = {
             subject: mailOptions.subject,
@@ -2850,12 +2693,8 @@ exports.updateStage = async (req, res) => {
       }
     };
 
-    if (channel.length > 0) {
-      // if (emailOwner.length > 0 || email.length > 0) {
-      //   await auditTaskAndSendMail(task, emailOwner, email);
-      // }
-
-      for (const channel of data) {
+    if (notification.length > 0) {
+      for (const channel of notification) {
         const { emails } = channel;
       
         for (const email of emails) {

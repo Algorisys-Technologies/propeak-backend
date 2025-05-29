@@ -15,7 +15,7 @@ const eventMessages = {
   },
 
   TASK_ASSIGNED: (task) =>
-    `You have been assigned to the task "${task.title}". Created by: ${task.createdBy.name}`,
+    `You have been assigned a new task: "${task.title}". Created by: ${task.createdBy.name}`,
 
   STAGE_CHANGED: (task) => {
     const taskTitle = task.title || "Untitled Task";

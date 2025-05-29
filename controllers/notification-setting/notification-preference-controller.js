@@ -1,4 +1,5 @@
 const NotificationPreference = require("../../models/notification-setting/notification-preference-model");
+const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
 const mongoose = require("mongoose");
 
 const errors = {
@@ -10,7 +11,7 @@ const errors = {
 };
 
 exports.addPreferences = async (req, res) => {
-  console.log("is this coming here ???")
+  // console.log("is this coming here ???")
   try {
     const { userId, email, inApp, muteEvents } = req.body;
 
@@ -51,6 +52,43 @@ exports.getPreferences = async (req, res) => {
         success: false,
         message: "No preferences found for this user.",
       });
+    }
+    console.log(preferences, "from preferences")
+
+    const data = await NotificationSetting.find({ notifyUserIds: { $in: [userId] } });
+    // console.log(data, "from data")
+    if(data){
+      // if(!preferences[0].email){
+      //   await NotificationSetting.updateMany(
+      //     { notifyUserIds: { $in: [userId] } },
+      //     { $pull: { notifyUserIds: userId } } 
+      //   );
+      // }else {
+      //   await NotificationSetting.updateMany(
+      //     { $addToSet: { notifyUserIds: userId } } 
+      //   );
+      // }
+    //   if(!preferences[0].inApp){
+    //     await NotificationSetting.updateMany(
+    //       { notifyUserIds: { $in: [userId] } },
+    //       { $pull: { notifyUserIds: userId } } 
+    //     );
+    //   }else {
+    //     await NotificationSetting.updateMany(
+    //       { $addToSet: { notifyUserIds: userId } } 
+    //     );
+    //   }
+    // if (preferences[0]?.muteEvents && preferences[0].muteEvents.length > 0) {
+    //   await NotificationSetting.updateMany(
+    //     { eventType: { $in: preferences[0].muteEvents } },
+    //     { $pull: { notifyUserIds: userId } }
+    //   );
+    // }else{
+    //   await NotificationSetting.updateMany(
+    //     { $addToSet: { notifyUserIds: userId } } 
+    //   );
+    // }
+    
     }
 
     res.status(200).json({

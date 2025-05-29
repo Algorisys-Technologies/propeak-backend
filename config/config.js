@@ -48,8 +48,9 @@ module.exports = Object.freeze({
     <b> Description </b> : #description# <br/> <br/> To view project details, click <a href="${process.env.URL}tasks/#projectId#/kanban/stage" alt="task">
     here</a>  <br/><br/> Thanks, <br/> proPeak Team`,
   projectEmailFieldContent:
-    `Hi, <br/> <br/> Custom Field Updated. <br/><br/> <b> Project </b> : #projectName# <br/>
-    <b> Description </b> : #description# <br/> <br/> To view project details, click <a href="${process.env.URL}tasks/#projectId#/kanban/stage" alt="task">
+    `Hi, <br/> <br/> Custom Field Update at #title# level. <br/><br/> <b> Project </b> : #projectName# <br/>
+     <b> Key </b> : #key# <br/>  <b> Label </b> : #label# <br/>  <b> Type </b> : #type# <br/>
+     To view custom field update details, click <a href="${process.env.URL}projects/edit/#projectId#/#configPath#" alt="custom">
     here</a>  <br/><br/> Thanks, <br/> proPeak Team`,
   editlink: process.env.PUBLIC_URL + "project/tasks/",
       

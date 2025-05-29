@@ -6,6 +6,7 @@ const { ObjectId } = require("mongoose").Types;
 const UserNotification = require("../models/notification-setting/user-notification-model");
 const NotificationPreference = require("../models/notification-setting/notification-preference-model");
 const sendEmail = require("./send-email");
+const Role = require("../models/role/role-model");
 
 module.exports = async function sendNotification(task, eventType) {
   // const TASK_COMPLETED = "TASK_COMPLETED";
@@ -58,21 +59,7 @@ const notificationProjectId = isProjectEvent
 
       condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
     }
-
-    // console.log(task, "from task")                    
-
-    if (task.projectId?._id && eventType === "TASK_CREATED") {
-      const data = await NotificationSetting.find({
-        projectId: task.projectId._id,
-        taskStageId: null,
-        eventType,
-      });
-
-      if (task.publish_status === "published") {
-        condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
-      }
-    }
-
+                 
   const settings = await NotificationSetting.find(condition).populate("notifyRoles");
 
   if (!settings.length) {
@@ -134,6 +121,8 @@ const notificationProjectId = isProjectEvent
     userId: { $in: users.map((u) => u._id) },
   }).lean();
 
+  // console.log(notificationPreferences, "from notification")
+
   const generateMessage = eventMessages[eventType];
   if (!generateMessage) {
     console.warn(`No message defined for event type: ${eventType}`);
@@ -161,6 +150,7 @@ const notificationProjectId = isProjectEvent
     );
 
     const channels = setting?.channel || [];
+    console.log(channels, "from channels")
 
     // Extract notify role names
     const roleNames = [];
@@ -178,12 +168,20 @@ const notificationProjectId = isProjectEvent
     const userPreference = notificationPreferences.find(
       (p) => p.userId.toString() === user._id.toString()
     );
+    console.log(userPreference, "From userPreference")
 
     const mutedEvents = userPreference?.muteEvents || [];
     const isMuted = mutedEvents.includes(eventType);
+    const inAppEnabled = userPreference?.inApp !== true;
+    const skipInApp = channels.includes("inapp") && !inAppEnabled;
+
     const isMandatory = setting?.mandatory;
     const shouldSendEmail =
       channels.includes("email") && user.email && (!isMuted || isMandatory);
+
+    if(!skipInApp){
+      continue;
+    }
 
     if (isMuted && !isMandatory) {
       console.log(`User ${user._id} has muted ${eventType}, skipping...`);
