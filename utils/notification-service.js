@@ -43,15 +43,38 @@ async function handleNotifications(task, eventType) {
   }
 
   // Email notifications
-  const emailChannels = await NotificationSetting.find({
+  let condition = {
     companyId: task.companyId,
     projectId: normalizedProjectId || null,
     eventType,
     channel: { $in: ["email"] },
-    active: true
-  });
-
-  console.log(emailChannels, "from emailChannels")
+    active: true,
+  };
+  
+  if (
+    task.projectId?._id &&
+    (eventType === "TASK_ASSIGNED" || eventType === "STAGE_CHANGED" || eventType === "TASK_CREATED")
+  ) {
+    const settings = await NotificationSetting.find({
+      projectId: task.projectId._id,
+      eventType,
+      isDeleted: false,
+    });
+  
+    const exactMatch = settings.find(
+      (s) => s.taskStageId?.toString() === task.taskStageId?.toString()
+    );
+  
+    const fallbackMatch = settings.find((s) => s.taskStageId === null);
+  
+    const selected = exactMatch || fallbackMatch;
+  
+    condition.taskStageId = selected ? selected.taskStageId : task.taskStageId;
+  }
+  
+  // Now query email settings with the refined condition
+  const emailChannels = await NotificationSetting.find(condition);
+  
 
   const result = [];
 
@@ -80,16 +103,16 @@ for (const ch of emailChannels) {
   // 5. Filter by user preferences
   const finalUsers = [];
   for (const user of mergedUsers) {
-    const pref = await NotificationPreference.findOne({ userId: user._id });
+    const pref = await NotificationPreference.find({ userId: user._id });
 
-    if (pref?.email === false) continue;
-    if (pref?.muteEvents?.includes(eventType)) continue;
-
+    if (pref.length === 0 || pref.some(p => p.email === false)) continue;
+    if (pref.length === 0 || pref.some(p => p.muteEvents?.includes(eventType))) continue;
     finalUsers.push(user);
   }
 
   // 6. Extract and deduplicate emails
   const emails = [...new Set(finalUsers.map(user => user.email))];
+  // console.log(emails, "from emails")
 
   result.push({ emails });
 }

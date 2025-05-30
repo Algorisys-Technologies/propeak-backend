@@ -40,27 +40,29 @@ const notificationProjectId = isProjectEvent
   };
 
 // STAGE_CHANGED logic
-    if (task.projectId?._id && eventType === "STAGE_CHANGED") {
-      const data = await NotificationSetting.find({
+if ((task.projectId?._id ) || eventType === "TASK_ASSIGNED" || eventType === "STAGE_CHANGED" || eventType === "TASK_CREATED"){
+      const settings = await NotificationSetting.find({
         projectId: task.projectId._id,
-        taskStageId: null,
         eventType,
+        isDeleted: false,
       });
-
-      condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
+      const exactMatch = settings.find(s => s.taskStageId?.toString() === task.taskStageId?.toString());
+      const fallbackMatch = settings.find(s => s.taskStageId === null);
+      const selected = exactMatch || fallbackMatch;
+      condition.taskStageId = selected ? selected.taskStageId : task.taskStageId;
     }
-    
+
     // if (task._id && eventType === "TASK_ASSIGNED") {
-    //   const data = await NotificationSetting.find({
+    //   console.log(eventType, "from trst")
+    //   const settings = await NotificationSetting.find({
     //     projectId: task._id,
-    //     taskStageId: null,
     //     eventType,
     //   });
 
-    //   console.log(data, "from data")
-
-    //   // condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
-    //   // console.log(condition, "from condition")
+    //   const exactMatch = settings.find(s => s.taskStageId?.toString() === task.taskStageId?.toString());
+    //   const fallbackMatch = settings.find(s => s.taskStageId === null);
+    //   const selected = exactMatch || fallbackMatch;
+    //   condition.taskStageId = selected ? selected.taskStageId : task.taskStageId;
     // }
                  
   const settings = await NotificationSetting.find(condition).populate("notifyRoles");
