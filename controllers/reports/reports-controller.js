@@ -256,35 +256,41 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
   }
 };
 
-exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
+exports.getMonthlyGlobalTaskReport = async ({
+  companyId,
+  role,
+  userId,
+  reportParams,
+}) => {
   try {
-    const {
+    const { year, month, dateFrom, dateTo } = reportParams;
+
+    console.log("Request body task report for company:", {
       companyId,
       role,
       userId,
-      reportParams: { year, month, dateFrom, dateTo },
-    } = req.body;
-
-    console.log("Request body task report for company:", req.body);
+      reportParams,
+    });
 
     // Validate company ID format
     if (!mongoose.Types.ObjectId.isValid(companyId)) {
       console.log("Invalid company ID format.");
-      return res.json({ err: "Invalid company ID format." });
+      return { success: false, err: "Invalid company ID format." };
     }
 
     // Get all projects for the specified company
     const projects = await Project.find({
       companyId: new mongoose.Types.ObjectId(companyId),
     }).select("_id");
+
     const projectIds = projects.map((project) => project._id);
 
     if (projectIds.length === 0) {
-      return res.json({
+      return {
         success: true,
         data: [],
         totalCount: 0,
-      });
+      };
     }
 
     // Base filter condition
@@ -308,12 +314,12 @@ exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
       const toDate = new Date(dateTo);
 
       if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-        return res.json({ err: "Invalid date range provided." });
+        return { success: false, err: "Invalid date range provided." };
       }
 
       condition.startDate = { $gte: fromDate, $lte: toDate };
     } else {
-      return res.json({ err: "Required search parameters are missing." });
+      return { success: false, err: "Required search parameters are missing." };
     }
 
     const tasks = await Task.find(condition)
@@ -346,17 +352,18 @@ exports.getMonthlyAllTaskReportForCompany = async (req, res) => {
       );
     }
 
-    res.json({
+    return {
       success: true,
-      data: tasks.length > 0 ? tasks : [],
+      data: tasks,
       totalCount: tasks.length,
       customFields: keyValuePairs,
-    });
+    };
   } catch (error) {
-    console.error("Error in getMonthlyTaskReportForCompany:", error);
-    res.json({
+    console.error("Error in getMonthlyGlobalTaskReport:", error);
+    return {
+      success: false,
       err: "Server error occurred while processing the task report.",
-    });
+    };
   }
 };
 
@@ -489,11 +496,28 @@ exports.sendExportNotificationAndEmail =
 
 exports.generateExport = async (req, res) => {
   try {
-    const { type, data, headers, filename, userId, companyId } = req.body;
+    const {
+      type,
+      defaultHeaders,
+      filename,
+      userId,
+      companyId,
+      reportParams,
+      role,
+    } = req.body;
     const user = await User.findById(userId);
     const email = [user?.email];
 
-    const message = { type, data, headers, filename, userId, companyId, email };
+    const message = {
+      type,
+      defaultHeaders,
+      filename,
+      userId,
+      companyId,
+      email,
+      reportParams,
+      role,
+    };
 
     // Send message to export queue for worker processing
     await rabbitMQ.sendMessageToQueue(message, "export_queue", "exportRoute");

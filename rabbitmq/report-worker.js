@@ -5,12 +5,14 @@ const { createObjectCsvWriter } = require("csv-writer");
 const {
   generateHtmlPdf,
   sendExportNotificationAndEmail,
+  getMonthlyGlobalTaskReport,
 } = require("../controllers/reports/reports-controller");
 const {
   rabbitMQ_exchangeName,
   rabbitMQ_connectionKey,
   companyCode,
 } = require("../config/config");
+const DateUtil = require("../utils/date-util");
 
 const exchange = rabbitMQ_exchangeName;
 const queue = companyCode + "export_queue";
@@ -18,6 +20,7 @@ const routingKey = companyCode + "exportRoute";
 let uploadFolder = config.UPLOAD_PATH;
 const mongoose = require("mongoose");
 require("../models/role/role-model");
+require("../models/product/product-model");
 
 (async () => {
   const connection = await amqp.connect(rabbitMQ_connectionKey, {
@@ -51,8 +54,76 @@ require("../models/role/role-model");
 
     try {
       const payload = JSON.parse(msg.content.toString());
-      const { type, data, headers, filename, userId, companyId, email } =
-        payload;
+      const {
+        type,
+        defaultHeaders,
+        filename,
+        userId,
+        companyId,
+        email,
+        reportParams,
+        role,
+      } = payload;
+
+      console.log("ALL...", companyId, role, userId, reportParams);
+
+      const resultTaskReport = await getMonthlyGlobalTaskReport({
+        companyId,
+        role,
+        userId,
+        reportParams,
+      });
+
+      if (!resultTaskReport.success)
+        throw new Error(resultTaskReport.err || "Data fetch failed");
+
+      console.log("resultTaskReport...", resultTaskReport);
+
+      //const data = resultTaskReport.data;
+      const responseWithoutPagination = resultTaskReport.data || [];
+
+      const customFields = resultTaskReport.customFields || [];
+
+      function extractHeaders(data) {
+        return data.map((field) => ({
+          title: field.key
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase()),
+          accessor: field.key,
+        }));
+      }
+
+      const dynamicHeaders =
+        customFields.length > 0 ? extractHeaders(customFields) : [];
+
+      function mergeHeaders(defaultHeaders, dynamicHeaders) {
+        return [
+          ...defaultHeaders,
+          ...dynamicHeaders.filter(
+            (dyn) =>
+              !defaultHeaders.some((def) => def.accessor === dyn.accessor)
+          ),
+        ];
+      }
+
+      const mergedHeaders = mergeHeaders(defaultHeaders, dynamicHeaders);
+
+      const data = responseWithoutPagination.map((task) => {
+        const projectsTitle = task.projectId?.title || "Unknown Project";
+        const usersName = task.userId?.name || "Unknown User";
+        const startDateFormatted = DateUtil.DateToString(task.startDate);
+        const endDateFormatted = DateUtil.DateToString(task.endDate);
+        return {
+          ...task,
+          projectTitle: projectsTitle,
+          userName: usersName,
+          startDate: startDateFormatted,
+          endDate: endDateFormatted,
+          ...task.customFields,
+        };
+      });
+      const headers = mergedHeaders || defaultHeaders;
+
       const filePath = path.resolve(uploadFolder, `${filename}.${type}`);
 
       // Generate flat data for the report
@@ -109,9 +180,6 @@ function generateFlatData(data) {
       interested_products: interestedProducts,
       userId: item.userId?.name || "",
       projectId: item.projectId?.title || "",
-      status: item.status || "",
-      company_name: item.companyId?.name || "",
-      address: item.address || "",
     };
   });
 }
