@@ -360,18 +360,30 @@ exports.createProject = async (req, res) => {
       let updatedDescription = newTask.description
         .split("\n")
         .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
-      let emailText = config.projectEmailCreateContent
-        .replace("#title#", newTask.title)
-        .replace("#description#", updatedDescription)
-        .replace("#projectName#", newTask.title)
-        .replace("#status#", newTask.status)
-        .replace("#projectId#", newTask._id)
-        // .replace("#priority#", newTask.priority.toUpperCase())
-        // .replace("#newTaskId#", newTask._id);
+      // let emailText = config.projectEmailCreateContent
+      //   .replace("#title#", newTask.title)
+      //   .replace("#description#", updatedDescription)
+      //   .replace("#projectName#", newTask.title)
+      //   .replace("#status#", newTask.status)
+      //   .replace("#projectId#", newTask._id)
+      //   // .replace("#priority#", newTask.priority.toUpperCase())
+      //   // .replace("#newTaskId#", newTask._id);
 
       let taskEmailLink = config.taskEmailLink
         .replace("#projectId#", newTask._id)
-        // .replace("#newTaskId#", newTask._id);
+        .replace("#newTaskId#", newTask._id);
+
+        let emailText = `
+        Hi, <br/><br/>
+        A new project has been <strong>created</strong>. <br/><br/>
+        <strong>Project:</strong> ${newTask.title} <br/>
+        <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+        To view project details, click 
+        <a href="${process.env.URL}tasks/${newTask._id}/kanban/stage" target="_blank">here</a>. <br/><br/>
+        Thanks, <br/>
+        The proPeak Team
+      `;
+      
 
        
       if (email !== "XX") {
@@ -1347,19 +1359,30 @@ exports.archiveProject = async (req, res) => {
           let updatedDescription = newTask.description
             .split("\n")
             .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
-          let emailText = config.projectEmailArchiveContent
-            // .replace("#title#", newTask.title)
-            .replace("#description#", updatedDescription)
-            .replace("#projectName#", newTask.title)
-            .replace("#projectId#", newTask._id)
-            // .replace("#priority#", newTask.priority.toUpperCase())
-            .replace("#newTaskId#", newTask._id);
+          // let emailText = config.projectEmailArchiveContent
+          //   // .replace("#title#", newTask.title)
+          //   .replace("#description#", updatedDescription)
+          //   .replace("#projectName#", newTask.title)
+          //   .replace("#projectId#", newTask._id)
+          //   // .replace("#priority#", newTask.priority.toUpperCase())
+          //   .replace("#newTaskId#", newTask._id);
 
           let taskEmailLink = config.taskEmailLink
             // .replace("#projectId#", newTask.projectId._id)
             .replace("#newTaskId#", newTask._id);
 
-            console.log(emailText, "from mailOptions")
+            // console.log(emailText, "from mailOptions")
+
+            let emailText = `
+            Hi, <br/><br/>
+            A project has been <strong>Archived</strong>. <br/><br/>
+            <strong>Project:</strong> ${newTask.title} <br/>
+            <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+            To view project details, click 
+            <a href="${process.env.URL}tasks/${newTask._id}/kanban/stage" target="_blank">here</a>. <br/><br/>
+            Thanks, <br/>
+            The proPeak Team
+        `;
 
           if (email !== "XX") {
             var mailOptions = {
@@ -1510,17 +1533,30 @@ exports.addCustomTaskField = async (req, res) => {
           //   .split("\n")
           //   .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
           const configPath = newTask.level === "project" ? "project-config" : "task-config";
-          let emailText = config.projectEmailFieldContent
-            .replace("#title#", newTask.level)
-            // .replace("#description#", updatedDescription)
-            .replace("#projectName#", newTask.projectId.title)
-            .replace("#key#", newTask.key)
-            .replace("#type#", newTask.type)
-            .replace("#label#", newTask.label)
-            .replace("#projectId#", newTask.projectId._id)
-            .replace("#configPath#", configPath);
+          // let emailText = config.projectEmailFieldContent
+          //   .replace("#title#", newTask.level)
+          //   // .replace("#description#", updatedDescription)
+          //   .replace("#projectName#", newTask.projectId.title)
+          //   .replace("#key#", newTask.key)
+          //   .replace("#type#", newTask.type)
+          //   .replace("#label#", newTask.label)
+          //   .replace("#projectId#", newTask.projectId._id)
+          //   .replace("#configPath#", configPath);
             // .replace("#priority#", newTask.priority.toUpperCase())
             // .replace("#newTaskId#", newTask._id);
+
+          let emailText = `
+          Hi, <br/><br/>
+          A custom field was updated at the <strong>${newTask.level}</strong> level. <br/><br/>
+          <strong>Project:</strong> ${newTask.projectId.title} <br/>
+          <strong>Key:</strong> ${newTask.key} <br/>
+          <strong>Label:</strong> ${newTask.label}<br/>
+          <strong>Type:</strong> ${newTask.type} <br/><br/>
+          To view custom field update details, click 
+          <a href="${process.env.URL}projects/edit/${newTask.projectId._id}/${configPath}" target="_blank">here</a>. <br/><br/>
+          Thanks, <br/>
+          The proPeak Team
+        `;
     
           let taskEmailLink = config.taskEmailLink
             .replace("#projectId#", newTask.projectId._id)
@@ -1564,7 +1600,7 @@ exports.addCustomTaskField = async (req, res) => {
       if (notification.length > 0) {
         for (const channel of notification) {
           const { emails } = channel;
-          console.log(emails, "from emails")
+          // console.log(emails, "from emails")
         
           for (const email of emails) {
             await auditTaskAndSendMail(savedFieldWithProject, [], email);
@@ -2785,14 +2821,26 @@ exports.updateStage = async (req, res) => {
         let updatedDescription = newTask.description
           .split("\n")
           .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
-        let emailText = config.projectEmailCreateContent
-          .replace("#title#", newTask.title)
-          .replace("#description#", updatedDescription)
-          .replace("#projectName#", newTask.title)
-          .replace("#status#", newTask.status)
-          .replace("#projectId#", newTask._id)
+        // let emailText = config.projectEmailCreateContent
+        //   .replace("#title#", newTask.title)
+        //   .replace("#description#", updatedDescription)
+        //   .replace("#projectName#", newTask.title)
+        //   .replace("#status#", newTask.status)
+        //   .replace("#projectId#", newTask._id)
           // .replace("#priority#", newTask.priority.toUpperCase())
           // .replace("#newTaskId#", newTask._id);
+
+        let emailText = `
+        Hi, <br/><br/>
+        project stage has been <strong>changed</strong>. <br/><br/>
+        <strong>Project:</strong> ${newTask.title} <br/>
+        <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+        <strong>Stage Changed:</strong> ${newTask.status} <br/>
+        To view project details, click 
+        <a href="${process.env.URL}tasks/${newTask._id}/kanban/stage" target="_blank">here</a>. <br/><br/>
+        Thanks, <br/>
+        The proPeak Team
+      `;
   
         let taskEmailLink = config.taskEmailLink
           .replace("#projectId#", newTask._id)
@@ -2808,7 +2856,7 @@ exports.updateStage = async (req, res) => {
             html: emailText,
           };
   
-          // console.log(mailOptions, "from mailOptions")
+          console.log(mailOptions, "from mailOptions")
   
           let taskArr = {
             subject: mailOptions.subject,

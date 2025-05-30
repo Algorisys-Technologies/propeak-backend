@@ -13,7 +13,17 @@ async function handleNotifications(task, eventType) {
     const normalizedProjectId =
     typeof task.projectId === 'object' && task.projectId !== null
         ? task.projectId._id
-        : task.projectId;
+        : task.projectId
+        ;
+
+  if(eventType === "TASK_ASSIGNED"){
+    console.log(normalizedProjectId, eventType, "from eventType")
+      const data = await NotificationSetting.findOneAndUpdate(
+            { projectId: normalizedProjectId, eventType }, // query
+            { $set: { notifyUserIds: [task.userId], notifyRoles: [] }, }, // update
+            { new: true } // options: return the updated document
+          );
+  }
 
   try {
     // In-app notifications

@@ -35,8 +35,8 @@ exports.getNotifications = async (req, res) => {
     // Optional filters
     if (filter === "unread") filterQuery.read = false;
     if (filter === "project") filterQuery.category = "project";
-    if (filter === "comment") filterQuery.category = "comment";
-    if (filter === "email") filterQuery.category = "email";
+    if (filter === "assign") filterQuery.category = "assign";
+    if (filter === "field") filterQuery.category = "field";
     if (filter === "task") filterQuery.category = "task";
 
     // Paged notifications

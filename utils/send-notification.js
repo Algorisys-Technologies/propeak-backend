@@ -48,17 +48,20 @@ const notificationProjectId = isProjectEvent
       });
 
       condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
-    }  
-
-    if (task._id && eventType === "PROJECT_STAGE_CHANGED") {
-      const data = await NotificationSetting.find({
-        projectId: task._id,
-        taskStageId: null,
-        eventType,
-      });
-
-      condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
     }
+    
+    // if (task._id && eventType === "TASK_ASSIGNED") {
+    //   const data = await NotificationSetting.find({
+    //     projectId: task._id,
+    //     taskStageId: null,
+    //     eventType,
+    //   });
+
+    //   console.log(data, "from data")
+
+    //   // condition.taskStageId = data?.length > 0 ? data[0].taskStageId : task.taskStageId;
+    //   // console.log(condition, "from condition")
+    // }
                  
   const settings = await NotificationSetting.find(condition).populate("notifyRoles");
 
@@ -131,7 +134,7 @@ const notificationProjectId = isProjectEvent
 
   const message = generateMessage(task);
   const notifications = [];
-  const category = isProjectEvent ? "project" : "task";
+  // const category = isProjectEvent ? "project" : "task";
 
   for (const user of users) {
     if (!user) continue;
@@ -168,7 +171,7 @@ const notificationProjectId = isProjectEvent
     const userPreference = notificationPreferences.find(
       (p) => p.userId.toString() === user._id.toString()
     );
-    console.log(userPreference, "From userPreference")
+    // console.log(userPreference, "From userPreference")
 
     const mutedEvents = userPreference?.muteEvents || [];
     const isMuted = mutedEvents.includes(eventType);
@@ -201,18 +204,55 @@ const notificationProjectId = isProjectEvent
     //   }
     // }
 
+    let subject, category, url;
+    switch(eventType){
+      case "STAGE_CHANGED":
+        subject = `Task ${task.status}.`
+        category = "status"
+        url = `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`
+        break;
+      case "PROJECT_STAGE_CHANGED":
+        subject = "Project Status changed."
+        category = "project-status"
+        url = `/tasks/${task._id}/kanban/stage`;
+        break;
+      case "TASK_ASSIGNED":
+        subject = "Task assigned to you."
+        category = "assign"
+        url = `/tasks/show/${task.projectId?._id || task.projectId}/${task._id}`
+        break;
+      case "TASK_CREATED":
+        subject = "Task created."
+        category = "task"
+        url = `/tasks/show/${task.projectId?._id || task.projectId}/${task._id}`
+        break;
+      case "PROJECT_ARCHIVED":
+        subject = "Project archived."
+        category = "archive"
+        url = `/tasks/${task._id}/kanban/stage`;
+        break;
+      case "PROJECT_CREATED":
+        subject = "Project created."
+        category = "project"
+        url = `/tasks/${task._id}/kanban/stage`;
+        break;
+      case "CUSTOM_FIELD_UPDATE":
+        subject = "Custom field update."
+        category = "field"
+        if(task.level === "project") url = `/projects/edit/${task.projectId?._id || task.projectId}/project-config`
+        if(task.level === "task") url = `/projects/edit/${task.projectId?._id || task.projectId}/task-config`
+        break;
+      default:
+        null;
+    }
+
     notifications.push({
       companyId: task.companyId,
       isDeleted: false,
       userId: user._id,
-      subject: isProjectEvent ? "Project Notification" : "Task Notification",
+      subject: subject,
       message,
-      // url: `/tasks/${task._id}`,
-      url:
-      category === "task"
-        ? `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`
-        : `/tasks/${task._id}/kanban/stage`,
-    
+      url: url,
       read: false,
       category,
       eventType,

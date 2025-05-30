@@ -28,6 +28,13 @@ exports.createNotificationSetting = async (req, res) => {
     } = req.body;
 
     // Check if a setting already exists for the given projectId and eventType
+    if(!eventType){
+      return res.status(200).json({
+        success: false,
+        message:
+          "Please select eventType",
+      });
+    }
     const existingSetting = await NotificationSetting.findOne({
       projectId,
       eventType,
