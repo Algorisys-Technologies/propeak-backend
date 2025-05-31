@@ -24,10 +24,10 @@ module.exports = Object.freeze({
   //staging
   db: process.env.DB,
   taskEmailContent:
-    `Hi, <br/> <br/> You have been assigned the following. task: <br/><br/> <b> Project </b> : #projectName# <br/> <b> Task </b> : #title#
+    `Hi, <br/> <br/> A new task has been created.<br/><br/> <b> Project </b> : #projectName# <br/> <b> Task </b> : #title#
     <br/> <b> Priority </b> : #priority# <br/> <b> Description </b> : #description# <br/> <br/> To view task details, click <a href="${process.env.URL}tasks/edit/#projectId#/#newTaskId#/update" alt="task">
     here</a>  <br/><br/> Thanks, <br/> proPeak Team`,
-
+    
   editlink: process.env.PUBLIC_URL + "project/tasks/",
       
   servercert: "../cert/localhost.crt",

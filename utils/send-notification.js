@@ -6,12 +6,17 @@ const { ObjectId } = require("mongoose").Types;
 const UserNotification = require("../models/notification-setting/user-notification-model");
 const NotificationPreference = require("../models/notification-setting/notification-preference-model");
 const sendEmail = require("./send-email");
+const Role = require("../models/role/role-model");
 
 module.exports = async function sendNotification(task, eventType) {
-  const TASK_COMPLETED = "TASK_COMPLETED";
-  const TASK_REJECTED = "TASK_REJECTED";
-  if (task.status === "completed") eventType = TASK_COMPLETED;
-  if (task.status === "rejected") eventType = TASK_REJECTED;
+  // const TASK_COMPLETED = "TASK_COMPLETED";
+  // const TASK_REJECTED = "TASK_REJECTED";
+  // if (task.status === "completed") eventType = TASK_COMPLETED;
+  // if (task.status === "rejected") eventType = TASK_REJECTED;
+
+  // console.log(task, "from task");
+  // console.log(eventType, "from eventType");
+
   const projectEvents = [
     "CUSTOM_FIELD_UPDATE",
     "PROJECT_CREATED",
@@ -21,17 +26,54 @@ module.exports = async function sendNotification(task, eventType) {
   ];
 
   const isProjectEvent = projectEvents.includes(eventType);
-  // const notificationProjectId = isProjectEvent ? task._id : task.projectId;
+
   const notificationProjectId = isProjectEvent
     ? task.projectId || null
-    : task.projectId;
+    : task.projectId?._id || null;
 
-  const settings = await NotificationSetting.find({
+  let condition = {
     eventType,
     projectId: notificationProjectId,
     active: true,
     isDeleted: false,
-  }).populate("notifyRoles");
+  };
+
+  // STAGE_CHANGED logic
+  if (
+    task.projectId?._id ||
+    eventType === "TASK_ASSIGNED" ||
+    eventType === "STAGE_CHANGED" ||
+    eventType === "TASK_CREATED"
+  ) {
+    const settings = await NotificationSetting.find({
+      projectId: task.projectId._id,
+      eventType,
+      isDeleted: false,
+    });
+    const exactMatch = settings.find(
+      (s) => s.taskStageId?.toString() === task.taskStageId?.toString()
+    );
+    const fallbackMatch = settings.find((s) => s.taskStageId === null);
+    const selected = exactMatch || fallbackMatch;
+    condition.taskStageId = selected ? selected.taskStageId : task.taskStageId;
+  }
+
+  // if (task._id && eventType === "TASK_ASSIGNED") {
+  //   console.log(eventType, "from trst")
+  //   const settings = await NotificationSetting.find({
+  //     projectId: task._id,
+  //     eventType,
+  //   });
+
+  //   const exactMatch = settings.find(s => s.taskStageId?.toString() === task.taskStageId?.toString());
+  //   const fallbackMatch = settings.find(s => s.taskStageId === null);
+  //   const selected = exactMatch || fallbackMatch;
+  //   condition.taskStageId = selected ? selected.taskStageId : task.taskStageId;
+  // }
+
+  const settings = await NotificationSetting.find(condition).populate(
+    "notifyRoles"
+  );
 
   if (!settings.length) {
     console.warn(`No NotificationSetting found for eventType: ${eventType}`);
@@ -92,6 +134,8 @@ module.exports = async function sendNotification(task, eventType) {
     userId: { $in: users.map((u) => u._id) },
   }).lean();
 
+  // console.log(notificationPreferences, "from notification")
+
   const generateMessage = eventMessages[eventType];
   if (!generateMessage) {
     console.warn(`No message defined for event type: ${eventType}`);
@@ -100,7 +144,7 @@ module.exports = async function sendNotification(task, eventType) {
 
   const message = generateMessage(task);
   const notifications = [];
-  const category = isProjectEvent ? "project" : "task";
+  // const category = isProjectEvent ? "project" : "task";
 
   for (const user of users) {
     if (!user) continue;
@@ -119,6 +163,7 @@ module.exports = async function sendNotification(task, eventType) {
     );
 
     const channels = setting?.channel || [];
+    console.log(channels, "from channels");
 
     // Extract notify role names
     const roleNames = [];
@@ -136,47 +181,103 @@ module.exports = async function sendNotification(task, eventType) {
     const userPreference = notificationPreferences.find(
       (p) => p.userId.toString() === user._id.toString()
     );
+    // console.log(userPreference, "From userPreference")
 
     const mutedEvents = userPreference?.muteEvents || [];
     const isMuted = mutedEvents.includes(eventType);
+    const inAppEnabled = userPreference?.inApp !== true;
+    const skipInApp = channels.includes("inapp") && !inAppEnabled;
+
     const isMandatory = setting?.mandatory;
     const shouldSendEmail =
       channels.includes("email") && user.email && (!isMuted || isMandatory);
+
+    if (!skipInApp) {
+      continue;
+    }
 
     if (isMuted && !isMandatory) {
       console.log(`User ${user._id} has muted ${eventType}, skipping...`);
       continue;
     }
 
-    if (shouldSendEmail) {
-      try {
-        await sendEmail(
-          user.email,
-          "Notification - " + eventType.replace(/_/g, " "),
-          message
-        );
-        console.log(`Email sent to ${user.email}`);
-      } catch (err) {
-        console.error(`Failed to send email to ${user.email}:`, err);
-      }
+    // if (shouldSendEmail) {
+    //   try {
+    //     await sendEmail(
+    //       user.email,
+    //       "Notification - " + eventType.replace(/_/g, " "),
+    //       message
+    //     );
+    //     console.log(`Email sent to ${user.email}`);
+    //   } catch (err) {
+    //     console.error(`Failed to send email to ${user.email}:`, err);
+    //   }
+    // }
+
+    let subject, category, url;
+    switch (eventType) {
+      case "STAGE_CHANGED":
+        subject = `Task ${task.status}.`;
+        category = "status";
+        url = `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`;
+        break;
+      case "PROJECT_STAGE_CHANGED":
+        subject = "Project Status changed.";
+        category = "project-status";
+        url = `/tasks/${task._id}/kanban/stage`;
+        break;
+      case "TASK_ASSIGNED":
+        subject = "Task assigned to you.";
+        category = "assign";
+        url = `/tasks/show/${task.projectId?._id || task.projectId}/${
+          task._id
+        }`;
+        break;
+      case "TASK_CREATED":
+        subject = "Task created.";
+        category = "task";
+        url = `/tasks/show/${task.projectId?._id || task.projectId}/${
+          task._id
+        }`;
+        break;
+      case "PROJECT_ARCHIVED":
+        subject = "Project archived.";
+        category = "archive";
+        url = `/tasks/${task._id}/kanban/stage`;
+        break;
+      case "PROJECT_CREATED":
+        subject = "Project created.";
+        category = "project";
+        url = `/tasks/${task._id}/kanban/stage`;
+        break;
+      case "CUSTOM_FIELD_UPDATE":
+        subject = "Custom field update.";
+        category = "field";
+        if (task.level === "project")
+          url = `/projects/edit/${
+            task.projectId?._id || task.projectId
+          }/project-config`;
+        if (task.level === "task")
+          url = `/projects/edit/${
+            task.projectId?._id || task.projectId
+          }/task-config`;
+        break;
+      case "EXPORT_READY":
+        subject = "EXPORT_READY";
+        category = "project";
+        url = `/reports/task-report`;
+        break;
+      default:
+        null;
     }
 
     notifications.push({
       companyId: task.companyId,
       isDeleted: false,
       userId: user._id,
-      subject: isProjectEvent ? "Project Notification" : "Task Notification",
+      subject: subject,
       message,
-      // url:
-      //   category === "task"
-      //     ? `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`
-      //     : `/tasks/${task._id}/kanban/stage`,
-      url:
-        eventType === "EXPORT_READY"
-          ? `/reports/task-report`
-          : category === "task"
-          ? `/tasks/${task.projectId?._id || task.projectId}/kanban/stage`
-          : `/tasks/${task._id}/kanban/stage`,
+      url: url,
       read: false,
       category,
       eventType,

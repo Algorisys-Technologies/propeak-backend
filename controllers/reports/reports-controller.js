@@ -482,7 +482,7 @@ exports.sendExportNotificationAndEmail =
       await sendNotification(
         {
           title: `${type.toUpperCase()} Export`,
-          description: `URL: <a href="${downloadUrl}" style="color: blue; text-decoration: underline;">${downloadUrl}</a>`,
+          description: `Task Report is ready: <a href="${downloadUrl}" style="color: blue; text-decoration: underline;">Download Task Report</a>`,
           createdBy: userId,
           projectId: null,
           companyId,

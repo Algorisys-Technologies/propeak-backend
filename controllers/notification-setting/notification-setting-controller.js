@@ -28,15 +28,21 @@ exports.createNotificationSetting = async (req, res) => {
     } = req.body;
 
     // Check if a setting already exists for the given projectId and eventType
+    if(!eventType){
+      return res.status(200).json({
+        success: false,
+        message:
+          "Please select eventType",
+      });
+    }
     const existingSetting = await NotificationSetting.findOne({
       projectId,
       eventType,
       isDeleted: false,
     });
-    console.log(existingSetting, "existingSetting........");
 
     if (existingSetting) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message:
           "Notification setting for this project and event already exists",
@@ -74,7 +80,7 @@ exports.createNotificationSetting = async (req, res) => {
 };
 
 exports.updateNotificationSetting = async (req, res) => {
-  console.log("is this coming here ???", req.body);
+  // console.log("is this coming here ???", req.body);
   try {
     const { id } = req.params;
     console.log("what id is coming here ???", id);
@@ -96,6 +102,19 @@ exports.updateNotificationSetting = async (req, res) => {
         message: "Notification setting ID is required",
       });
     }
+
+    // const existingSetting = await NotificationSetting.findOne({
+    //   projectId,
+    //   isDeleted: false,
+    // });
+
+    // if (existingSetting) {
+    //   return res.status(200).json({
+    //     success: false,
+    //     message:
+    //       "Notification setting for this project and event already exists",
+    //   });
+    // }
 
     const updatedSetting = await NotificationSetting.findByIdAndUpdate(
       id,

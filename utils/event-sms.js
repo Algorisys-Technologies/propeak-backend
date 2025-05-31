@@ -3,6 +3,7 @@
 const eventMessages = {
   TASK_CREATED: (task) => {
     const createdDate = new Date(task.createdOn).toLocaleDateString();
+    // console.log("task event message", task)
     return `A new task has been created.
   
   Title: ${task.title}
@@ -14,7 +15,7 @@ const eventMessages = {
   },
 
   TASK_ASSIGNED: (task) =>
-    `You have been assigned to the task "${task.title}".`,
+    `You have been assigned a new task: "${task.title}".`,
 
   STAGE_CHANGED: (task) => {
     const taskTitle = task.title || "Untitled Task";

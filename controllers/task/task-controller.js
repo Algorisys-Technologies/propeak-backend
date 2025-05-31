@@ -17,6 +17,8 @@ const { logError, logInfo } = require("../../common/logger");
 const { sendEmail } = require("../../common/mailer");
 const accessConfig = require("../../common/validate-entitlements");
 const objectId = require("../../common/common");
+// const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
+// const Role = require("../../models/role/role-model");
 const errors = {
   TASK_DOESNT_EXIST: "Task does not exist",
   ADD_TASK_ERROR: "Error occurred while adding the Task",
@@ -37,6 +39,7 @@ const { response } = require("express");
 const { skip } = require("rxjs-compat/operator/skip");
 let uploadFolder = config.UPLOAD_PATH;
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
+// const NotificationPreference = require("../../models/notification-setting/notification-preference-model");
 const {
   startOfMonth,
   endOfMonth,
@@ -47,10 +50,12 @@ const {
 } = require("date-fns");
 const { result } = require("lodash");
 const sendNotification = require("../../utils/send-notification");
+const { handleNotifications } = require("../../utils/notification-service");
+const notificationSettingModel = require("../../models/notification-setting/notification-setting-model");
 
 exports.createTask = (req, res) => {
-  console.log("create task wala ");
-  console.log(req.body, "request body in create tasks ");
+  // console.log("create task wala ");
+  // console.log(req.body, "request body in create tasks ");
   const { taskData, fileName, projectId } = req.body;
   const { task, multiUsers } = JSON.parse(taskData);
   const {
@@ -81,6 +86,8 @@ exports.createTask = (req, res) => {
     ownerEmail,
     publishStatus,
   } = task;
+
+  console.log(taskStageId, "from taskStageId")
 
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
@@ -116,7 +123,7 @@ exports.createTask = (req, res) => {
     description,
     startDate,
     endDate,
-    taskStageId,
+    taskStageId: taskStageId || null,
     projectId,
     status,
     assignedUser,
@@ -151,6 +158,7 @@ exports.createTask = (req, res) => {
   newTask
     .save()
     .then(async (result) => {
+
       const taskId = result._id;
       // Send notification here
 
@@ -165,14 +173,6 @@ exports.createTask = (req, res) => {
           select: "name",
           model: "user",
         });
-
-      const eventType = "TASK_CREATED";
-      try {
-        const notificationResult = await sendNotification(task, eventType);
-        console.log("Notification result:", notificationResult);
-      } catch (notificationError) {
-        console.error("Notification error:", notificationError);
-      }
 
       if (fileName) {
         let uploadFile = {
@@ -298,10 +298,11 @@ exports.createTask = (req, res) => {
         }
       });
 
-      const emailOwner = [ownerEmail, createdByEmail];
-      const email = [(await User.findOne({ _id: userId }))?.email];
+      const eventType = "TASK_CREATED";
+      const notification = await handleNotifications(task, eventType);
 
-      if (emailOwner.length > 0 || email.length > 0) {
+      
+      // if (emailOwner.length > 0 || email.length > 0) {
         const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
           try {
             let updatedDescription = newTask.description
@@ -319,14 +320,18 @@ exports.createTask = (req, res) => {
               .replace("#projectId#", newTask.projectId._id)
               .replace("#newTaskId#", newTask._id);
 
+              // console.log(emailText, "from mailOptions")
+
             if (email !== "XX") {
               var mailOptions = {
                 from: config.from,
                 to: email,
                 // cc: emailOwner,
-                subject: `${newTask.projectId.title} - Task assigned - ${newTask.title}`,
+                subject: ` TASK_CREATED - ${newTask.title}`,
                 html: emailText,
               };
+
+              // console.log(mailOptions, "from mailOptions")
 
               let taskArr = {
                 subject: mailOptions.subject,
@@ -351,8 +356,102 @@ exports.createTask = (req, res) => {
           }
         };
 
-        auditTaskAndSendMail(task, emailOwner, email);
+        // auditTaskAndSendMail(task, emailOwner, email);
+      // }
+
+      if (notification.length > 0) {
+        for (const channel of notification) {
+          const { emails } = channel;
+        
+          for (const email of emails) {
+            await auditTaskAndSendMail(task, [], email);
+          }
+        }
       }
+
+      if (task.publish_status === "published") {
+      const auditTaskAndSendMail = async (updatedTask, emailOwner, email) => {
+        try {
+          let updatedDescription = updatedTask.description
+            .split("\n")
+            .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+
+          // let emailText = config.taskEmailAssignContent
+          //   .replace("#title#", updatedTask.title)
+          //   .replace("#description#", updatedDescription)
+          //   .replace("#projectName#", updatedTask.projectId.title)
+          //   .replace("#projectId#", updatedTask.projectId._id)
+          //   .replace("#priority#", updatedTask.priority.toUpperCase())
+          //   .replace("#newTaskId#", updatedTask._id);
+
+          //   console.log(emailText, "from emailText")
+
+          let emailText = `
+          Hi, <br/><br/>
+          A new task has been <strong>assigned</strong> to you. <br/><br/>
+          <strong>Project:</strong> ${updatedTask.projectId.title} <br/>
+          <strong>Task:</strong> ${updatedTask.title} <br/>
+          <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+          <strong>Priority:</strong> ${updatedTask.priority.toUpperCase()} <br/>
+          
+          To view project details, click 
+          <a href="${process.env.URL}tasks/show/${updatedTask.projectId._id}/${updatedTask._id}" target="_blank">here</a>. <br/><br/>
+          Thanks, <br/>
+          The proPeak Team
+        `;
+
+          let taskEmailLink = config.taskEmailLink
+            .replace("#projectId#", updatedTask.projectId._id)
+            .replace("#newTaskId#", updatedTask._id);
+
+          if (email !== "XX") {
+            var mailOptions = {
+              from: config.from,
+              to: email,
+              // cc: emailOwner,
+              subject: `${updatedTask.projectId.title} - Task Assigned - ${updatedTask.title}`,
+              html: emailText,
+            };
+
+            console.log(mailOptions, "from mail option")
+
+            let taskArr = {
+              subject: mailOptions.subject,
+              url: taskEmailLink,
+              userId: updatedTask.assignedUser,
+            };
+
+            rabbitMQ
+              .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+              .then((resp) => {
+                logInfo(
+                  "Task update mail message sent to the message_queue: " +
+                    resp
+                );
+                addMyNotification(taskArr);
+              })
+              .catch((err) => {
+                console.error("Failed to send email via RabbitMQ", err);
+              });
+          }
+        } catch (error) {
+          console.error("Error in sending email", error);
+        }
+      };
+
+        const eventType = "TASK_ASSIGNED";
+        const notification = await handleNotifications(task, eventType);
+        if (notification.length > 0) {
+          for (const channel of notification) {
+            const { emails } = channel;
+          
+            for (const email of emails) {
+              await auditTaskAndSendMail(task, [], email);
+            }
+          }
+        }
+      }
+      
 
       res.json({
         success: true,
@@ -371,10 +470,10 @@ exports.createTask = (req, res) => {
 };
 
 exports.updateTask = (req, res) => {
-  console.log("is it coming th task update");
-  console.log(req.body, "request body of update task ");
+  // console.log("is it coming th task update");
+  // console.log(req.body, "request body of update task ");
   const { taskId } = req.body;
-  const { projectId, task } = req.body;
+  const { projectId, task, companyId } = req.body;
 
   const {
     title,
@@ -394,7 +493,6 @@ exports.updateTask = (req, res) => {
     multiUsers = [],
     notifyUsers = [],
     customFieldValues = {},
-    companyId,
     modifiedBy,
     userId,
     createdByEmail,
@@ -411,7 +509,7 @@ exports.updateTask = (req, res) => {
       description,
       startDate,
       endDate,
-      taskStageId,
+      taskStageId: taskStageId || null,
       projectId,
       status,
       assignedUser,
@@ -449,15 +547,31 @@ exports.updateTask = (req, res) => {
         path: "projectId",
         select: "title",
         model: "project",
+      }).populate({
+        path: "createdBy",
+        select: "name",
+        model: "user",
       });
 
-      const eventType = "TASK_CREATED";
-      try {
-        const notificationResult = await sendNotification(result, eventType);
-        console.log("Notification result:", notificationResult);
-      } catch (notificationError) {
-        console.error("Notification error:", notificationError);
-      }
+      // if(task.userId){
+      //   const eventType = "TASK_ASSIGNED"
+      //   await sendNotification(task, eventType);
+      // }
+      // if(task.publish_status === "published"){
+      //   const eventType = "TASK_CREATED";
+      //   try {
+      //     const notificationResult = await sendNotification(task, eventType);
+      //     console.log("Notification result:", notificationResult);
+      //   } catch (notificationError) {
+      //     console.error("Notification error:", notificationError);
+      //   }
+      // }
+
+      // if(task.userId){
+      //   const eventType = "TASK_ASSIGNED"
+      //   await sendNotification(task, eventType);
+      // }
+
       const userIdToken = req.body.userName;
       const fields = Object.keys(result.toObject()).filter(
         (key) =>
@@ -493,23 +607,36 @@ exports.updateTask = (req, res) => {
         }
       });
 
-      const emailOwner = [ownerEmail, createdByEmail];
-      const email = [(await User.findOne({ _id: userId }))?.email];
-
-      if (emailOwner.length > 0 || email.length > 0) {
+      // if (emailOwner.length > 0 || email.length > 0) {
         const auditTaskAndSendMail = async (updatedTask, emailOwner, email) => {
           try {
             let updatedDescription = updatedTask.description
               .split("\n")
               .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
 
-            let emailText = config.taskEmailContent
-              .replace("#title#", updatedTask.title)
-              .replace("#description#", updatedDescription)
-              .replace("#projectName#", updatedTask.projectId.title)
-              .replace("#projectId#", updatedTask.projectId._id)
-              .replace("#priority#", updatedTask.priority.toUpperCase())
-              .replace("#newTaskId#", updatedTask._id);
+            // let emailText = config.taskEmailAssignContent
+            //   .replace("#title#", updatedTask.title)
+            //   .replace("#description#", updatedDescription)
+            //   .replace("#projectName#", updatedTask.projectId.title)
+            //   .replace("#projectId#", updatedTask.projectId._id)
+            //   .replace("#priority#", updatedTask.priority.toUpperCase())
+            //   .replace("#newTaskId#", updatedTask._id);
+
+            //   console.log(emailText, "from emailText")
+
+            let emailText = `
+            Hi, <br/><br/>
+            A new task has been <strong>assigned</strong> to you. <br/><br/>
+            <strong>Project:</strong> ${updatedTask.projectId.title} <br/>
+            <strong>Task:</strong> ${updatedTask.title} <br/>
+            <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+            <strong>Priority:</strong> ${updatedTask.priority.toUpperCase()} <br/>
+            
+            To view project details, click 
+            <a href="${process.env.URL}tasks/show/${updatedTask.projectId._id}/${updatedTask._id}" target="_blank">here</a>. <br/><br/>
+            Thanks, <br/>
+            The proPeak Team
+          `;
 
             let taskEmailLink = config.taskEmailLink
               .replace("#projectId#", updatedTask.projectId._id)
@@ -520,9 +647,11 @@ exports.updateTask = (req, res) => {
                 from: config.from,
                 to: email,
                 // cc: emailOwner,
-                subject: `${updatedTask.projectId.title} - Task updated - ${updatedTask.title}`,
+                subject: `${updatedTask.projectId.title} - Task Assigned - ${updatedTask.title}`,
                 html: emailText,
               };
+
+              console.log(mailOptions, "from mail option")
 
               let taskArr = {
                 subject: mailOptions.subject,
@@ -547,10 +676,21 @@ exports.updateTask = (req, res) => {
             console.error("Error in sending email", error);
           }
         };
+
         if (task.publish_status === "published") {
-          auditTaskAndSendMail(task, emailOwner, email);
+          const eventType = "TASK_ASSIGNED";
+          const notification = await handleNotifications(task, eventType);
+          if (notification.length > 0) {
+            for (const channel of notification) {
+              const { emails } = channel;
+            
+              for (const email of emails) {
+                await auditTaskAndSendMail(task, [], email);
+              }
+            }
+          }
         }
-      }
+      // }
 
       res.json({
         success: true,
@@ -2553,6 +2693,7 @@ exports.getTasksStagesByProjectId = async (req, res) => {
         },
       ])
     )[0];
+    // console.log(project, "from project")
     const taskStagesTitles = project.taskStages;
     const taskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
@@ -2567,7 +2708,7 @@ exports.getTasksStagesByProjectId = async (req, res) => {
 };
 
 exports.updateStage = async (req, res) => {
-  console.log("request coming from body", req.body);
+  // console.log("request coming from body", req.body);
   try {
     const { taskId, newStageId, status, userId } = req.body;
 
@@ -2596,11 +2737,89 @@ exports.updateStage = async (req, res) => {
     task.status = status;
     task.modifiedOn = new Date();
     task.modifiedBy = userId;
+    // console.log(newStageId, "from new Stage")
     await task.save();
+    const eventType = "STAGE_CHANGED"; 
+    
+    const notification = await handleNotifications(task, eventType);
+    
+    const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+      try {
+        let updatedDescription = newTask.description
+          .split("\n")
+          .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+        // let emailText = config.taskEmailStageContent
+        //   .replace("#title#", newTask.title)
+        //   .replace("#description#", updatedDescription)
+        //   .replace("#projectName#", newTask.projectId.title)
+        //   .replace("#status#", newTask.status)
+        //   .replace("#projectId#", newTask.projectId._id)
+        //   .replace("#priority#", newTask.priority.toUpperCase())
+        //   .replace("#newTaskId#", newTask._id);
 
-    const eventType = "STAGE_CHANGED";
+        let taskEmailLink = config.taskEmailLink
+          .replace("#projectId#", newTask.projectId._id)
+          .replace("#newTaskId#", newTask._id);
 
-    const check = await sendNotification(task, eventType);
+        let emailText = `
+            Hi, <br/><br/>
+            Task stage has been <strong>changed</strong>. <br/><br/>
+            <strong>Task:</strong> ${newTask.title} <br/>
+            <strong>Project:</strong> ${newTask.projectId.title} <br/>
+            <strong>Priority:</strong> ${newTask.priority.toUpperCase()} <br/>
+            <strong>Stage Changed:</strong> ${newTask.status} <br/>
+            <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+            To view task details, click 
+            <a href="${process.env.URL}tasks/edit/${newTask.projectId._id}/${newTask._id}/update" target="_blank">here</a>. <br/><br/>
+            Thanks, <br/>
+            The proPeak Team
+          `
+
+          // console.log(emailText, "from mailOptions")
+
+        if (email !== "XX") {
+          var mailOptions = {
+            from: config.from,
+            to: email,
+            // cc: emailOwner,
+            subject: ` STAGE_CHANGED - ${newTask.title}`,
+            html: emailText,
+          };
+
+          console.log(mailOptions, "from mailOptions")
+
+          let taskArr = {
+            subject: mailOptions.subject,
+            url: taskEmailLink,
+            userId: newTask.assignedUser,
+          };
+
+          rabbitMQ
+            .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+            .then((resp) => {
+              logInfo(
+                "Task add mail message sent to the message_queue: " + resp
+              );
+              addMyNotification(taskArr);
+            })
+            .catch((err) => {
+              console.error("Failed to send email via RabbitMQ", err);
+            });
+        }
+      } catch (error) {
+        console.error("Error in sending email", error);
+      }
+    };
+
+    if (notification.length > 0) {
+      for (const channel of notification) {
+        const { emails } = channel;
+      
+        for (const email of emails) {
+          await auditTaskAndSendMail(task, [], email);
+        }
+      }
+    }
     return res.json({ success: true });
   } catch (error) {
     console.error("Error updating task stage:", error);

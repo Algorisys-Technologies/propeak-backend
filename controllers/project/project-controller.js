@@ -8,6 +8,7 @@ const audit = require("../audit-log/audit-log-controller");
 const AuditLogs = require("../../models/auditlog/audit-log-model");
 const ProjectStatus = require("../../models/project/project-status-model");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
+const rabbitMQ = require("../../rabbitmq");
 
 const {
   CustomTaskField,
@@ -32,7 +33,10 @@ const errors = {
   SERVER_ERROR: "Opps, something went wrong. Please try again.",
   NOT_AUTHORIZED: "Your are not authorized",
 };
-const sendNotification = require("../../utils/send-notification");
+// const sendNotification = require("../../utils/send-notification");
+// const NotificationSetting = require("../../models/notification-setting/notification-setting-model");
+// const Role = require("../../models/role/role-model");
+const config = require("../../config/config");
 const {
   startOfMonth,
   endOfMonth,
@@ -41,6 +45,7 @@ const {
   startOfDay,
   endOfDay,
 } = require("date-fns");
+const { handleNotifications } = require("../../utils/notification-service");
 
 exports.getAuditLog = (req, res) => {
   try {
@@ -260,7 +265,7 @@ exports.getProjectDataByProjectId = (req, res) => {
 // CREATE
 exports.createProject = async (req, res) => {
   logInfo(req.body, "createProject req.body");
-  console.log("createProject req.body...", req.body);
+  // console.log("createProject req.body...", req.body);
   let userName = req.body.userName;
   const { title, companyId, status, taskStages, group } = req.body;
   //const existingProject = await Project.findOne({ title, companyId });
@@ -277,7 +282,7 @@ exports.createProject = async (req, res) => {
 
   const existingProject = await Project.findOne(projectQuery);
 
-  console.log(existingProject, "existingProject");
+  // console.log(existingProject, "existingProject");
 
   // const existingProject = await Project.findOne({ title, companyId });
   if (existingProject) {
@@ -348,7 +353,82 @@ exports.createProject = async (req, res) => {
   });
 
   const eventType = "PROJECT_CREATED";
-  await sendNotification(newProject, eventType);
+  const notification = await handleNotifications(newProject, eventType);
+  
+  const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+    try {
+      let updatedDescription = newTask.description
+        .split("\n")
+        .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+      // let emailText = config.projectEmailCreateContent
+      //   .replace("#title#", newTask.title)
+      //   .replace("#description#", updatedDescription)
+      //   .replace("#projectName#", newTask.title)
+      //   .replace("#status#", newTask.status)
+      //   .replace("#projectId#", newTask._id)
+      //   // .replace("#priority#", newTask.priority.toUpperCase())
+      //   // .replace("#newTaskId#", newTask._id);
+
+      let taskEmailLink = config.taskEmailLink
+        .replace("#projectId#", newTask._id)
+        .replace("#newTaskId#", newTask._id);
+
+        let emailText = `
+        Hi, <br/><br/>
+        A new project has been <strong>created</strong>. <br/><br/>
+        <strong>Project:</strong> ${newTask.title} <br/>
+        <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+        To view project details, click 
+        <a href="${process.env.URL}tasks/${newTask._id}/kanban/stage" target="_blank">here</a>. <br/><br/>
+        Thanks, <br/>
+        The proPeak Team
+      `;
+      
+
+       
+      if (email !== "XX") {
+        var mailOptions = {
+          from: config.from,
+          to: email,
+          // cc: emailOwner,
+          subject: ` PROJECT_CREATED - ${newTask.title}`,
+          html: emailText,
+        };
+
+        console.log(mailOptions, "from mailOptions")
+
+        let taskArr = {
+          subject: mailOptions.subject,
+          url: taskEmailLink,
+          userId: newTask.assignedUser,
+        };
+
+        rabbitMQ
+          .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+          .then((resp) => {
+            logInfo(
+              "Task add mail message sent to the message_queue: " + resp
+            );
+            // addMyNotification(taskArr);
+          })
+          .catch((err) => {
+            console.error("Failed to send email via RabbitMQ", err);
+          });
+      }
+    } catch (error) {
+      console.error("Error in sending email", error);
+    }
+  };
+
+  if (notification.length > 0) {
+    for (const channel of notification) {
+      const { emails } = channel;
+    
+      for (const email of emails) {
+        await auditTaskAndSendMail(newProject, [], email);
+      }
+    }
+  }
 
   newProject
     .save()
@@ -1270,10 +1350,86 @@ exports.archiveProject = async (req, res) => {
     );
 
     const eventType = "PROJECT_ARCHIVED";
-    console.log(project, "from project archived");
-    const notificationResult = await sendNotification(project, eventType);
+    // console.log(project, "from project archived");
+    const notification = await handleNotifications(project, eventType);
+    
+    // if (emailOwner.length > 0 || email.length > 0) {
+      const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+        try {
+          let updatedDescription = newTask.description
+            .split("\n")
+            .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+          // let emailText = config.projectEmailArchiveContent
+          //   // .replace("#title#", newTask.title)
+          //   .replace("#description#", updatedDescription)
+          //   .replace("#projectName#", newTask.title)
+          //   .replace("#projectId#", newTask._id)
+          //   // .replace("#priority#", newTask.priority.toUpperCase())
+          //   .replace("#newTaskId#", newTask._id);
 
-    console.log("Notification sent:", notificationResult);
+          let taskEmailLink = config.taskEmailLink
+            // .replace("#projectId#", newTask.projectId._id)
+            .replace("#newTaskId#", newTask._id);
+
+            // console.log(emailText, "from mailOptions")
+
+            let emailText = `
+            Hi, <br/><br/>
+            A project has been <strong>Archived</strong>. <br/><br/>
+            <strong>Project:</strong> ${newTask.title} <br/>
+            <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+            To view project details, click 
+            <a href="${process.env.URL}tasks/${newTask._id}/kanban/stage" target="_blank">here</a>. <br/><br/>
+            Thanks, <br/>
+            The proPeak Team
+        `;
+
+          if (email !== "XX") {
+            var mailOptions = {
+              from: config.from,
+              to: email,
+              // cc: emailOwner,
+              subject: ` PROJECT_ARCHIVED - ${newTask.title}`,
+              html: emailText,
+            };
+
+            console.log(mailOptions, "from mailOptions")
+
+            let taskArr = {
+              subject: mailOptions.subject,
+              url: taskEmailLink,
+              userId: newTask.assignedUser,
+            };
+
+            rabbitMQ
+              .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+              .then((resp) => {
+                logInfo(
+                  "Task add mail message sent to the message_queue: " + resp
+                );
+                // addMyNotification(taskArr);
+              })
+              .catch((err) => {
+                console.error("Failed to send email via RabbitMQ", err);
+              });
+          }
+        } catch (error) {
+          console.error("Error in sending email", error);
+        }
+      };
+
+      // auditTaskAndSendMail(task, emailOwner, email);
+    // }
+
+    if (notification.length > 0) {
+      for (const channel of notification) {
+        const { emails } = channel;
+      
+        for (const email of emails) {
+          await auditTaskAndSendMail(project, [], email);
+        }
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -1355,15 +1511,103 @@ exports.addCustomTaskField = async (req, res) => {
       level,
       isMandatory,
       isDeleted: false,
-    });
+    })
 
     // Save the custom field
     await newField.save();
 
-    console.log(newField, "from new filed");
+    const savedFieldWithProject = await CustomTaskField.findById(newField._id).populate({
+      path: 'projectId',
+      model: 'project',
+      select: 'title',
+    });
+
+    console.log(savedFieldWithProject, "from new filed");
     try {
       const eventType = "CUSTOM_FIELD_UPDATE";
-      await sendNotification(newField, eventType);
+      const notification = await handleNotifications(savedFieldWithProject, eventType);
+      console.log(notification, "from notification")
+      const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+        try {
+          // let updatedDescription = newTask.description
+          //   .split("\n")
+          //   .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+          const configPath = newTask.level === "project" ? "project-config" : "task-config";
+          // let emailText = config.projectEmailFieldContent
+          //   .replace("#title#", newTask.level)
+          //   // .replace("#description#", updatedDescription)
+          //   .replace("#projectName#", newTask.projectId.title)
+          //   .replace("#key#", newTask.key)
+          //   .replace("#type#", newTask.type)
+          //   .replace("#label#", newTask.label)
+          //   .replace("#projectId#", newTask.projectId._id)
+          //   .replace("#configPath#", configPath);
+            // .replace("#priority#", newTask.priority.toUpperCase())
+            // .replace("#newTaskId#", newTask._id);
+
+          let emailText = `
+          Hi, <br/><br/>
+          A custom field was updated at the <strong>${newTask.level}</strong> level. <br/><br/>
+          <strong>Project:</strong> ${newTask.projectId.title} <br/>
+          <strong>Key:</strong> ${newTask.key} <br/>
+          <strong>Label:</strong> ${newTask.label}<br/>
+          <strong>Type:</strong> ${newTask.type} <br/><br/>
+          To view custom field update details, click 
+          <a href="${process.env.URL}projects/edit/${newTask.projectId._id}/${configPath}" target="_blank">here</a>. <br/><br/>
+          Thanks, <br/>
+          The proPeak Team
+        `;
+    
+          let taskEmailLink = config.taskEmailLink
+            .replace("#projectId#", newTask.projectId._id)
+            // .replace("#newTaskId#", newTask._id);
+    
+           
+          if (email !== "XX") {
+            var mailOptions = {
+              from: config.from,
+              to: email,
+              // cc: emailOwner,
+              subject: ` CUSTOM_FIELD_UPDATE - At level "${newTask.level}"`,
+              html: emailText,
+            };
+    
+            console.log(mailOptions, "from mailOptions")
+    
+            let taskArr = {
+              subject: mailOptions.subject,
+              url: taskEmailLink,
+              userId: newTask.assignedUser,
+            };
+    
+            rabbitMQ
+              .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+              .then((resp) => {
+                logInfo(
+                  "Task add mail message sent to the message_queue: " + resp
+                );
+                // addMyNotification(taskArr);
+              })
+              .catch((err) => {
+                console.error("Failed to send email via RabbitMQ", err);
+              });
+          }
+        } catch (error) {
+          console.error("Error in sending email", error);
+        }
+      };
+    
+      if (notification.length > 0) {
+        for (const channel of notification) {
+          const { emails } = channel;
+          // console.log(emails, "from emails")
+        
+          for (const email of emails) {
+            await auditTaskAndSendMail(savedFieldWithProject, [], email);
+          }
+        }
+      }
+      
     } catch (notifyErr) {
       console.warn("Notification failed", notifyErr);
     }
@@ -1491,13 +1735,13 @@ exports.updateCustomTaskField = async (req, res) => {
     existingField.companyId = companyId;
 
     // Save the updated field
-    await existingField.save();
-    try {
-      const eventType = "CUSTOM_FIELD_UPDATE";
-      await sendNotification(existingField, eventType);
-    } catch (notifyErr) {
-      console.warn("Notification failed", notifyErr);
-    }
+    // await existingField.save();
+    // try {
+    //   const eventType = "CUSTOM_FIELD_UPDATE";
+    //   await sendNotification(existingField, eventType);
+    // } catch (notifyErr) {
+    //   console.warn("Notification failed", notifyErr);
+    // }
 
     res.status(200).json({
       message: "Custom field updated successfully",
@@ -2570,7 +2814,82 @@ exports.updateStage = async (req, res) => {
     );
 
     const eventType = "PROJECT_STAGE_CHANGED";
-    await sendNotification(project, eventType);
+    const notification = await handleNotifications(project, eventType);
+
+    const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
+      try {
+        let updatedDescription = newTask.description
+          .split("\n")
+          .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
+        // let emailText = config.projectEmailCreateContent
+        //   .replace("#title#", newTask.title)
+        //   .replace("#description#", updatedDescription)
+        //   .replace("#projectName#", newTask.title)
+        //   .replace("#status#", newTask.status)
+        //   .replace("#projectId#", newTask._id)
+          // .replace("#priority#", newTask.priority.toUpperCase())
+          // .replace("#newTaskId#", newTask._id);
+
+        let emailText = `
+        Hi, <br/><br/>
+        project stage has been <strong>changed</strong>. <br/><br/>
+        <strong>Project:</strong> ${newTask.title} <br/>
+        <strong>Description:</strong><br/> &nbsp;&nbsp;&nbsp;&nbsp; ${updatedDescription} <br/><br/>
+        <strong>Stage Changed:</strong> ${newTask.status} <br/>
+        To view project details, click 
+        <a href="${process.env.URL}tasks/${newTask._id}/kanban/stage" target="_blank">here</a>. <br/><br/>
+        Thanks, <br/>
+        The proPeak Team
+      `;
+  
+        let taskEmailLink = config.taskEmailLink
+          .replace("#projectId#", newTask._id)
+          // .replace("#newTaskId#", newTask._id);
+  
+         
+        if (email !== "XX") {
+          var mailOptions = {
+            from: config.from,
+            to: email,
+            // cc: emailOwner,
+            subject: ` PROJECT_STAGE_CHANGED - ${newTask.title}`,
+            html: emailText,
+          };
+  
+          console.log(mailOptions, "from mailOptions")
+  
+          let taskArr = {
+            subject: mailOptions.subject,
+            url: taskEmailLink,
+            userId: newTask.assignedUser,
+          };
+  
+          rabbitMQ
+            .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
+            .then((resp) => {
+              logInfo(
+                "Task add mail message sent to the message_queue: " + resp
+              );
+              // addMyNotification(taskArr);
+            })
+            .catch((err) => {
+              console.error("Failed to send email via RabbitMQ", err);
+            });
+        }
+      } catch (error) {
+        console.error("Error in sending email", error);
+      }
+    };
+  
+    if (notification.length > 0) {
+      for (const channel of notification) {
+        const { emails } = channel;
+      
+        for (const email of emails) {
+          await auditTaskAndSendMail(project, [], email);
+        }
+      }
+    }
 
     return res.json({ success: true });
   } catch (error) {
@@ -2735,7 +3054,7 @@ exports.getProjectTableForGroup = async (req, res) => {
     let condition = {
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: false,
-      group: groupId,
+      group: new mongoose.Types.ObjectId(groupId),
       archive: false,
     };
 
