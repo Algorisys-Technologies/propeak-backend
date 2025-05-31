@@ -52,11 +52,11 @@ const eventMessages = {
     return `Project "${title}" has been archived. It was originally created on ${createdOn} and its last known status was "${status}".`;
   },
 
-  CUSTOM_FIELD_UPDATE: (task) => {
+  CUSTOM_FIELD_CREATED: (task) => {
     const label = task.label || "Unnamed Field";
     const key = task.key || "Unknown Key";
     const level = task.level || "unknown level";
-    return `Custom field "${label}" (${key}) was updated at ${level} level.`;
+    return `Custom field "${label}" (${key}) was created at ${level} level.`;
   },
 
   EMAIL_RECEIVED: (task) => `You received an email related to "${task.title}".`,
