@@ -367,6 +367,112 @@ exports.getMonthlyGlobalTaskReport = async ({
   }
 };
 
+exports.getMonthlyGlobalUserReport = async ({
+  companyId,
+  userId,
+  reportParams,
+}) => {
+  try {
+    const { year, month, dateFrom, dateTo } = reportParams;
+
+    console.log("Request for global user report:", {
+      companyId,
+      userId,
+      reportParams,
+    });
+
+    // Validate IDs
+    if (
+      !mongoose.Types.ObjectId.isValid(companyId) ||
+      !mongoose.Types.ObjectId.isValid(userId)
+    ) {
+      console.log("Invalid company ID or user ID format.");
+      return { success: false, err: "Invalid company or user ID format." };
+    }
+
+    // Get all projects for the company
+    const projects = await Project.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+    }).select("_id");
+
+    const projectIds = projects.map((project) => project._id);
+
+    if (projectIds.length === 0) {
+      return {
+        success: true,
+        data: [],
+        totalCount: 0,
+        customFields: [],
+      };
+    }
+
+    // Build filter
+    let condition = {
+      projectId: { $in: projectIds },
+      userId: new mongoose.Types.ObjectId(userId),
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    };
+
+    if (year && month) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 1);
+      condition.startDate = { $gte: startDate, $lt: endDate };
+    } else if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return { success: false, err: "Invalid date range provided." };
+      }
+      condition.startDate = { $gte: fromDate, $lte: toDate };
+    } else {
+      return { success: false, err: "Required search parameters are missing." };
+    }
+
+    // Fetch tasks
+    const tasks = await Task.find(condition)
+      .lean()
+      .populate("projectId", "title")
+      .populate("userId", "name");
+
+    // Find task with max custom fields
+    let maxTask = null;
+    let maxKeys = 0;
+
+    for (const task of tasks) {
+      const cfv = task.customFieldValues || {};
+      const keyCount = Object.keys(cfv).length;
+      if (keyCount > maxKeys) {
+        maxKeys = keyCount;
+        maxTask = task;
+      }
+    }
+
+    let customFields = [];
+
+    if (maxTask && maxTask.customFieldValues) {
+      customFields = Object.entries(maxTask.customFieldValues).map(
+        ([key, value]) => ({
+          key,
+          value,
+        })
+      );
+    }
+
+    return {
+      success: true,
+      data: tasks,
+      totalCount: tasks.length,
+      customFields,
+    };
+  } catch (error) {
+    console.error("Error in getMonthlyGlobalUserReport:", error);
+    return {
+      success: false,
+      err: "Server error occurred while processing the global user report.",
+    };
+  }
+};
+
 exports.generateHtmlPdf = async function generateHtmlPdf({
   filePath,
   headers,
