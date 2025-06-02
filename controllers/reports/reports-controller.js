@@ -2151,7 +2151,7 @@ exports.getUserPerformanceReport = (req, res) => {
 
     // Aggregation pipeline
     Task.aggregate([
-      { $match: taskCondition }, // Match tasks based on user and project
+      { $match: taskCondition },
       {
         $group: {
           _id: {
@@ -2175,6 +2175,17 @@ exports.getUserPerformanceReport = (req, res) => {
           storyPoint: "$_id.storyPoint",
           count: 1,
         },
+      },
+      {
+        $lookup: {
+          from: "projects", // 👈 name of the collection (check your DB)
+          localField: "projectId",
+          foreignField: "_id",
+          as: "projectInfo",
+        },
+      },
+      {
+        $unwind: "$projectInfo",
       },
     ])
       .then((result) => {
@@ -2216,6 +2227,7 @@ exports.getUserPerformanceReport = (req, res) => {
           if (!tasksByProjectId[projectId]) {
             tasksByProjectId[projectId] = {
               projectId: projectId,
+              projectTitle: item.projectInfo.title,
               completed: 0,
               todo: 0,
               inprogress: 0,
@@ -2233,7 +2245,7 @@ exports.getUserPerformanceReport = (req, res) => {
 
         let projectCountArray = Object.values(tasksByProjectId).map(
           (project) => ({
-            projectId: project.projectId,
+            projectTitle: project.projectTitle,
             Completed: project.completed,
             Todo: project.todo,
             Inprogress: project.inprogress,
