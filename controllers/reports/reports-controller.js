@@ -411,23 +411,10 @@ exports.getMonthlyGlobalUserReport = async ({
       userId: new mongoose.Types.ObjectId(userId),
     };
 
-    // // Set date range based on year/month or custom date range
-    // if (year && month) {
-    //   const startDate = new Date(year, month - 1, 1);
-    //   const endDate = new Date(year, month, 0);
-    //   condition.startDate = { $gte: startDate, $lt: endDate };
-    // } else if (dateFrom && dateTo) {
-    //   const fromDate = new Date(dateFrom);
-    //   const toDate = new Date(dateTo);
-
-    //   if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-    //     return { success: false, err: "Invalid date range provided." };
-    //   }
-
-    //   condition.startDate = { $gte: fromDate, $lte: toDate };
-    // } else {
-    //   return { success: false, err: "Required search parameters are missing." };
-    // }
+    // ⛔ Limit to user's own tasks if not ADMIN or OWNER
+    if (role !== "ADMIN" && role !== "OWNER") {
+      condition.userId = new mongoose.Types.ObjectId(userId);
+    }
 
     if (year && month) {
       const startDate = new Date(year, month - 1, 1);
@@ -460,10 +447,10 @@ exports.getMonthlyGlobalUserReport = async ({
     }
 
     const tasks = await Task.find(condition)
-      .lean()
       .populate("projectId", "title")
       .populate("userId", "name")
-      .populate({ path: "interested_products.product_id" });
+      .populate({ path: "interested_products.product_id" })
+      .lean();
 
     console.log(
       "Fetched user-specific tasks without pagination:",
