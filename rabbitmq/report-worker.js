@@ -6,6 +6,7 @@ const {
   generateHtmlPdf,
   sendExportNotificationAndEmail,
   getMonthlyGlobalTaskReport,
+  getMonthlyGlobalUserReport,
 } = require("../controllers/reports/reports-controller");
 const {
   rabbitMQ_exchangeName,
@@ -67,12 +68,23 @@ require("../models/product/product-model");
 
       console.log("ALL...", companyId, role, userId, reportParams);
 
-      const resultTaskReport = await getMonthlyGlobalTaskReport({
-        companyId,
-        role,
-        userId,
-        reportParams,
-      });
+      let resultTaskReport;
+      if (reportParams?.reportType === "global-task") {
+        resultTaskReport = await getMonthlyGlobalTaskReport({
+          companyId,
+          role,
+          userId,
+          reportParams,
+        });
+      } else {
+        console.log("global user", reportParams?.reportType);
+        resultTaskReport = await getMonthlyGlobalUserReport({
+          companyId,
+          role,
+          userId,
+          reportParams,
+        });
+      }
 
       if (!resultTaskReport.success)
         throw new Error(resultTaskReport.err || "Data fetch failed");

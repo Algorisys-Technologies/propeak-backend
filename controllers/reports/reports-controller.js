@@ -369,6 +369,7 @@ exports.getMonthlyGlobalTaskReport = async ({
 
 exports.getMonthlyGlobalUserReport = async ({
   companyId,
+  role,
   userId,
   reportParams,
 }) => {
@@ -381,58 +382,93 @@ exports.getMonthlyGlobalUserReport = async ({
       reportParams,
     });
 
-    // Validate IDs
+    // Validate company ID and user ID format
     if (
       !mongoose.Types.ObjectId.isValid(companyId) ||
       !mongoose.Types.ObjectId.isValid(userId)
     ) {
       console.log("Invalid company ID or user ID format.");
-      return { success: false, err: "Invalid company or user ID format." };
+      return res.json({ err: "Invalid company or user ID format." });
     }
 
-    // Get all projects for the company
+    // Get all projects for the specified company
     const projects = await Project.find({
       companyId: new mongoose.Types.ObjectId(companyId),
     }).select("_id");
-
     const projectIds = projects.map((project) => project._id);
 
     if (projectIds.length === 0) {
-      return {
+      return res.json({
         success: true,
         data: [],
         totalCount: 0,
-        customFields: [],
-      };
+      });
     }
 
-    // Build filter
+    // Base filter condition for tasks within these projects and assigned to the specified user
     let condition = {
       projectId: { $in: projectIds },
       userId: new mongoose.Types.ObjectId(userId),
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     };
+
+    // // Set date range based on year/month or custom date range
+    // if (year && month) {
+    //   const startDate = new Date(year, month - 1, 1);
+    //   const endDate = new Date(year, month, 0);
+    //   condition.startDate = { $gte: startDate, $lt: endDate };
+    // } else if (dateFrom && dateTo) {
+    //   const fromDate = new Date(dateFrom);
+    //   const toDate = new Date(dateTo);
+
+    //   if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+    //     return { success: false, err: "Invalid date range provided." };
+    //   }
+
+    //   condition.startDate = { $gte: fromDate, $lte: toDate };
+    // } else {
+    //   return { success: false, err: "Required search parameters are missing." };
+    // }
 
     if (year && month) {
       const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 1);
-      condition.startDate = { $gte: startDate, $lt: endDate };
+      const endDate = new Date(year, month, 0);
+      condition = {
+        ...condition,
+        startDate: { $gte: startDate, $lt: endDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+
+      console.log("Condition for tasks with year/month range:", condition);
     } else if (dateFrom && dateTo) {
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
+
+      // Ensure the dates are valid
       if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-        return { success: false, err: "Invalid date range provided." };
+        return res.json({ err: "Invalid date range provided." });
       }
-      condition.startDate = { $gte: fromDate, $lte: toDate };
+
+      condition = {
+        ...condition,
+        startDate: { $gte: fromDate, $lte: toDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+
+      console.log("Condition for tasks with custom date range:", condition);
     } else {
-      return { success: false, err: "Required search parameters are missing." };
+      return res.json({ err: "Required search parameters are missing." });
     }
 
-    // Fetch tasks
     const tasks = await Task.find(condition)
       .lean()
       .populate("projectId", "title")
-      .populate("userId", "name");
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" });
+
+    console.log(
+      "Fetched user-specific tasks without pagination:",
+      tasks.length
+    );
 
     // Find task with max custom fields
     let maxTask = null;
