@@ -595,6 +595,108 @@ exports.getMonthlyProjectTaskReport = async ({
   }
 };
 
+exports.getMonthlyProjectUserReport = async ({
+  projectId,
+  reportParams,
+  userId,
+  role,
+}) => {
+  try {
+    const { year, month, dateFrom, dateTo } = reportParams;
+
+    console.log("Request for monthly project user report:", {
+      projectId,
+      userId,
+      reportParams,
+    });
+
+    // Validate project and user ID
+    if (
+      !mongoose.Types.ObjectId.isValid(projectId) ||
+      !mongoose.Types.ObjectId.isValid(userId)
+    ) {
+      console.log("Invalid project ID or user ID format.");
+      return { err: "Invalid project or user ID format." };
+    }
+
+    // Base condition
+    let condition = {
+      projectId: new mongoose.Types.ObjectId(projectId),
+      userId: new mongoose.Types.ObjectId(userId),
+    };
+
+    // Apply date filters
+    if (year && month) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0); // last day of the month
+
+      condition = {
+        ...condition,
+        startDate: { $gte: startDate, $lt: endDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return { err: "Invalid date range provided." };
+      }
+
+      condition = {
+        ...condition,
+        startDate: { $gte: fromDate, $lte: toDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else {
+      return { err: "Required search parameters are missing." };
+    }
+
+    // Fetch tasks
+    const tasks = await Task.find(condition)
+      .populate("projectId", "title")
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" })
+      .lean();
+
+    console.log("Fetched user-specific tasks for project:", tasks.length);
+
+    // Get task with max custom fields
+    let maxTask = null;
+    let maxKeys = 0;
+
+    for (const task of tasks) {
+      const cfv = task.customFieldValues || {};
+      const keyCount = Object.keys(cfv).length;
+      if (keyCount > maxKeys) {
+        maxKeys = keyCount;
+        maxTask = task;
+      }
+    }
+
+    let customFields = [];
+
+    if (maxTask && maxTask.customFieldValues) {
+      customFields = Object.entries(maxTask.customFieldValues).map(
+        ([key, value]) => ({ key, value })
+      );
+    }
+
+    return {
+      success: true,
+      data: tasks,
+      totalCount: tasks.length,
+      customFields,
+    };
+  } catch (error) {
+    console.error("Error in getMonthlyProjectUserReport:", error);
+    return {
+      success: false,
+      err: "Server error occurred while processing the project user report.",
+    };
+  }
+};
+
 exports.generateHtmlPdf = async function generateHtmlPdf({
   filePath,
   headers,

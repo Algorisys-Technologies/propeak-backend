@@ -8,6 +8,7 @@ const {
   getMonthlyGlobalTaskReport,
   getMonthlyGlobalUserReport,
   getMonthlyProjectTaskReport,
+  getMonthlyProjectUserReport,
 } = require("../controllers/reports/reports-controller");
 const {
   rabbitMQ_exchangeName,
@@ -86,10 +87,17 @@ require("../models/product/product-model");
           userId,
           reportParams,
         });
+      } else if (reportParams?.reportType === "project-task") {
+        resultTaskReport = await getMonthlyProjectTaskReport({
+          projectId,
+          reportParams,
+          role,
+        });
       } else {
         resultTaskReport = await getMonthlyProjectTaskReport({
           projectId,
           reportParams,
+          userId,
           role,
         });
       }
