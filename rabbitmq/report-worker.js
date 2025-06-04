@@ -7,6 +7,7 @@ const {
   sendExportNotificationAndEmail,
   getMonthlyGlobalTaskReport,
   getMonthlyGlobalUserReport,
+  getMonthlyProjectTaskReport,
 } = require("../controllers/reports/reports-controller");
 const {
   rabbitMQ_exchangeName,
@@ -61,6 +62,7 @@ require("../models/product/product-model");
         filename,
         userId,
         companyId,
+        projectId,
         email,
         reportParams,
         role,
@@ -76,7 +78,7 @@ require("../models/product/product-model");
           userId,
           reportParams,
         });
-      } else {
+      } else if (reportParams?.reportType === "global-user") {
         console.log("global user", reportParams?.reportType);
         resultTaskReport = await getMonthlyGlobalUserReport({
           companyId,
@@ -84,12 +86,18 @@ require("../models/product/product-model");
           userId,
           reportParams,
         });
+      } else {
+        resultTaskReport = await getMonthlyProjectTaskReport({
+          projectId,
+          reportParams,
+          role,
+        });
       }
 
       if (!resultTaskReport.success)
         throw new Error(resultTaskReport.err || "Data fetch failed");
 
-      console.log("resultTaskReport...", resultTaskReport);
+      console.log("resultTaskReport...", resultTaskReport.totalCount);
 
       //const data = resultTaskReport.data;
       const responseWithoutPagination = resultTaskReport.data || [];

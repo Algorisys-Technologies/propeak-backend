@@ -425,7 +425,7 @@ exports.getMonthlyGlobalUserReport = async ({
         $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       };
 
-      console.log("Condition for tasks with year/month range:", condition);
+      //console.log("Condition for tasks with year/month range:", condition);
     } else if (dateFrom && dateTo) {
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
@@ -441,7 +441,7 @@ exports.getMonthlyGlobalUserReport = async ({
         $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       };
 
-      console.log("Condition for tasks with custom date range:", condition);
+      //console.log("Condition for tasks with custom date range:", condition);
     } else {
       return res.json({ err: "Required search parameters are missing." });
     }
@@ -492,6 +492,105 @@ exports.getMonthlyGlobalUserReport = async ({
     return {
       success: false,
       err: "Server error occurred while processing the global user report.",
+    };
+  }
+};
+
+exports.getMonthlyProjectTaskReport = async ({
+  projectId,
+  reportParams,
+  role,
+}) => {
+  try {
+    const { year, month, dateFrom, dateTo } = reportParams;
+
+    console.log("Request for monthly project task report:", {
+      projectId,
+      reportParams,
+    });
+
+    // Validate project ID format
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      console.log("Invalid project ID format.");
+      return { err: "Invalid project ID format." };
+    }
+
+    // Base condition
+    let condition = {
+      projectId: new mongoose.Types.ObjectId(projectId),
+    };
+
+    // Apply date filters
+    if (year && month) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0); // end of month
+
+      condition = {
+        ...condition,
+        startDate: { $gte: startDate, $lt: endDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return { err: "Invalid date range provided." };
+      }
+
+      condition = {
+        ...condition,
+        startDate: { $gte: fromDate, $lte: toDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else {
+      return { err: "Required search parameters are missing." };
+    }
+
+    // Fetch tasks
+    const tasks = await Task.find(condition)
+      .populate("projectId", "title")
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" })
+      .lean();
+
+    console.log("Fetched project tasks:", tasks.length);
+
+    // Determine max custom field count task
+    let maxTask = null;
+    let maxKeys = 0;
+
+    for (const task of tasks) {
+      const cfv = task.customFieldValues || {};
+      const keyCount = Object.keys(cfv).length;
+      if (keyCount > maxKeys) {
+        maxKeys = keyCount;
+        maxTask = task;
+      }
+    }
+
+    let customFields = [];
+
+    if (maxTask && maxTask.customFieldValues) {
+      customFields = Object.entries(maxTask.customFieldValues).map(
+        ([key, value]) => ({
+          key,
+          value,
+        })
+      );
+    }
+
+    return {
+      success: true,
+      data: tasks,
+      totalCount: tasks.length,
+      customFields,
+    };
+  } catch (error) {
+    console.error("Error in getMonthlyProjectTaskReport:", error);
+    return {
+      success: false,
+      err: "Server error occurred while processing the project task report.",
     };
   }
 };
@@ -631,9 +730,12 @@ exports.generateExport = async (req, res) => {
       filename,
       userId,
       companyId,
+      projectId,
       reportParams,
       role,
     } = req.body;
+
+    console.log("req.body...generateExport", req.body);
     const user = await User.findById(userId);
     const email = [user?.email];
 
@@ -643,6 +745,7 @@ exports.generateExport = async (req, res) => {
       filename,
       userId,
       companyId,
+      projectId,
       email,
       reportParams,
       role,
