@@ -67,6 +67,7 @@ require("../models/product/product-model");
         email,
         reportParams,
         role,
+        configHeaders,
       } = payload;
 
       console.log("ALL...", companyId, role, userId, reportParams);
@@ -150,7 +151,18 @@ require("../models/product/product-model");
           ...task.customFields,
         };
       });
-      const headers = mergedHeaders || defaultHeaders;
+      //const headers = mergedHeaders || defaultHeaders;
+
+      let headers;
+
+      if (
+        reportParams?.reportType === "project-task" ||
+        reportParams?.reportType === "project-user"
+      ) {
+        headers = configHeaders?.length > 0 ? configHeaders : mergedHeaders;
+      } else {
+        headers = mergedHeaders || defaultHeaders;
+      }
 
       const filePath = path.resolve(uploadFolder, `${filename}.${type}`);
 

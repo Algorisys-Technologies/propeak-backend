@@ -835,6 +835,7 @@ exports.generateExport = async (req, res) => {
       projectId,
       reportParams,
       role,
+      configHeaders,
     } = req.body;
 
     console.log("req.body...generateExport", req.body);
@@ -851,6 +852,7 @@ exports.generateExport = async (req, res) => {
       email,
       reportParams,
       role,
+      configHeaders,
     };
 
     // Send message to export queue for worker processing
