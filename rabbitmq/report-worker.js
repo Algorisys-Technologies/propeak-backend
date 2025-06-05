@@ -95,7 +95,7 @@ require("../models/product/product-model");
           role,
         });
       } else {
-        resultTaskReport = await getMonthlyProjectTaskReport({
+        resultTaskReport = await getMonthlyProjectUserReport({
           projectId,
           reportParams,
           userId,
