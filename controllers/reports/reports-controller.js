@@ -367,6 +367,336 @@ exports.getMonthlyGlobalTaskReport = async ({
   }
 };
 
+exports.getMonthlyGlobalUserReport = async ({
+  companyId,
+  role,
+  userId,
+  reportParams,
+}) => {
+  try {
+    const { year, month, dateFrom, dateTo } = reportParams;
+
+    console.log("Request for global user report:", {
+      companyId,
+      userId,
+      reportParams,
+    });
+
+    // Validate company ID and user ID format
+    if (
+      !mongoose.Types.ObjectId.isValid(companyId) ||
+      !mongoose.Types.ObjectId.isValid(userId)
+    ) {
+      console.log("Invalid company ID or user ID format.");
+      return res.json({ err: "Invalid company or user ID format." });
+    }
+
+    // Get all projects for the specified company
+    const projects = await Project.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+    }).select("_id");
+    const projectIds = projects.map((project) => project._id);
+
+    if (projectIds.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        totalCount: 0,
+      });
+    }
+
+    // Base filter condition for tasks within these projects and assigned to the specified user
+    let condition = {
+      projectId: { $in: projectIds },
+      userId: new mongoose.Types.ObjectId(userId),
+    };
+
+    // ⛔ Limit to user's own tasks if not ADMIN or OWNER
+    if (role !== "ADMIN" && role !== "OWNER") {
+      condition.userId = new mongoose.Types.ObjectId(userId);
+    }
+
+    if (year && month) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0);
+      condition = {
+        ...condition,
+        startDate: { $gte: startDate, $lt: endDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+
+      //console.log("Condition for tasks with year/month range:", condition);
+    } else if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+
+      // Ensure the dates are valid
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return res.json({ err: "Invalid date range provided." });
+      }
+
+      condition = {
+        ...condition,
+        startDate: { $gte: fromDate, $lte: toDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+
+      //console.log("Condition for tasks with custom date range:", condition);
+    } else {
+      return res.json({ err: "Required search parameters are missing." });
+    }
+
+    const tasks = await Task.find(condition)
+      .populate("projectId", "title")
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" })
+      .lean();
+
+    console.log(
+      "Fetched user-specific tasks without pagination:",
+      tasks.length
+    );
+
+    // Find task with max custom fields
+    let maxTask = null;
+    let maxKeys = 0;
+
+    for (const task of tasks) {
+      const cfv = task.customFieldValues || {};
+      const keyCount = Object.keys(cfv).length;
+      if (keyCount > maxKeys) {
+        maxKeys = keyCount;
+        maxTask = task;
+      }
+    }
+
+    let customFields = [];
+
+    if (maxTask && maxTask.customFieldValues) {
+      customFields = Object.entries(maxTask.customFieldValues).map(
+        ([key, value]) => ({
+          key,
+          value,
+        })
+      );
+    }
+
+    return {
+      success: true,
+      data: tasks,
+      totalCount: tasks.length,
+      customFields,
+    };
+  } catch (error) {
+    console.error("Error in getMonthlyGlobalUserReport:", error);
+    return {
+      success: false,
+      err: "Server error occurred while processing the global user report.",
+    };
+  }
+};
+
+exports.getMonthlyProjectTaskReport = async ({
+  projectId,
+  reportParams,
+  role,
+}) => {
+  try {
+    const { year, month, dateFrom, dateTo } = reportParams;
+
+    console.log("Request for monthly project task report:", {
+      projectId,
+      reportParams,
+    });
+
+    // Validate project ID format
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      console.log("Invalid project ID format.");
+      return { err: "Invalid project ID format." };
+    }
+
+    // Base condition
+    let condition = {
+      projectId: new mongoose.Types.ObjectId(projectId),
+    };
+
+    // Apply date filters
+    if (year && month) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0); // end of month
+
+      condition = {
+        ...condition,
+        startDate: { $gte: startDate, $lt: endDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return { err: "Invalid date range provided." };
+      }
+
+      condition = {
+        ...condition,
+        startDate: { $gte: fromDate, $lte: toDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else {
+      return { err: "Required search parameters are missing." };
+    }
+
+    // Fetch tasks
+    const tasks = await Task.find(condition)
+      .populate("projectId", "title")
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" })
+      .lean();
+
+    console.log("Fetched project tasks:", tasks.length);
+
+    // Determine max custom field count task
+    let maxTask = null;
+    let maxKeys = 0;
+
+    for (const task of tasks) {
+      const cfv = task.customFieldValues || {};
+      const keyCount = Object.keys(cfv).length;
+      if (keyCount > maxKeys) {
+        maxKeys = keyCount;
+        maxTask = task;
+      }
+    }
+
+    let customFields = [];
+
+    if (maxTask && maxTask.customFieldValues) {
+      customFields = Object.entries(maxTask.customFieldValues).map(
+        ([key, value]) => ({
+          key,
+          value,
+        })
+      );
+    }
+
+    return {
+      success: true,
+      data: tasks,
+      totalCount: tasks.length,
+      customFields,
+    };
+  } catch (error) {
+    console.error("Error in getMonthlyProjectTaskReport:", error);
+    return {
+      success: false,
+      err: "Server error occurred while processing the project task report.",
+    };
+  }
+};
+
+exports.getMonthlyProjectUserReport = async ({
+  projectId,
+  reportParams,
+  userId,
+  role,
+}) => {
+  try {
+    const { year, month, dateFrom, dateTo } = reportParams;
+
+    console.log("Request for monthly project user report:", {
+      projectId,
+      userId,
+      reportParams,
+    });
+
+    // Validate project and user ID
+    if (
+      !mongoose.Types.ObjectId.isValid(projectId) ||
+      !mongoose.Types.ObjectId.isValid(userId)
+    ) {
+      console.log("Invalid project ID or user ID format.");
+      return { err: "Invalid project or user ID format." };
+    }
+
+    // Base condition
+    let condition = {
+      projectId: new mongoose.Types.ObjectId(projectId),
+      userId: new mongoose.Types.ObjectId(userId),
+    };
+
+    // Apply date filters
+    if (year && month) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0); // last day of the month
+
+      condition = {
+        ...condition,
+        startDate: { $gte: startDate, $lt: endDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return { err: "Invalid date range provided." };
+      }
+
+      condition = {
+        ...condition,
+        startDate: { $gte: fromDate, $lte: toDate },
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      };
+    } else {
+      return { err: "Required search parameters are missing." };
+    }
+
+    // Fetch tasks
+    const tasks = await Task.find(condition)
+      .populate("projectId", "title")
+      .populate("userId", "name")
+      .populate({ path: "interested_products.product_id" })
+      .lean();
+
+    console.log("Fetched user-specific tasks for project:", tasks.length);
+
+    // Get task with max custom fields
+    let maxTask = null;
+    let maxKeys = 0;
+
+    for (const task of tasks) {
+      const cfv = task.customFieldValues || {};
+      const keyCount = Object.keys(cfv).length;
+      if (keyCount > maxKeys) {
+        maxKeys = keyCount;
+        maxTask = task;
+      }
+    }
+
+    let customFields = [];
+
+    if (maxTask && maxTask.customFieldValues) {
+      customFields = Object.entries(maxTask.customFieldValues).map(
+        ([key, value]) => ({ key, value })
+      );
+    }
+
+    return {
+      success: true,
+      data: tasks,
+      totalCount: tasks.length,
+      customFields,
+    };
+  } catch (error) {
+    console.error("Error in getMonthlyProjectUserReport:", error);
+    return {
+      success: false,
+      err: "Server error occurred while processing the project user report.",
+    };
+  }
+};
+
 exports.generateHtmlPdf = async function generateHtmlPdf({
   filePath,
   headers,
@@ -482,7 +812,7 @@ exports.sendExportNotificationAndEmail =
       await sendNotification(
         {
           title: `${type.toUpperCase()} Export`,
-          description: `Task Report is ready: <a href="${downloadUrl}" style="color: blue; text-decoration: underline;">Download Task Report</a>`,
+          description: `Report is ready: <a href="${downloadUrl}" style="color: blue; text-decoration: underline;">Download Report</a>`,
           createdBy: userId,
           projectId: null,
           companyId,
@@ -502,9 +832,13 @@ exports.generateExport = async (req, res) => {
       filename,
       userId,
       companyId,
+      projectId,
       reportParams,
       role,
+      configHeaders,
     } = req.body;
+
+    console.log("req.body...generateExport", req.body);
     const user = await User.findById(userId);
     const email = [user?.email];
 
@@ -514,9 +848,11 @@ exports.generateExport = async (req, res) => {
       filename,
       userId,
       companyId,
+      projectId,
       email,
       reportParams,
       role,
+      configHeaders,
     };
 
     // Send message to export queue for worker processing

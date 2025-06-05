@@ -6,6 +6,9 @@ const {
   generateHtmlPdf,
   sendExportNotificationAndEmail,
   getMonthlyGlobalTaskReport,
+  getMonthlyGlobalUserReport,
+  getMonthlyProjectTaskReport,
+  getMonthlyProjectUserReport,
 } = require("../controllers/reports/reports-controller");
 const {
   rabbitMQ_exchangeName,
@@ -60,24 +63,50 @@ require("../models/product/product-model");
         filename,
         userId,
         companyId,
+        projectId,
         email,
         reportParams,
         role,
+        configHeaders,
       } = payload;
 
       console.log("ALL...", companyId, role, userId, reportParams);
 
-      const resultTaskReport = await getMonthlyGlobalTaskReport({
-        companyId,
-        role,
-        userId,
-        reportParams,
-      });
+      let resultTaskReport;
+      if (reportParams?.reportType === "global-task") {
+        resultTaskReport = await getMonthlyGlobalTaskReport({
+          companyId,
+          role,
+          userId,
+          reportParams,
+        });
+      } else if (reportParams?.reportType === "global-user") {
+        console.log("global user", reportParams?.reportType);
+        resultTaskReport = await getMonthlyGlobalUserReport({
+          companyId,
+          role,
+          userId,
+          reportParams,
+        });
+      } else if (reportParams?.reportType === "project-task") {
+        resultTaskReport = await getMonthlyProjectTaskReport({
+          projectId,
+          reportParams,
+          role,
+        });
+      } else {
+        resultTaskReport = await getMonthlyProjectTaskReport({
+          projectId,
+          reportParams,
+          userId,
+          role,
+        });
+      }
 
       if (!resultTaskReport.success)
         throw new Error(resultTaskReport.err || "Data fetch failed");
 
-      console.log("resultTaskReport...", resultTaskReport);
+      console.log("resultTaskReport...", resultTaskReport.totalCount);
 
       //const data = resultTaskReport.data;
       const responseWithoutPagination = resultTaskReport.data || [];
@@ -122,7 +151,18 @@ require("../models/product/product-model");
           ...task.customFields,
         };
       });
-      const headers = mergedHeaders || defaultHeaders;
+      //const headers = mergedHeaders || defaultHeaders;
+
+      let headers;
+
+      if (
+        reportParams?.reportType === "project-task" ||
+        reportParams?.reportType === "project-user"
+      ) {
+        headers = configHeaders?.length > 0 ? configHeaders : mergedHeaders;
+      } else {
+        headers = mergedHeaders || defaultHeaders;
+      }
 
       const filePath = path.resolve(uploadFolder, `${filename}.${type}`);
 
