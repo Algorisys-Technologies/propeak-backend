@@ -40,6 +40,8 @@ exports.getMonthlyTaskReport = async (req, res) => {
       projectId,
       reportParams: { year, month, dateFrom, dateTo },
       pagination = { page: 1, limit: 10 },
+      role,
+      userId,
     } = req.body;
     const { page, limit: rawLimit } = pagination;
     const limit = parseInt(rawLimit, 10);
@@ -50,7 +52,12 @@ exports.getMonthlyTaskReport = async (req, res) => {
       console.log("Invalid project ID format.");
       return res.json({ err: "Invalid project ID format." });
     }
+
     let condition = { projectId: new mongoose.Types.ObjectId(projectId) };
+    if (role !== "ADMIN" && role !== "OWNER") {
+      condition.userId = new mongoose.Types.ObjectId(userId);
+    }
+    
 
     if (year && month) {
       const startDate = new Date(year, month - 1, 1);
@@ -967,6 +974,7 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
   try {
     const {
       companyId,
+      
       reportParams: { year, month, dateFrom, dateTo, userId },
       pagination = { page: 1, limit: 10 },
     } = req.body;
@@ -1007,6 +1015,10 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
       projectId: { $in: projectIds },
       userId: new mongoose.Types.ObjectId(userId),
     };
+
+    // if (role !== "ADMIN" && role !== "OWNER") {
+    //   condition.userId = new mongoose.Types.ObjectId(userId);
+    // }
 
     // Set date range based on year/month or custom date range
     if (year && month) {
