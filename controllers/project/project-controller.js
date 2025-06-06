@@ -1522,11 +1522,11 @@ exports.addCustomTaskField = async (req, res) => {
       select: 'title',
     });
 
-    console.log(savedFieldWithProject, "from new filed");
+    // console.log(savedFieldWithProject, "from new filed");
     try {
-      const eventType = "CUSTOM_FIELD_UPDATE";
+      const eventType = "CUSTOM_FIELD_CREATED";
       const notification = await handleNotifications(savedFieldWithProject, eventType);
-      console.log(notification, "from notification")
+      // console.log(notification, "from notification")
       const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
         try {
           // let updatedDescription = newTask.description
@@ -1547,7 +1547,7 @@ exports.addCustomTaskField = async (req, res) => {
 
           let emailText = `
           Hi, <br/><br/>
-          A custom field was updated at the <strong>${newTask.level}</strong> level. <br/><br/>
+          A custom field was created at the <strong>${newTask.level}</strong> level. <br/><br/>
           <strong>Project:</strong> ${newTask.projectId.title} <br/>
           <strong>Key:</strong> ${newTask.key} <br/>
           <strong>Label:</strong> ${newTask.label}<br/>
@@ -1568,11 +1568,11 @@ exports.addCustomTaskField = async (req, res) => {
               from: config.from,
               to: email,
               // cc: emailOwner,
-              subject: ` CUSTOM_FIELD_UPDATE - At level "${newTask.level}"`,
+              subject: ` CUSTOM_FIELD_CREATED - At level "${newTask.level}"`,
               html: emailText,
             };
     
-            console.log(mailOptions, "from mailOptions")
+            // console.log(mailOptions, "from mailOptions")
     
             let taskArr = {
               subject: mailOptions.subject,
@@ -1737,7 +1737,7 @@ exports.updateCustomTaskField = async (req, res) => {
     // Save the updated field
     // await existingField.save();
     // try {
-    //   const eventType = "CUSTOM_FIELD_UPDATE";
+    //   const eventType = "CUSTOM_FIELD_CREATED";
     //   await sendNotification(existingField, eventType);
     // } catch (notifyErr) {
     //   console.warn("Notification failed", notifyErr);

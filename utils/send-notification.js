@@ -14,11 +14,11 @@ module.exports = async function sendNotification(task, eventType) {
   // if (task.status === "completed") eventType = TASK_COMPLETED;
   // if (task.status === "rejected") eventType = TASK_REJECTED;
 
-  // console.log(task, "from task");
-  // console.log(eventType, "from eventType");
+  console.log(task, "from task, test");
+  console.log(eventType, "from eventType");
 
   const projectEvents = [
-    "CUSTOM_FIELD_UPDATE",
+    "CUSTOM_FIELD_CREATED",
     "PROJECT_CREATED",
     "PROJECT_ARCHIVED",
     "PROJECT_STAGE_CHANGED",
@@ -250,8 +250,8 @@ module.exports = async function sendNotification(task, eventType) {
         category = "project";
         url = `/tasks/${task._id}/kanban/stage`;
         break;
-      case "CUSTOM_FIELD_UPDATE":
-        subject = "Custom field update.";
+      case "CUSTOM_FIELD_CREATED":
+        subject = "Custom field created.";
         category = "field";
         if (task.level === "project")
           url = `/projects/edit/${

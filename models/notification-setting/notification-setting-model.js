@@ -26,7 +26,7 @@ const NotificationSettingSchema = new mongoose.Schema(
         "TASK_REJECTED",
         "TASK_COMMENTED",
         "PROJECT_ARCHIVED",
-        "CUSTOM_FIELD_UPDATE",
+        "CUSTOM_FIELD_CREATED",
         "EMAIL_RECEIVED",
         "PROJECT_CREATED",
         "PROJECT_STAGE_CHANGED",

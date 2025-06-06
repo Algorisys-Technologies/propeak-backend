@@ -647,11 +647,11 @@ exports.updateTask = (req, res) => {
                 from: config.from,
                 to: email,
                 // cc: emailOwner,
-                subject: `${updatedTask.projectId.title} - Task Assigned - ${updatedTask.title}`,
+                subject: `TASK_ASSIGNED - ${updatedTask.title}`,
                 html: emailText,
               };
 
-              console.log(mailOptions, "from mail option")
+              console.log(mailOptions, "from mailOption")
 
               let taskArr = {
                 subject: mailOptions.subject,

@@ -15,12 +15,13 @@ async function handleNotifications(task, eventType) {
         ? task.projectId._id
         : task.projectId
         ;
+    console.log(task, "from task", eventType)
 
   if(eventType === "TASK_ASSIGNED"){
     console.log(normalizedProjectId, eventType, "from eventType")
       const data = await NotificationSetting.findOneAndUpdate(
             { projectId: normalizedProjectId, eventType }, // query
-            { $set: { notifyUserIds: [task.userId], notifyRoles: [] }, }, // update
+            { $set: { notifyUserIds: [task.userId] }, }, // update
             { new: true } // options: return the updated document
           );
   }
@@ -34,6 +35,7 @@ async function handleNotifications(task, eventType) {
       channel: { $in: ["inapp"] },
       active: true
     });
+    console.log(inappChannels, "from inappchannel")
 
     if (inappChannels.length > 0) {
       await sendNotification(task, eventType);
