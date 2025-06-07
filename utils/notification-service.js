@@ -18,7 +18,7 @@ async function handleNotifications(task, eventType) {
     console.log(task, "from task", eventType)
 
   if(eventType === "TASK_ASSIGNED"){
-    console.log(normalizedProjectId, eventType, "from eventType")
+    // console.log(normalizedProjectId, eventType, "from eventType")
       const data = await NotificationSetting.findOneAndUpdate(
             { projectId: normalizedProjectId, eventType }, // query
             { $set: { notifyUserIds: [task.userId] }, }, // update
@@ -27,7 +27,7 @@ async function handleNotifications(task, eventType) {
   }
 
   if(eventType === "EXPORT_READY"){
-    console.log(normalizedProjectId, eventType, "from eventType")
+    // console.log(normalizedProjectId, eventType, "from eventType")
       const data = await NotificationSetting.findOneAndUpdate(
             { projectId: normalizedProjectId, eventType }, // query
             { $set: { notifyUserIds: [task.userId] }, notifyRoles: [] }, // update
@@ -44,7 +44,7 @@ async function handleNotifications(task, eventType) {
       channel: { $in: ["inapp"] },
       active: true
     });
-    console.log(inappChannels, "from inappchannel")
+    // console.log(inappChannels, "from inappchannel")
 
     if (inappChannels.length > 0) {
       await sendNotification(task, eventType);
@@ -69,6 +69,7 @@ async function handleNotifications(task, eventType) {
     const settings = await NotificationSetting.find({
       projectId: task.projectId._id,
       eventType,
+      active: true,
       isDeleted: false,
     });
   
@@ -127,6 +128,8 @@ for (const ch of emailChannels) {
 
   result.push({ emails });
 }
+
+console.log(result, "from result");
 
 return result;
 
