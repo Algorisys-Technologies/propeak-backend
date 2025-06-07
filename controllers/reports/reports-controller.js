@@ -20,7 +20,7 @@ const totalSundays = require("../../common/common");
 const rabbitMQ = require("../../rabbitmq");
 const { addMyNotification } = require("../../common/add-my-notifications");
 const sendNotification = require("../../utils/send-notification");
-const {handleNotifications} = require("../../utils/notification-service");
+const { handleNotifications } = require("../../utils/notification-service");
 const fs = require("fs");
 const path = require("path");
 const createCsvWriter = require("csv-writer").createObjectCsvWriter;
@@ -58,7 +58,6 @@ exports.getMonthlyTaskReport = async (req, res) => {
     if (role !== "ADMIN" && role !== "OWNER") {
       condition.userId = new mongoose.Types.ObjectId(userId);
     }
-    
 
     if (year && month) {
       const startDate = new Date(year, month - 1, 1);
@@ -766,17 +765,39 @@ exports.generateHtmlPdf = async function generateHtmlPdf({
     </html>
   `;
 
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-  await page.setContent(tableHtml, { waitUntil: "networkidle0" });
-  await page.pdf({
-    path: filePath,
-    format: "A4",
-    landscape: true,
-    margin: { top: "5px", right: "5px", bottom: "5px", left: "5px" },
-    printBackground: true,
+  // const browser = await puppeteer.launch({ headless: true });
+  // const page = await browser.newPage();
+  // await page.setContent(tableHtml, { waitUntil: "networkidle0" });
+  // await page.pdf({
+  //   path: filePath,
+  //   format: "A4",
+  //   landscape: true,
+  //   margin: { top: "5px", right: "5px", bottom: "5px", left: "5px" },
+  //   printBackground: true,
+  // });
+  // await browser.close();
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"], // Safe for Docker/CI/CD
   });
-  await browser.close();
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(tableHtml, { waitUntil: "networkidle0" });
+
+    await page.pdf({
+      path: filePath,
+      format: "A4",
+      landscape: true,
+      margin: { top: "5px", right: "5px", bottom: "5px", left: "5px" },
+      printBackground: true,
+    });
+  } catch (error) {
+    console.error("PDF generation failed:", error);
+    throw error;
+  } finally {
+    await browser.close();
+  }
 };
 
 exports.sendExportNotificationAndEmail =
@@ -976,7 +997,7 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
   try {
     const {
       companyId,
-      
+
       reportParams: { year, month, dateFrom, dateTo, userId },
       pagination = { page: 1, limit: 10 },
     } = req.body;
