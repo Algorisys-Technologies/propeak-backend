@@ -20,6 +20,7 @@ const totalSundays = require("../../common/common");
 const rabbitMQ = require("../../rabbitmq");
 const { addMyNotification } = require("../../common/add-my-notifications");
 const sendNotification = require("../../utils/send-notification");
+const {handleNotifications} = require("../../utils/notification-service");
 const fs = require("fs");
 const path = require("path");
 const createCsvWriter = require("csv-writer").createObjectCsvWriter;
@@ -816,11 +817,12 @@ exports.sendExportNotificationAndEmail =
       });
 
       // Send system notification
-      await sendNotification(
+      await handleNotifications(
         {
           title: `${type.toUpperCase()} Export`,
           description: `Report is ready: <a href="${downloadUrl}" style="color: blue; text-decoration: underline;">Download Report</a>`,
           createdBy: userId,
+          userId: userId,
           projectId: null,
           companyId,
         },

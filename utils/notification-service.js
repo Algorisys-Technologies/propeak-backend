@@ -26,6 +26,15 @@ async function handleNotifications(task, eventType) {
           );
   }
 
+  if(eventType === "EXPORT_READY"){
+    console.log(normalizedProjectId, eventType, "from eventType")
+      const data = await NotificationSetting.findOneAndUpdate(
+            { projectId: normalizedProjectId, eventType }, // query
+            { $set: { notifyUserIds: [task.userId] }, notifyRoles: [] }, // update
+            { new: true } // options: return the updated document
+          );
+  }
+
   try {
     // In-app notifications
     const inappChannels = await NotificationSetting.find({
