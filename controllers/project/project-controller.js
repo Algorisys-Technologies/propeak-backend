@@ -2809,8 +2809,13 @@ exports.updateStage = async (req, res) => {
     const { projectId, newStageId, status } = req.body;
 
     const project = await Project.findByIdAndUpdate(
-      { _id: projectId },
-      { projectStageId: newStageId, modifiedOn: new Date(), status: status }
+      projectId,
+      {
+        projectStageId: newStageId,
+        modifiedOn: new Date(),
+        status: status,
+      },
+      { new: true }
     );
 
     const eventType = "PROJECT_STAGE_CHANGED";
@@ -2856,7 +2861,7 @@ exports.updateStage = async (req, res) => {
             html: emailText,
           };
   
-          console.log(mailOptions, "from mailOptions")
+          // console.log(mailOptions, "from mailOptions")
   
           let taskArr = {
             subject: mailOptions.subject,
