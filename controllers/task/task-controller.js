@@ -3141,6 +3141,7 @@ exports.assignTasksToProject = async (req, res) => {
   try {
     // Step 1: Fetch the tasks to be copied
     const tasksToCopy = await Task.find({ _id: { $in: taskIds } });
+    console.log(tasksToCopy, "from task")
 
     if (!tasksToCopy || tasksToCopy.length === 0) {
       return res.status(404).json({
@@ -3153,7 +3154,7 @@ exports.assignTasksToProject = async (req, res) => {
     const copiedTasks = await Promise.all(
       tasksToCopy.map(async (task) => {
         const newTask = new Task({
-          userId: task.userId || "",
+          userId: task.userId || null,
           title: task.title || "Untitled Task",
           description: task.description || "No description",
           completed: task.completed || false,

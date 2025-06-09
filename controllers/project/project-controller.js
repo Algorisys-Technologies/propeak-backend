@@ -1260,21 +1260,32 @@ exports.getProjectData = (req, res) => {
 exports.getProjectDataForCompany = async (req, res) => {
   try {
     const { companyId } = req.body;
+    const { query } = req.query;
+    let projects;
+
     if (!companyId) {
       return res.status(400).json({
         message: "Company ID is required.",
       });
     }
-    const projects = await Project.find({
+
+    // Base filter
+    const filter = {
       companyId: companyId,
       isDeleted: false,
-    });
-    if (projects.length === 0) {
-      return res.status(404).json({
-        message: "No projects found for the given company.",
-      });
+    };
+
+    // Add title regex filter only if query is present and not empty
+    if (query && query.trim() !== "") {
+      filter.title = { $regex: query, $options: "i" };
+    }
+    if(query) {
+      projects = await Project.find(filter);
+    }else{
+      projects = [];
     }
 
+    // If no projects, respond with empty array (instead of 404)
     return res.json({
       projects: projects,
     });
@@ -1284,6 +1295,7 @@ exports.getProjectDataForCompany = async (req, res) => {
     });
   }
 };
+
 
 exports.addProjectUsers = (req, res) => {
   try {
