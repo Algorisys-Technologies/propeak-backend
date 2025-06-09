@@ -311,7 +311,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 companyId,
                 title: lead.name,
                 description: lead.name,
-                startdate: new Date(),
+                startdate: lead.productDate,
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
