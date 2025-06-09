@@ -26,6 +26,7 @@ const path = require("path");
 const createCsvWriter = require("csv-writer").createObjectCsvWriter;
 let uploadFolder = config.UPLOAD_PATH;
 const puppeteer = require("puppeteer");
+const { chromium } = require("playwright");
 
 const errors = {
   SEARCH_PARAM_MISSING:
@@ -704,6 +705,91 @@ exports.getMonthlyProjectUserReport = async ({
   }
 };
 
+// exports.generateHtmlPdf = async function generateHtmlPdf({
+//   filePath,
+//   headers,
+//   flatData,
+//   filename,
+// }) {
+//   const tableHtml = `
+//     <html>
+//       <head>
+//         <style>
+//           body {
+//             font-family: Arial, sans-serif;
+//             font-size: 5px;
+//             padding: 3px;
+//           }
+//           h2 {
+//             text-align: center;
+//             margin-bottom: 20px;
+//             font-size: 30px;
+//           }
+//           table {
+//             width: 100%;
+//             border-collapse: collapse;
+//           }
+//           th, td {
+//             border: 1px solid #ccc;
+//             padding: 2px;
+//             text-align: left;
+//             word-wrap: break-word;
+//           }
+//           th {
+//             background-color: #f2f2f2;
+//           }
+//         </style>
+//       </head>
+//       <body>
+//         <h2>Report ${filename} </h2>
+//         <table>
+//           <thead>
+//             <tr>
+//               ${headers.map((h) => `<th>${h.title}</th>`).join("")}
+//             </tr>
+//           </thead>
+//           <tbody>
+//             ${flatData
+//               .map(
+//                 (row) => `
+//                 <tr>
+//                   ${headers
+//                     .map((h) => `<td>${row[h.accessor] || ""}</td>`)
+//                     .join("")}
+//                 </tr>
+//               `
+//               )
+//               .join("")}
+//           </tbody>
+//         </table>
+//       </body>
+//     </html>
+//   `;
+
+//   const browser = await puppeteer.launch({
+//     headless: true,
+//     args: ["--no-sandbox", "--disable-setuid-sandbox"], // Safe for Docker/CI/CD
+//   });
+
+//   try {
+//     const page = await browser.newPage();
+//     await page.setContent(tableHtml, { waitUntil: "networkidle0" });
+
+//     await page.pdf({
+//       path: filePath,
+//       format: "A4",
+//       landscape: true,
+//       margin: { top: "5px", right: "5px", bottom: "5px", left: "5px" },
+//       printBackground: true,
+//     });
+//   } catch (error) {
+//     console.error("PDF generation failed:", error);
+//     throw error;
+//   } finally {
+//     await browser.close();
+//   }
+// };
+
 exports.generateHtmlPdf = async function generateHtmlPdf({
   filePath,
   headers,
@@ -740,7 +826,7 @@ exports.generateHtmlPdf = async function generateHtmlPdf({
         </style>
       </head>
       <body>
-        <h2>Report ${filename} </h2>
+        <h2>Report ${filename}</h2>
         <table>
           <thead>
             <tr>
@@ -751,12 +837,12 @@ exports.generateHtmlPdf = async function generateHtmlPdf({
             ${flatData
               .map(
                 (row) => `
-                <tr>
-                  ${headers
-                    .map((h) => `<td>${row[h.accessor] || ""}</td>`)
-                    .join("")}
-                </tr>
-              `
+                  <tr>
+                    ${headers
+                      .map((h) => `<td>${row[h.accessor] || ""}</td>`)
+                      .join("")}
+                  </tr>
+                `
               )
               .join("")}
           </tbody>
@@ -765,31 +851,25 @@ exports.generateHtmlPdf = async function generateHtmlPdf({
     </html>
   `;
 
-  // const browser = await puppeteer.launch({ headless: true });
-  // const page = await browser.newPage();
-  // await page.setContent(tableHtml, { waitUntil: "networkidle0" });
-  // await page.pdf({
-  //   path: filePath,
-  //   format: "A4",
-  //   landscape: true,
-  //   margin: { top: "5px", right: "5px", bottom: "5px", left: "5px" },
-  //   printBackground: true,
-  // });
-  // await browser.close();
-  const browser = await puppeteer.launch({
+  const browser = await chromium.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"], // Safe for Docker/CI/CD
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
   try {
     const page = await browser.newPage();
-    await page.setContent(tableHtml, { waitUntil: "networkidle0" });
+    await page.setContent(tableHtml, { waitUntil: "networkidle" });
 
     await page.pdf({
       path: filePath,
       format: "A4",
       landscape: true,
-      margin: { top: "5px", right: "5px", bottom: "5px", left: "5px" },
+      margin: {
+        top: "5px",
+        right: "5px",
+        bottom: "5px",
+        left: "5px",
+      },
       printBackground: true,
     });
   } catch (error) {
