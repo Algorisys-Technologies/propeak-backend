@@ -25,7 +25,6 @@ const fs = require("fs");
 const path = require("path");
 const createCsvWriter = require("csv-writer").createObjectCsvWriter;
 let uploadFolder = config.UPLOAD_PATH;
-const puppeteer = require("puppeteer");
 const { chromium } = require("playwright");
 
 const errors = {
@@ -705,91 +704,6 @@ exports.getMonthlyProjectUserReport = async ({
   }
 };
 
-// exports.generateHtmlPdf = async function generateHtmlPdf({
-//   filePath,
-//   headers,
-//   flatData,
-//   filename,
-// }) {
-//   const tableHtml = `
-//     <html>
-//       <head>
-//         <style>
-//           body {
-//             font-family: Arial, sans-serif;
-//             font-size: 5px;
-//             padding: 3px;
-//           }
-//           h2 {
-//             text-align: center;
-//             margin-bottom: 20px;
-//             font-size: 30px;
-//           }
-//           table {
-//             width: 100%;
-//             border-collapse: collapse;
-//           }
-//           th, td {
-//             border: 1px solid #ccc;
-//             padding: 2px;
-//             text-align: left;
-//             word-wrap: break-word;
-//           }
-//           th {
-//             background-color: #f2f2f2;
-//           }
-//         </style>
-//       </head>
-//       <body>
-//         <h2>Report ${filename} </h2>
-//         <table>
-//           <thead>
-//             <tr>
-//               ${headers.map((h) => `<th>${h.title}</th>`).join("")}
-//             </tr>
-//           </thead>
-//           <tbody>
-//             ${flatData
-//               .map(
-//                 (row) => `
-//                 <tr>
-//                   ${headers
-//                     .map((h) => `<td>${row[h.accessor] || ""}</td>`)
-//                     .join("")}
-//                 </tr>
-//               `
-//               )
-//               .join("")}
-//           </tbody>
-//         </table>
-//       </body>
-//     </html>
-//   `;
-
-//   const browser = await puppeteer.launch({
-//     headless: true,
-//     args: ["--no-sandbox", "--disable-setuid-sandbox"], // Safe for Docker/CI/CD
-//   });
-
-//   try {
-//     const page = await browser.newPage();
-//     await page.setContent(tableHtml, { waitUntil: "networkidle0" });
-
-//     await page.pdf({
-//       path: filePath,
-//       format: "A4",
-//       landscape: true,
-//       margin: { top: "5px", right: "5px", bottom: "5px", left: "5px" },
-//       printBackground: true,
-//     });
-//   } catch (error) {
-//     console.error("PDF generation failed:", error);
-//     throw error;
-//   } finally {
-//     await browser.close();
-//   }
-// };
-
 exports.generateHtmlPdf = async function generateHtmlPdf({
   filePath,
   headers,
@@ -977,101 +891,6 @@ exports.generateExport = async (req, res) => {
     return res.status(500).json({ error: "Failed to queue export job" });
   }
 };
-
-// exports.generateExport = async (req, res) => {
-//   try {
-//     const { type, data, headers, filename, userId, companyId } = req.body;
-
-//     // Retrieve user details
-//     const user = await User.findById(userId);
-//     const email = [user?.email];
-
-//     // Validate export type
-//     if (!["pdf", "csv"].includes(type)) {
-//       return res.status(400).json({ error: "Invalid export type" });
-//     }
-
-//     // Set file path
-//     const filePath = path.resolve(uploadFolder, `${filename}.${type}`);
-
-//     const flatData = data.map((item) => {
-//       const customFields = item.customFieldValues || {};
-
-//       const interestedProducts = Array.isArray(item.interested_products)
-//         ? item.interested_products.map((p) => p?.product_id?.name).join(", ")
-//         : "";
-
-//       return {
-//         ...item,
-//         ...customFields,
-//         interested_products: interestedProducts,
-//         userId: item.userId?.name || "",
-//         projectId: item.projectId?.title || "",
-//         status: item.status || "",
-//         company_name: item.companyId?.name || "",
-//         address: item.address || "",
-//       };
-//     });
-
-//     // 1. Generate CSV file
-//     if (type === "csv") {
-//       const csvWriter = createCsvWriter({
-//         path: filePath,
-//         header: headers.map((h) => ({
-//           id: h.accessor,
-//           title: h.title,
-//         })),
-//       });
-//       await csvWriter.writeRecords(flatData); // Use the flattened data
-//     }
-//     // 2. Generate PDF file
-//     else if (type === "pdf") {
-//       await exports.generateHtmlPdf({ filePath, headers, flatData, filename });
-//     }
-
-//     // URL for file download
-//     const downloadUrl = `http://localhost:3001/uploads/${filename}.${type}`;
-
-//     // 3. Send email notification
-//     const emailHtml = `
-//       <p>Hello,</p>
-//       <p>Your <strong>${type.toUpperCase()} report</strong> has been generated.</p>
-//       <p>You can download it here: <a href="${downloadUrl}">${downloadUrl}</a></p>
-//     `;
-//     const mailOptions = {
-//       from: config.from,
-//       to: email,
-//       subject: `Report Ready: ${filename}.${type}`,
-//       html: emailHtml,
-//     };
-//     await rabbitMQ.sendMessageToQueue(mailOptions, "message_queue", "msgRoute");
-
-//     // 4. Send in-app notification
-//     await addMyNotification({
-//       subject: `Your ${type.toUpperCase()} report is ready`,
-//       url: downloadUrl,
-//       userId: userId,
-//     });
-
-//     await sendNotification(
-//       {
-//         title: `${type.toUpperCase()} Export`,
-//         description: `URL: <a href="${downloadUrl}" style="color: blue; text-decoration: underline;">${downloadUrl}</a>`,
-//         createdBy: userId,
-//         projectId: null,
-//         companyId: companyId,
-//       },
-//       "EXPORT_READY"
-//     );
-
-//     return res.status(200).json({
-//       message: `${type.toUpperCase()} generation started. You will receive a notification and email when it is ready.`,
-//     });
-//   } catch (error) {
-//     console.error("Error generating export file:", error);
-//     return res.status(500).json({ error: "Failed to generate export file" });
-//   }
-// };
 
 exports.getMonthlyUserReportForCompany = async (req, res) => {
   try {
