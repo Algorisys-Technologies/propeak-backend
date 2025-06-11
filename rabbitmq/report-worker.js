@@ -39,10 +39,13 @@ require("../models/product/product-model");
 
   console.log("Export Worker listening for messages...");
 
-  mongoose.connect(process.env.DB, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  mongoose.connect(
+    process.env.DB
+    //   {
+    //   useNewUrlParser: true,
+    //   useUnifiedTopology: true,
+    // }
+  );
 
   mongoose.connection.once("open", () => {
     console.log("✅ MongoDB connected in Worker");
