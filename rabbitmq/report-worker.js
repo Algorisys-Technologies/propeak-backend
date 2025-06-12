@@ -73,43 +73,92 @@ require("../models/product/product-model");
         configHeaders,
       } = payload;
 
-      console.log("ALL...", companyId, role, userId, reportParams);
+      console.log(
+        "ALL...",
+        "companyId",
+        companyId,
+        "role",
+        role,
+        "userId",
+        userId,
+        "reportParams",
+        reportParams
+      );
+
+      // let resultTaskReport;
+      // if (reportParams?.reportType === "global-task") {
+      //   resultTaskReport = await getMonthlyGlobalTaskReport({
+      //     companyId,
+      //     role,
+      //     userId,
+      //     reportParams,
+      //   });
+      // } else if (reportParams?.reportType === "global-user") {
+      //   console.log("global user", reportParams?.reportType);
+      //   resultTaskReport = await getMonthlyGlobalUserReport({
+      //     companyId,
+      //     role,
+      //     userId,
+      //     reportParams,
+      //   });
+      // } else if (reportParams?.reportType === "project-task") {
+      //   resultTaskReport = await getMonthlyProjectTaskReport({
+      //     projectId,
+      //     reportParams,
+      //     role,
+      //   });
+      // } else {
+      //   resultTaskReport = await getMonthlyProjectUserReport({
+      //     projectId,
+      //     reportParams,
+      //     userId,
+      //     role,
+      //   });
+      // }
 
       let resultTaskReport;
-      if (reportParams?.reportType === "global-task") {
-        resultTaskReport = await getMonthlyGlobalTaskReport({
-          companyId,
-          role,
-          userId,
-          reportParams,
-        });
-      } else if (reportParams?.reportType === "global-user") {
-        console.log("global user", reportParams?.reportType);
-        resultTaskReport = await getMonthlyGlobalUserReport({
-          companyId,
-          role,
-          userId,
-          reportParams,
-        });
-      } else if (reportParams?.reportType === "project-task") {
-        resultTaskReport = await getMonthlyProjectTaskReport({
-          projectId,
-          reportParams,
-          role,
-        });
-      } else {
-        resultTaskReport = await getMonthlyProjectUserReport({
-          projectId,
-          reportParams,
-          userId,
-          role,
-        });
+
+      switch (reportParams?.reportType) {
+        case "global-task":
+          resultTaskReport = await getMonthlyGlobalTaskReport({
+            companyId,
+            role,
+            userId,
+            reportParams,
+          });
+          break;
+        case "global-user":
+          resultTaskReport = await getMonthlyGlobalUserReport({
+            companyId,
+            role,
+            userId,
+            reportParams,
+          });
+          break;
+        case "project-task":
+          resultTaskReport = await getMonthlyProjectTaskReport({
+            projectId,
+            reportParams,
+            userId,
+            role,
+          });
+          break;
+        case "project-user":
+          resultTaskReport = await getMonthlyProjectUserReport({
+            projectId,
+            reportParams,
+            userId,
+            role,
+          });
+          break;
+        default:
+          throw new Error("Invalid report type");
       }
 
       if (!resultTaskReport.success)
         throw new Error(resultTaskReport.err || "Data fetch failed");
 
-      console.log("resultTaskReport...", resultTaskReport.totalCount);
+      //console.log("resultTaskReport...", resultTaskReport.totalCount);
 
       //const data = resultTaskReport.data;
       const responseWithoutPagination = resultTaskReport.data || [];
@@ -128,14 +177,20 @@ require("../models/product/product-model");
       const dynamicHeaders =
         customFields.length > 0 ? extractHeaders(customFields) : [];
 
+      // function mergeHeaders(defaultHeaders, dynamicHeaders) {
+      //   return [
+      //     ...defaultHeaders,
+      //     ...dynamicHeaders.filter(
+      //       (dyn) =>
+      //         !defaultHeaders.some((def) => def.accessor === dyn.accessor)
+      //     ),
+      //   ];
+      // }
+
       function mergeHeaders(defaultHeaders, dynamicHeaders) {
-        return [
-          ...defaultHeaders,
-          ...dynamicHeaders.filter(
-            (dyn) =>
-              !defaultHeaders.some((def) => def.accessor === dyn.accessor)
-          ),
-        ];
+        const seen = new Set(defaultHeaders.map((h) => h.accessor));
+        const filtered = dynamicHeaders.filter((h) => !seen.has(h.accessor));
+        return [...defaultHeaders, ...filtered];
       }
 
       const mergedHeaders = mergeHeaders(defaultHeaders, dynamicHeaders);
@@ -180,8 +235,8 @@ require("../models/product/product-model");
       }
 
       // Generate the download URL
-      const downloadUrl = `https://propeak.algorisys.com/uploads/${filename}.${type}`;
-      //const downloadUrl = `http://localhost:3001/uploads/${filename}.${type}`;
+      //const downloadUrl = `https://propeak.algorisys.com/uploads/${filename}.${type}`;
+      const downloadUrl = `http://localhost:3001/uploads/${filename}.${type}`;
       //const downloadUrl = `https://propeak.app/uploads/${filename}.${type}`;
 
       console.log(
