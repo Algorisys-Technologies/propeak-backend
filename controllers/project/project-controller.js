@@ -1825,7 +1825,11 @@ exports.getProjectTypes = async (req, res) => {
 
 exports.getProjectsByCompanyId = async (req, res) => {
   try {
-    const projects = await Project.find({
+    // const projects = await Project.find({
+    //   isDeleted: false,
+    //   companyId: req.params.companyId,
+    // });
+    const totalProjects = await Project.countDocuments({
       isDeleted: false,
       companyId: req.params.companyId,
     });
@@ -1861,7 +1865,7 @@ exports.getProjectsByCompanyId = async (req, res) => {
     ]);
     return res.json({
       success: true,
-      projects: projects,
+      projectTotal: totalProjects,
       projectMembers: result[0]?.uniqueProjectUsersCount,
     });
   } catch (e) {
