@@ -2253,7 +2253,9 @@ exports.getKanbanProjectsData = async (req, res) => {
     const iprojects = await Project.find(projectWhereCondition)
       .sort(sortCondition ? sortCondition : { createdOn: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
+
     const projects = await Promise.all(
       iprojects.map(async (p) => {
         const users = await User.find({ _id: { $in: p.projectUsers } }).select(
@@ -2270,7 +2272,8 @@ exports.getKanbanProjectsData = async (req, res) => {
         });
 
         return {
-          ...p.toObject(),
+          //...p.toObject(),
+          ...p,
           tasksCount,
           isFavourite: !!isFavourite,
           projectUsers: users.map((user) => user.name),
@@ -2578,7 +2581,8 @@ exports.getKanbanExhibitionData = async (req, res) => {
     const projectsRaw = await Project.find(projectWhereCondition)
       .sort(sortCondition ? sortCondition : { createdOn: -1 })
       .skip(page * limit)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const projects = await Promise.all(
       projectsRaw.map(async (p) => {
@@ -2596,7 +2600,8 @@ exports.getKanbanExhibitionData = async (req, res) => {
         });
 
         return {
-          ...p.toObject(),
+          // ...p.toObject(),
+          ...p,
           tasksCount,
           isFavourite: !!isFavourite,
           projectUsers: users.map((u) => u.name),
@@ -2799,7 +2804,8 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
     const iprojects = await Project.find(projectWhereCondition)
       .sort(sortCondition ? sortCondition : { createdOn: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const projects = await Promise.all(
       iprojects.map(async (p) => {
@@ -2817,7 +2823,8 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
         });
 
         return {
-          ...p.toObject(),
+          //...p.toObject(),
+          ...p,
           tasksCount,
           isFavourite: !!isFavourite,
           projectUsers: users.map((user) => user.name),
@@ -3211,7 +3218,6 @@ exports.getProjectTableForGroup = async (req, res) => {
     const projects = await Project.find(condition)
       .skip(skip)
       .limit(limit)
-      .lean()
       .populate("userid", "name")
       .populate("group", "name")
       .populate("projectTypeId", "projectType")
@@ -3227,7 +3233,8 @@ exports.getProjectTableForGroup = async (req, res) => {
         path: "userGroups",
         select: "groupName",
       })
-      .sort(sortOption);
+      .sort(sortOption)
+      .lean();
 
     res.json({
       success: true,
@@ -3417,7 +3424,6 @@ exports.getProjectTable = async (req, res) => {
     const projects = await Project.find(condition)
       .skip(skip)
       .limit(limit)
-      .lean()
       .populate("userid", "name")
       .populate("group", "name")
       .populate("projectTypeId", "projectType")
@@ -3433,7 +3439,8 @@ exports.getProjectTable = async (req, res) => {
         path: "userGroups",
         select: "groupName",
       })
-      .sort(sortOption);
+      .sort(sortOption)
+      .lean();
 
     res.json({
       success: true,
@@ -3764,7 +3771,6 @@ exports.getProjectExhibitionTable = async (req, res) => {
     const projects = await Project.find(condition)
       .skip(skip)
       .limit(limit)
-      .lean()
       .populate("userid", "name")
       .populate("group", "name")
       .populate("projectTypeId", "projectType")
@@ -3780,7 +3786,8 @@ exports.getProjectExhibitionTable = async (req, res) => {
         path: "userGroups",
         select: "groupName",
       })
-      .sort(sortOption);
+      .sort(sortOption)
+      .lean();
 
     res.json({
       success: true,

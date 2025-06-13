@@ -90,10 +90,10 @@ exports.getMonthlyTaskReport = async (req, res) => {
     const tasks = await Task.find(condition)
       .skip(skip)
       .limit(limit)
-      .lean()
       .populate("projectId", "title")
       .populate("userId", "name")
-      .populate({ path: "interested_products.product_id" });
+      .populate({ path: "interested_products.product_id" })
+      .lean();
 
     res.json({
       success: true,
@@ -245,10 +245,10 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
     const tasks = await Task.find(condition)
       .skip(skip)
       .limit(limit)
-      .lean()
       .populate("projectId", "title")
       .populate("userId", "name")
-      .populate({ path: "interested_products.product_id" });
+      .populate({ path: "interested_products.product_id" })
+      .lean();
 
     return res.json({
       success: true,
@@ -333,10 +333,10 @@ exports.getMonthlyGlobalTaskReport = async ({
     }
 
     const tasks = await Task.find(condition)
-      .lean()
       .populate("projectId", "title")
       .populate("userId", "name")
-      .populate({ path: "interested_products.product_id" });
+      .populate({ path: "interested_products.product_id" })
+      .lean();
 
     let maxTask = null;
     let maxKeys = 0;
@@ -997,9 +997,9 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
     const tasks = await Task.find(condition)
       .skip(skip)
       .limit(limit)
-      .lean()
       .populate("projectId", "title")
-      .populate("userId", "name");
+      .populate("userId", "name")
+      .lean();
 
     //console.log("Fetched user-specific tasks:", tasks);
 
@@ -1086,9 +1086,9 @@ exports.getMonthlyUserReportForProject = async (req, res) => {
     const tasks = await Task.find(condition)
       .skip(skip)
       .limit(limit)
-      .lean()
       .populate("projectId", "title")
-      .populate("userId", "name");
+      .populate("userId", "name")
+      .lean();
 
     //console.log("Fetched user-specific tasks for project:", tasks);
 
