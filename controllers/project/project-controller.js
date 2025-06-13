@@ -3100,20 +3100,35 @@ exports.getProjectTableForGroup = async (req, res) => {
     const limit = parseInt(rawLimit, 10);
     const skip = (page - 1) * limit;
 
-    // Validate project ID format
+    // // Validate project ID format
     if (!mongoose.Types.ObjectId.isValid(companyId)) {
       return res
         .status(400)
         .json({ success: false, msg: "Invalid company ID format." });
     }
+    if (groupId && !mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({
+        success: false,
+        msg: "Invalid group ID format.",
+      });
+    }
 
     // Base condition for fetching tasks
+    // let condition = {
+    //   companyId: new mongoose.Types.ObjectId(companyId),
+    //   isDeleted: false,
+    //   group: new mongoose.Types.ObjectId(groupId),
+    //   archive: false,
+    // };
     let condition = {
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: false,
-      group: new mongoose.Types.ObjectId(groupId),
       archive: false,
     };
+
+    if (groupId && mongoose.Types.ObjectId.isValid(groupId)) {
+      condition.group = new mongoose.Types.ObjectId(groupId);
+    }
 
     // Apply search filter if provided
     if (searchFilter) {
@@ -3250,7 +3265,7 @@ exports.getProjectTableForGroup = async (req, res) => {
       searchFilter,
     });
   } catch (error) {
-    console.error("Error in getTasksTable:", error);
+    console.error("Error in getProjectTableForGroup:", error);
     res.status(500).json({
       success: false,
       msg: "Server error occurred while retrieving tasks",
