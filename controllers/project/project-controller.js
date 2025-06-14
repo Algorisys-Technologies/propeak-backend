@@ -3001,6 +3001,7 @@ exports.getProjectsCalendar = async (req, res) => {
     }
 
     const projects = await Project.find(condition).lean();
+    const totalCount = await Project.countDocuments(condition);
 
     const calendarEvents = projects.map((project) => ({
       id: project._id,
@@ -3012,6 +3013,7 @@ exports.getProjectsCalendar = async (req, res) => {
 
     res.json({
       success: true,
+      totalCount,
       data: calendarEvents,
     });
   } catch (error) {
@@ -3026,30 +3028,61 @@ exports.getProjectsCalendar = async (req, res) => {
 
 exports.allProjects = async (req, res) => {
   try {
-    const { companyId, groupId } = req.body;
-    const allprojects = await Project.find({ companyId, isDeleted: false });
+    const { companyId, pagination } = req.body;
+    const page = parseInt(pagination?.page) || 1;
+    const limit = parseInt(pagination?.limit) || 10;
+    const skip = (page - 1) * limit;
 
-    return res.json({ success: true, allprojects });
+    const [allprojects, totalCount] = await Promise.all([
+      Project.find({ companyId, isDeleted: false })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }), 
+      Project.countDocuments({ companyId, isDeleted: false }),
+    ]);
+
+    return res.json({
+      success: true,
+      allprojects,
+    });
   } catch (error) {
-    return res.json({ success: false });
+
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
 exports.allProjectsForGroup = async (req, res) => {
   try {
-    const { companyId, groupId } = req.body;
+    const { companyId, groupId, pagination = { page: 1, limit: 10 } } = req.body;
 
-    const allprojects = await Project.find({
+    const { page, limit: rawLimit } = pagination;
+    const limit = parseInt(rawLimit, 10);
+    const skip = (page - 1) * limit;
+
+    const condition = {
       companyId,
       isDeleted: false,
       group: groupId,
-    });
+    };
 
-    return res.json({ success: true, allprojects });
+    const allprojects = await Project.find(condition)
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    return res.json({
+      success: true,
+      allprojects,
+    });
   } catch (error) {
-    return res.json({ success: false });
+    return res.status(500).json({
+      success: false,
+      msg: "Server error occurred while retrieving projects",
+      error: error.message,
+    });
   }
 };
+
 
 exports.getProjectTableForGroup = async (req, res) => {
   try {
@@ -3063,6 +3096,7 @@ exports.getProjectTableForGroup = async (req, res) => {
       dueDateSort,
       startDate,
       groupId,
+      archive,
     } = req.body;
     // console.log(pagination, "from pagination");
     let sortOption = {};
@@ -3123,7 +3157,7 @@ exports.getProjectTableForGroup = async (req, res) => {
     let condition = {
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: false,
-      archive: false,
+      archive,
     };
 
     if (groupId && mongoose.Types.ObjectId.isValid(groupId)) {
@@ -3285,9 +3319,12 @@ exports.getProjectTable = async (req, res) => {
       dateSort,
       dueDateSort,
       startDate,
+      archive,
     } = req.body;
     // console.log(pagination, "from pagination");
     let sortOption = {};
+
+    console.log(searchFilter, "from searchfilter")
 
     if (sort === "titleAsc") {
       sortOption = { title: 1 };
@@ -3333,7 +3370,7 @@ exports.getProjectTable = async (req, res) => {
     let condition = {
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: false,
-      archive: false,
+      archive,
     };
 
     // Apply search filter if provided
@@ -3460,6 +3497,8 @@ exports.getProjectTable = async (req, res) => {
       })
       .sort(sortOption)
       .lean();
+
+    console.log(projects, "from search Filter")
 
     res.json({
       success: true,
@@ -3607,19 +3646,36 @@ exports.getGroupIdOfProject = async (req, res) => {
 
 exports.allProjectsExhibition = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    const { companyId, pagination = { page: 1, limit: 10 } } = req.body;
 
-    const allProjectsExhibition = await Project.find({
+    const { page, limit: rawLimit } = pagination;
+    const limit = parseInt(rawLimit, 10);
+    const skip = (page - 1) * limit;
+
+    const condition = {
       companyId,
       isDeleted: false,
       projectType: "Exhibition",
-    });
+    };
 
-    return res.json({ success: true, allProjectsExhibition });
+    const allProjectsExhibition = await Project.find(condition)
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    return res.json({
+      success: true,
+      allProjectsExhibition,
+    });
   } catch (error) {
-    return res.json({ success: false });
+    return res.status(500).json({
+      success: false,
+      msg: "Server error occurred while retrieving projects",
+      error: error.message,
+    });
   }
 };
+
 
 exports.getProjectExhibitionTable = async (req, res) => {
   try {
@@ -3632,6 +3688,7 @@ exports.getProjectExhibitionTable = async (req, res) => {
       dateSort,
       dueDateSort,
       startDate,
+      archive,
     } = req.body;
     // console.log(pagination, "from pagination");
     let sortOption = {};
@@ -3681,6 +3738,7 @@ exports.getProjectExhibitionTable = async (req, res) => {
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: false,
       projectType: "Exhibition",
+      archive,
     };
 
     // Apply search filter if provided
@@ -3954,6 +4012,7 @@ exports.getProjectsExhibitionCalendar = async (req, res) => {
     };
 
     const projects = await Project.find(condition).lean();
+    const totalCount = await Project.countDocuments(condition);
 
     const calendarEvents = projects.map((project) => ({
       id: project._id,
@@ -3966,6 +4025,7 @@ exports.getProjectsExhibitionCalendar = async (req, res) => {
     res.json({
       success: true,
       data: calendarEvents,
+      totalCount,
     });
   } catch (error) {
     console.error("Error in getProjectsCalendar:", error);
