@@ -2158,25 +2158,165 @@ exports.getKanbanProjects = async (req, res) => {
   }
 };
 
+// exports.getKanbanProjectsData = async (req, res) => {
+//   try {
+//     let page = parseInt(req.query.page || "0");
+//     const limit = 10;
+//     const skip = page * limit;
+//     const {
+//       stageId,
+//       companyId,
+//       userId,
+//       archive,
+//       // startDate,
+//       // dueDateSort,
+//       dueDate,
+//       dateStartSort,
+//       searchFilter,
+//       startDateFilter,
+//     } = req.body;
+
+//     console.log("req.body...", req.body, "req.query", req.query);
+
+//     if (!stageId || stageId === "null" || stageId === "ALL") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "stageId is required and cannot be ALL or null.",
+//       });
+//     }
+
+//     // Project query filter
+//     const projectWhereCondition = {
+//       projectStageId: stageId || "673202ee15c8e180c21e9ad7",
+//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//       companyId,
+//       archive: archive || false,
+//       projectType: { $ne: "Exhibition" },
+//     };
+
+//     // if (searchFilter) {
+//     //   const regex = new RegExp(searchFilter, "i");
+//     //   projectWhereCondition.$or = [
+//     //     { title: { $regex: regex } },
+//     //     { description: { $regex: regex } },
+//     //     { tag: { $regex: regex } },
+//     //   ];
+//     // }
+//     if (searchFilter) {
+//       const regex = new RegExp(searchFilter, "i");
+//       projectWhereCondition.$and = [
+//         {
+//           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//         },
+//         {
+//           $or: [
+//             { title: { $regex: regex } },
+//             { description: { $regex: regex } },
+//             { tag: { $regex: regex } },
+//           ],
+//         },
+//       ];
+//     }
+
+//     // console.log("projectWhereCondition...", projectWhereCondition);
+
+//     if (userId !== "ALL") {
+//       projectWhereCondition.projectUsers = { $in: [userId] };
+//     }
+
+//     // if (startDate) {
+//     //   projectWhereCondition.startdate = { $gte: new Date(startDate) };
+//     // }
+//     if (startDateFilter) {
+//       projectWhereCondition.startdate = { $eq: new Date(startDateFilter) };
+//     }
+
+//     const totalCount = await Project.countDocuments(projectWhereCondition);
+//     const totalPages = Math.ceil(totalCount / limit);
+
+//     if (page >= totalPages && totalPages > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Page number exceeds available pages.",
+//       });
+//     }
+
+//     // const iprojects = await Project.find(projectWhereCondition)
+//     //   .sort({ createdOn: -1 })
+//     //   .skip(skip)
+//     //   .limit(limit);
+
+//     let sortCondition;
+
+//     if (dueDate) {
+//       sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
+//     } else if (dateStartSort) {
+//       sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
+//     }
+
+//     const iprojects = await Project.find(projectWhereCondition)
+//       .sort(sortCondition ? sortCondition : { createdOn: -1 })
+//       .skip(skip)
+//       .limit(limit)
+//       .lean();
+
+//     const projects = await Promise.all(
+//       iprojects.map(async (p) => {
+//         const users = await User.find({ _id: { $in: p.projectUsers } }).select(
+//           "name"
+//         );
+//         const createdByUser = await User.findById(p.createdBy).select("name");
+//         const tasksCount = await Task.countDocuments({
+//           projectId: p._id,
+//           isDeleted: false,
+//         });
+//         const isFavourite = await FavoriteProject.findOne({
+//           projectId: p._id,
+//           userId,
+//         });
+
+//         return {
+//           //...p.toObject(),
+//           ...p,
+//           tasksCount,
+//           isFavourite: !!isFavourite,
+//           projectUsers: users.map((user) => user.name),
+//           createdBy: createdByUser ? createdByUser.name : "Unknown",
+//         };
+//       })
+//     );
+
+//     return res.json({
+//       success: true,
+//       projects,
+//       totalCount,
+//       totalPages,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     return res.json({
+//       message: "Error fetching kanban projects",
+//       success: false,
+//     });
+//   }
+// };
+
 exports.getKanbanProjectsData = async (req, res) => {
   try {
-    let page = parseInt(req.query.page || "0");
+    const page = parseInt(req.query.page || "0");
     const limit = 10;
     const skip = page * limit;
+
     const {
       stageId,
       companyId,
       userId,
       archive,
-      // startDate,
-      // dueDateSort,
       dueDate,
       dateStartSort,
       searchFilter,
       startDateFilter,
     } = req.body;
-
-    console.log("req.body...", req.body, "req.query", req.query);
 
     if (!stageId || stageId === "null" || stageId === "ALL") {
       return res.status(400).json({
@@ -2185,29 +2325,18 @@ exports.getKanbanProjectsData = async (req, res) => {
       });
     }
 
-    // Project query filter
     const projectWhereCondition = {
-      projectStageId: stageId || "673202ee15c8e180c21e9ad7",
+      projectStageId: stageId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       companyId,
       archive: archive || false,
       projectType: { $ne: "Exhibition" },
     };
 
-    // if (searchFilter) {
-    //   const regex = new RegExp(searchFilter, "i");
-    //   projectWhereCondition.$or = [
-    //     { title: { $regex: regex } },
-    //     { description: { $regex: regex } },
-    //     { tag: { $regex: regex } },
-    //   ];
-    // }
     if (searchFilter) {
       const regex = new RegExp(searchFilter, "i");
       projectWhereCondition.$and = [
-        {
-          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-        },
+        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
         {
           $or: [
             { title: { $regex: regex } },
@@ -2218,15 +2347,10 @@ exports.getKanbanProjectsData = async (req, res) => {
       ];
     }
 
-    // console.log("projectWhereCondition...", projectWhereCondition);
-
     if (userId !== "ALL") {
       projectWhereCondition.projectUsers = { $in: [userId] };
     }
 
-    // if (startDate) {
-    //   projectWhereCondition.startdate = { $gte: new Date(startDate) };
-    // }
     if (startDateFilter) {
       projectWhereCondition.startdate = { $eq: new Date(startDateFilter) };
     }
@@ -2241,50 +2365,55 @@ exports.getKanbanProjectsData = async (req, res) => {
       });
     }
 
-    // const iprojects = await Project.find(projectWhereCondition)
-    //   .sort({ createdOn: -1 })
-    //   .skip(skip)
-    //   .limit(limit);
-
-    let sortCondition;
-
-    if (dueDate) {
-      sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
-    } else if (dateStartSort) {
-      sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
-    }
+    const sortCondition = dueDate
+      ? { enddate: dueDate === "asc" ? 1 : -1 }
+      : dateStartSort
+      ? { startdate: dateStartSort === "asc" ? 1 : -1 }
+      : { createdOn: -1 };
 
     const iprojects = await Project.find(projectWhereCondition)
-      .sort(sortCondition ? sortCondition : { createdOn: -1 })
+      .sort(sortCondition)
       .skip(skip)
       .limit(limit)
       .lean();
 
-    const projects = await Promise.all(
-      iprojects.map(async (p) => {
-        const users = await User.find({ _id: { $in: p.projectUsers } }).select(
-          "name"
-        );
-        const createdByUser = await User.findById(p.createdBy).select("name");
-        const tasksCount = await Task.countDocuments({
-          projectId: p._id,
-          isDeleted: false,
-        });
-        const isFavourite = await FavoriteProject.findOne({
-          projectId: p._id,
-          userId,
-        });
+    const projectIds = iprojects.map((p) => p._id);
+    const userIds = [
+      ...new Set(iprojects.flatMap((p) => [...p.projectUsers, p.createdBy])),
+    ];
 
-        return {
-          //...p.toObject(),
-          ...p,
-          tasksCount,
-          isFavourite: !!isFavourite,
-          projectUsers: users.map((user) => user.name),
-          createdBy: createdByUser ? createdByUser.name : "Unknown",
-        };
-      })
+    // 🔹 Batch user fetch
+    const userDocs = await User.find({ _id: { $in: userIds } })
+      .select("name")
+      .lean();
+    const usersMap = new Map(userDocs.map((u) => [u._id.toString(), u.name]));
+
+    // 🔹 Batch task count
+    const taskCounts = await Task.aggregate([
+      { $match: { projectId: { $in: projectIds }, isDeleted: false } },
+      { $group: { _id: "$projectId", count: { $sum: 1 } } },
+    ]);
+    const taskCountMap = new Map(
+      taskCounts.map((tc) => [tc._id.toString(), tc.count])
     );
+
+    // 🔹 Batch favorites
+    const favorites = await FavoriteProject.find({
+      projectId: { $in: projectIds },
+      userId,
+    }).lean();
+    const favoriteSet = new Set(favorites.map((f) => f.projectId.toString()));
+
+    const projects = iprojects.map((p) => ({
+      ...p,
+      tasksCount: taskCountMap.get(p._id.toString()) || 0,
+      isFavourite: favoriteSet.has(p._id.toString()),
+      projectUsers: (p.projectUsers || []).map((uid) => {
+        const user = usersMap.get(uid?.toString());
+        return user || "Unknown"; // Fallback if null or undefined
+      }),
+      createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
+    }));
 
     return res.json({
       success: true,
@@ -2293,7 +2422,7 @@ exports.getKanbanProjectsData = async (req, res) => {
       totalPages,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error in getKanbanProjectsData:", error);
     return res.json({
       message: "Error fetching kanban projects",
       success: false,
@@ -2495,10 +2624,145 @@ exports.getKanbanExhibition = async (req, res) => {
   }
 };
 
+// exports.getKanbanExhibitionData = async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page || "0", 10);
+//     const limit = 10;
+
+//     if (!Number.isInteger(page) || page < 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid page number.",
+//       });
+//     }
+
+//     const {
+//       stageId,
+//       companyId,
+//       userId,
+//       archive,
+//       searchFilter,
+//       startDateFilter,
+//       dueDate,
+//       dateStartSort,
+//     } = req.body;
+
+//     if (!stageId || stageId === "null" || stageId === "ALL") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "stageId is required and cannot be 'ALL' or null.",
+//       });
+//     }
+
+//     if (!companyId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "companyId is required.",
+//       });
+//     }
+
+//     if (!userId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "userId is required.",
+//       });
+//     }
+
+//     const projectWhereCondition = {
+//       projectStageId: stageId,
+//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//       companyId,
+//       archive: archive || false,
+//       projectType: "Exhibition",
+//     };
+
+//     if (searchFilter) {
+//       const regex = new RegExp(searchFilter, "i");
+//       projectWhereCondition.$or = [
+//         { title: { $regex: regex } },
+//         { description: { $regex: regex } },
+//         { tag: { $regex: regex } },
+//       ];
+//     }
+
+//     if (startDateFilter) {
+//       projectWhereCondition.startdate = { $eq: new Date(startDateFilter) };
+//     }
+
+//     // if (userId !== "ALL") {
+//     //   projectWhereCondition.projectUsers = { $in: [userId] };
+//     // }
+
+//     let sortCondition;
+
+//     if (dueDate) {
+//       sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
+//     } else if (dateStartSort) {
+//       sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
+//     }
+
+//     const totalCount = await Project.countDocuments(projectWhereCondition);
+//     const totalPages = Math.ceil(totalCount / limit);
+
+//     if (page >= totalPages && totalPages > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Page number exceeds available pages.",
+//       });
+//     }
+
+//     const projectsRaw = await Project.find(projectWhereCondition)
+//       .sort(sortCondition ? sortCondition : { createdOn: -1 })
+//       .skip(page * limit)
+//       .limit(limit)
+//       .lean();
+
+//     const projects = await Promise.all(
+//       projectsRaw.map(async (p) => {
+//         const users = await User.find({ _id: { $in: p.projectUsers } }).select(
+//           "name"
+//         );
+//         const createdByUser = await User.findById(p.createdBy).select("name");
+//         const tasksCount = await Task.countDocuments({
+//           projectId: p._id,
+//           isDeleted: false,
+//         });
+//         const isFavourite = await FavoriteProject.findOne({
+//           projectId: p._id,
+//           userId,
+//         });
+
+//         return {
+//           // ...p.toObject(),
+//           ...p,
+//           tasksCount,
+//           isFavourite: !!isFavourite,
+//           projectUsers: users.map((u) => u.name),
+//           createdBy: createdByUser?.name || "Unknown",
+//         };
+//       })
+//     );
+
+//     return res.json({
+//       success: true,
+//       projects,
+//       totalCount,
+//       totalPages,
+//     });
+//   } catch (error) {
+//     console.error("Error in getKanbanExhibitionData:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error fetching kanban projects",
+//     });
+//   }
+// };
+
 exports.getKanbanExhibitionData = async (req, res) => {
   try {
     const page = parseInt(req.query.page || "0", 10);
     const limit = 10;
+    const skip = page * limit;
 
     if (!Number.isInteger(page) || page < 0) {
       return res.status(400).json({
@@ -2560,18 +2824,6 @@ exports.getKanbanExhibitionData = async (req, res) => {
       projectWhereCondition.startdate = { $eq: new Date(startDateFilter) };
     }
 
-    // if (userId !== "ALL") {
-    //   projectWhereCondition.projectUsers = { $in: [userId] };
-    // }
-
-    let sortCondition;
-
-    if (dueDate) {
-      sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
-    } else if (dateStartSort) {
-      sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
-    }
-
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -2582,37 +2834,57 @@ exports.getKanbanExhibitionData = async (req, res) => {
       });
     }
 
+    let sortCondition;
+
+    if (dueDate) {
+      sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
+    } else if (dateStartSort) {
+      sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
+    }
+
     const projectsRaw = await Project.find(projectWhereCondition)
       .sort(sortCondition ? sortCondition : { createdOn: -1 })
-      .skip(page * limit)
+      .skip(skip)
       .limit(limit)
       .lean();
 
-    const projects = await Promise.all(
-      projectsRaw.map(async (p) => {
-        const users = await User.find({ _id: { $in: p.projectUsers } }).select(
-          "name"
-        );
-        const createdByUser = await User.findById(p.createdBy).select("name");
-        const tasksCount = await Task.countDocuments({
-          projectId: p._id,
-          isDeleted: false,
-        });
-        const isFavourite = await FavoriteProject.findOne({
-          projectId: p._id,
-          userId,
-        });
+    const projectIds = projectsRaw.map((p) => p._id);
+    const userIds = [
+      ...new Set(projectsRaw.flatMap((p) => [...p.projectUsers, p.createdBy])),
+    ];
 
-        return {
-          // ...p.toObject(),
-          ...p,
-          tasksCount,
-          isFavourite: !!isFavourite,
-          projectUsers: users.map((u) => u.name),
-          createdBy: createdByUser?.name || "Unknown",
-        };
-      })
+    // 🔹 Batch user fetch
+    const userDocs = await User.find({ _id: { $in: userIds } })
+      .select("name")
+      .lean();
+    const usersMap = new Map(userDocs.map((u) => [u._id.toString(), u.name]));
+
+    // 🔹 Batch task count
+    const taskCounts = await Task.aggregate([
+      { $match: { projectId: { $in: projectIds }, isDeleted: false } },
+      { $group: { _id: "$projectId", count: { $sum: 1 } } },
+    ]);
+    const taskCountMap = new Map(
+      taskCounts.map((tc) => [tc._id.toString(), tc.count])
     );
+
+    // 🔹 Batch favorites
+    const favorites = await FavoriteProject.find({
+      projectId: { $in: projectIds },
+      userId,
+    }).lean();
+    const favoriteSet = new Set(favorites.map((f) => f.projectId.toString()));
+
+    const projects = projectsRaw.map((p) => ({
+      ...p,
+      tasksCount: taskCountMap.get(p._id.toString()) || 0,
+      isFavourite: favoriteSet.has(p._id.toString()),
+      projectUsers: (p.projectUsers || []).map((uid) => {
+        const user = usersMap.get(uid?.toString());
+        return user || "Unknown"; // Fallback if null or undefined
+      }),
+      createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
+    }));
 
     return res.json({
       success: true,
@@ -2624,7 +2896,7 @@ exports.getKanbanExhibitionData = async (req, res) => {
     console.error("Error in getKanbanExhibitionData:", error);
     return res.status(500).json({
       success: false,
-      message: "Error fetching kanban projects",
+      message: "Error fetching kanban exhibition data",
     });
   }
 };
@@ -2721,11 +2993,143 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
   }
 };
 
+// exports.getKanbanProjectsByGroup = async (req, res) => {
+//   try {
+//     let page = parseInt(req.query.page || "0");
+//     const limit = 10;
+//     const skip = page * limit;
+//     const {
+//       groupId,
+//       companyId,
+//       userId,
+//       archive,
+//       stageId,
+//       dueDate,
+//       dateStartSort,
+//       searchFilter,
+//       startDateFilter,
+//     } = req.body;
+//     if (!groupId || groupId === "null" || groupId === "ALL") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "groupId is required and cannot be ALL or null.",
+//       });
+//     }
+
+//     const groupObjectId = mongoose.Types.ObjectId.isValid(groupId)
+//       ? new mongoose.Types.ObjectId(groupId)
+//       : null;
+
+//     if (!groupObjectId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid groupId format.",
+//       });
+//     }
+
+//     const projectWhereCondition = {
+//       group: groupObjectId,
+//       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+//       companyId,
+//       archive,
+//       projectType: { $ne: "Exhibition" },
+//     };
+
+//     if (searchFilter) {
+//       const regex = new RegExp(searchFilter, "i");
+//       projectWhereCondition.$or = [
+//         { title: { $regex: regex } },
+//         { description: { $regex: regex } },
+//         { tag: { $regex: regex } },
+//       ];
+//     }
+
+//     if (stageId && stageId !== "ALL" && stageId !== "null") {
+//       projectWhereCondition.projectStageId = stageId;
+//     }
+
+//     if (userId !== "ALL") {
+//       projectWhereCondition.projectUsers = { $in: [userId] };
+//     }
+
+//     if (startDateFilter) {
+//       projectWhereCondition.startdate = { $eq: new Date(startDateFilter) };
+//     }
+
+//     const totalCount = await Project.countDocuments(projectWhereCondition);
+//     const totalPages = Math.ceil(totalCount / limit);
+//     if (page >= totalPages && totalPages > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Page number exceeds available pages.",
+//       });
+//     }
+
+//     // const iprojects = await Project.find(projectWhereCondition)
+//     //   .sort({ createdOn: -1 })
+//     //   .skip(skip)
+//     //   .limit(limit);
+//     let sortCondition;
+
+//     if (dueDate) {
+//       sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
+//     } else if (dateStartSort) {
+//       sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
+//     }
+
+//     const iprojects = await Project.find(projectWhereCondition)
+//       .sort(sortCondition ? sortCondition : { createdOn: -1 })
+//       .skip(skip)
+//       .limit(limit)
+//       .lean();
+
+//     const projects = await Promise.all(
+//       iprojects.map(async (p) => {
+//         const users = await User.find({ _id: { $in: p.projectUsers } }).select(
+//           "name"
+//         );
+//         const createdByUser = await User.findById(p.createdBy).select("name");
+//         const tasksCount = await Task.countDocuments({
+//           projectId: p._id,
+//           isDeleted: false,
+//         });
+//         const isFavourite = await FavoriteProject.findOne({
+//           projectId: p._id,
+//           userId,
+//         });
+
+//         return {
+//           //...p.toObject(),
+//           ...p,
+//           tasksCount,
+//           isFavourite: !!isFavourite,
+//           projectUsers: users.map((user) => user.name),
+//           createdBy: createdByUser ? createdByUser.name : "Unknown",
+//         };
+//       })
+//     );
+
+//     return res.json({
+//       success: true,
+//       projects,
+//       totalCount,
+//       totalPages,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     return res.json({
+//       success: false,
+//       message: "Error fetching kanban projects by group",
+//     });
+//   }
+// };
+
 exports.getKanbanProjectsByGroup = async (req, res) => {
   try {
     let page = parseInt(req.query.page || "0");
     const limit = 10;
     const skip = page * limit;
+
     const {
       groupId,
       companyId,
@@ -2737,6 +3141,8 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       searchFilter,
       startDateFilter,
     } = req.body;
+
+    // Validate groupId
     if (!groupId || groupId === "null" || groupId === "ALL") {
       return res.status(400).json({
         success: false,
@@ -2786,6 +3192,7 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
 
     const totalCount = await Project.countDocuments(projectWhereCondition);
     const totalPages = Math.ceil(totalCount / limit);
+
     if (page >= totalPages && totalPages > 0) {
       return res.status(400).json({
         success: false,
@@ -2793,49 +3200,59 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       });
     }
 
-    // const iprojects = await Project.find(projectWhereCondition)
-    //   .sort({ createdOn: -1 })
-    //   .skip(skip)
-    //   .limit(limit);
+    // Set sorting condition based on due date or start date sorting
     let sortCondition;
-
     if (dueDate) {
       sortCondition = { enddate: dueDate === "asc" ? 1 : -1 };
     } else if (dateStartSort) {
       sortCondition = { startdate: dateStartSort === "asc" ? 1 : -1 };
     }
 
+    // Fetch the projects based on the condition
     const iprojects = await Project.find(projectWhereCondition)
       .sort(sortCondition ? sortCondition : { createdOn: -1 })
       .skip(skip)
       .limit(limit)
       .lean();
 
-    const projects = await Promise.all(
-      iprojects.map(async (p) => {
-        const users = await User.find({ _id: { $in: p.projectUsers } }).select(
-          "name"
-        );
-        const createdByUser = await User.findById(p.createdBy).select("name");
-        const tasksCount = await Task.countDocuments({
-          projectId: p._id,
-          isDeleted: false,
-        });
-        const isFavourite = await FavoriteProject.findOne({
-          projectId: p._id,
-          userId,
-        });
+    const projectIds = iprojects.map((p) => p._id);
+    const userIds = [
+      ...new Set(iprojects.flatMap((p) => [...p.projectUsers, p.createdBy])),
+    ];
 
-        return {
-          //...p.toObject(),
-          ...p,
-          tasksCount,
-          isFavourite: !!isFavourite,
-          projectUsers: users.map((user) => user.name),
-          createdBy: createdByUser ? createdByUser.name : "Unknown",
-        };
-      })
+    // Batch user fetch
+    const userDocs = await User.find({ _id: { $in: userIds } })
+      .select("name")
+      .lean();
+    const usersMap = new Map(userDocs.map((u) => [u._id.toString(), u.name]));
+
+    // Batch task count
+    const taskCounts = await Task.aggregate([
+      { $match: { projectId: { $in: projectIds }, isDeleted: false } },
+      { $group: { _id: "$projectId", count: { $sum: 1 } } },
+    ]);
+    const taskCountMap = new Map(
+      taskCounts.map((tc) => [tc._id.toString(), tc.count])
     );
+
+    // Batch favorites
+    const favorites = await FavoriteProject.find({
+      projectId: { $in: projectIds },
+      userId,
+    }).lean();
+    const favoriteSet = new Set(favorites.map((f) => f.projectId.toString()));
+
+    // Map the fetched projects with additional details
+    const projects = iprojects.map((p) => ({
+      ...p,
+      tasksCount: taskCountMap.get(p._id.toString()) || 0,
+      isFavourite: favoriteSet.has(p._id.toString()),
+      projectUsers: (p.projectUsers || []).map((uid) => {
+        const user = usersMap.get(uid?.toString());
+        return user || "Unknown"; // Fallback if null or undefined
+      }),
+      createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
+    }));
 
     return res.json({
       success: true,
@@ -3037,7 +3454,7 @@ exports.allProjects = async (req, res) => {
       Project.find({ companyId, isDeleted: false })
         .skip(skip)
         .limit(limit)
-        .sort({ createdAt: -1 }), 
+        .sort({ createdAt: -1 }),
       Project.countDocuments({ companyId, isDeleted: false }),
     ]);
 
@@ -3046,14 +3463,17 @@ exports.allProjects = async (req, res) => {
       allprojects,
     });
   } catch (error) {
-
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
 exports.allProjectsForGroup = async (req, res) => {
   try {
-    const { companyId, groupId, pagination = { page: 1, limit: 10 } } = req.body;
+    const {
+      companyId,
+      groupId,
+      pagination = { page: 1, limit: 10 },
+    } = req.body;
 
     const { page, limit: rawLimit } = pagination;
     const limit = parseInt(rawLimit, 10);
@@ -3082,7 +3502,6 @@ exports.allProjectsForGroup = async (req, res) => {
     });
   }
 };
-
 
 exports.getProjectTableForGroup = async (req, res) => {
   try {
@@ -3324,7 +3743,7 @@ exports.getProjectTable = async (req, res) => {
     // console.log(pagination, "from pagination");
     let sortOption = {};
 
-    console.log(searchFilter, "from searchfilter")
+    console.log(searchFilter, "from searchfilter");
 
     if (sort === "titleAsc") {
       sortOption = { title: 1 };
@@ -3498,7 +3917,7 @@ exports.getProjectTable = async (req, res) => {
       .sort(sortOption)
       .lean();
 
-    console.log(projects, "from search Filter")
+    console.log(projects, "from search Filter");
 
     res.json({
       success: true,
@@ -3675,7 +4094,6 @@ exports.allProjectsExhibition = async (req, res) => {
     });
   }
 };
-
 
 exports.getProjectExhibitionTable = async (req, res) => {
   try {
