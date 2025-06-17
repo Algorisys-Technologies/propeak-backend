@@ -2026,7 +2026,9 @@ exports.getProjectsKanbanData = async (req, res) => {
         //   }
         // ]);
 
-        let iprojects = await Project.find(projectWhereCondition).limit(10);
+        let iprojects = await Project.find(projectWhereCondition)
+          .limit(10)
+          .select("title createdBy projectUsers");
         return { ...stage.toObject(), projects: iprojects };
       })
     );
@@ -2454,36 +2456,38 @@ exports.getExhibitionKanbanData = async (req, res) => {
           projectWhereCondition.projectUsers = { $in: [userId] };
         }
 
-        let iprojects = await Project.find(projectWhereCondition).limit(10);
+        let iprojects = await Project.find(projectWhereCondition)
+          .limit(10)
+          .select("title createdBy projectUsers");
 
-        let projects = await Promise.all(
-          iprojects.map(async (p) => {
-            const users = await User.find({
-              _id: { $in: p.projectUsers },
-            }).select("name");
-            const createdByUser = await User.findById(p.createdBy).select(
-              "name"
-            );
-            const tasksCount = await Task.countDocuments({
-              projectId: p._id,
-              isDeleted: false,
-            });
+        // let projects = await Promise.all(
+        //   iprojects.map(async (p) => {
+        //     const users = await User.find({
+        //       _id: { $in: p.projectUsers },
+        //     }).select("name");
+        //     const createdByUser = await User.findById(p.createdBy).select(
+        //       "name"
+        //     );
+        //     const tasksCount = await Task.countDocuments({
+        //       projectId: p._id,
+        //       isDeleted: false,
+        //     });
 
-            const isFavourite = await FavoriteProject.findOne({
-              projectId: p._id,
-              userId: userId,
-            });
+        //     const isFavourite = await FavoriteProject.findOne({
+        //       projectId: p._id,
+        //       userId: userId,
+        //     });
 
-            return {
-              ...p.toObject(),
-              tasksCount,
-              isFavourite: !!isFavourite,
-              projectUsers: users.map((user) => user.name),
-              createdBy: createdByUser ? createdByUser.name : "Unknown",
-            };
-          })
-        );
-        return { ...stage.toObject(), projects };
+        //     return {
+        //       ...p.toObject(),
+        //       tasksCount,
+        //       isFavourite: !!isFavourite,
+        //       projectUsers: users.map((user) => user.name),
+        //       createdBy: createdByUser ? createdByUser.name : "Unknown",
+        //     };
+        //   })
+        // );
+        return { ...stage.toObject(), projects: iprojects };
       })
     );
 
@@ -2937,38 +2941,40 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
           projectWhereCondition.projectUsers = { $in: [userId] };
         }
 
-        let iprojects = await Project.find(projectWhereCondition).limit(10);
+        let iprojects = await Project.find(projectWhereCondition)
+          .limit(10)
+          .select("title createdBy projectUsers");
 
-        let projects = await Promise.all(
-          iprojects.map(async (p) => {
-            const users = await User.find({
-              _id: { $in: p.projectUsers },
-            }).select("name");
-            const createdByUser = await User.findById(p.createdBy).select(
-              "name"
-            );
+        // let projects = await Promise.all(
+        //   iprojects.map(async (p) => {
+        //     const users = await User.find({
+        //       _id: { $in: p.projectUsers },
+        //     }).select("name");
+        //     const createdByUser = await User.findById(p.createdBy).select(
+        //       "name"
+        //     );
 
-            const tasksCount = await Task.countDocuments({
-              projectId: p._id,
-              isDeleted: false,
-            });
+        //     const tasksCount = await Task.countDocuments({
+        //       projectId: p._id,
+        //       isDeleted: false,
+        //     });
 
-            const isFavourite = await FavoriteProject.findOne({
-              projectId: p._id,
-              userId: userId,
-            });
+        //     const isFavourite = await FavoriteProject.findOne({
+        //       projectId: p._id,
+        //       userId: userId,
+        //     });
 
-            return {
-              ...p.toObject(),
-              tasksCount,
-              isFavourite: !!isFavourite,
-              projectUsers: users.map((user) => user.name),
-              createdBy: createdByUser ? createdByUser.name : "Unknown",
-            };
-          })
-        );
+        //     return {
+        //       ...p.toObject(),
+        //       tasksCount,
+        //       isFavourite: !!isFavourite,
+        //       projectUsers: users.map((user) => user.name),
+        //       createdBy: createdByUser ? createdByUser.name : "Unknown",
+        //     };
+        //   })
+        // );
 
-        return { ...stage.toObject(), projects };
+        return { ...stage.toObject(), projects: iprojects };
       })
     );
 
