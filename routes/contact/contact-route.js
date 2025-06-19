@@ -1,4 +1,5 @@
-const express = require("express");
+//const express = require("express");
+const express = require("ultimate-express");
 const router = express.Router();
 const verifyToken = require("../../verify-token/verify-token");
 const contactController = require("../../controllers/contact/contact-controller");
@@ -19,10 +20,7 @@ router.post(
   //  checkRole,
   contactController.getAllContact
 );
-router.post(
-  "/",
-  contactController.getContacts
-);
+router.post("/", contactController.getContacts);
 // CREATE
 router.post(
   "/addContact",
@@ -47,11 +45,6 @@ router.post(
   // verifyToken,
   contactController.updateVisitingCardsStatus
 );
-
-
-
-
-
 
 // UPDATE
 router.post(

@@ -1,4 +1,5 @@
-const express = require("express");
+//const express = require("express");
+const express = require("ultimate-express");
 const router = express.Router();
 const notificationSettingController = require("../../controllers/notification-setting/notification-setting-controller");
 const notificationController = require("../../controllers/notification-setting/notifications-controller");

@@ -1,4 +1,5 @@
-const express = require("express");
+//const express = require("express");
+const express = require("ultimate-express");
 const router = express.Router();
 const verifyToken = require("../../verify-token/verify-token");
 const verifyAppLevelAccess = require("../../verify-app-level-access/verify-app-level-access");
@@ -213,7 +214,10 @@ router.post(
 router.get("/allProjects", projectController.getProjects);
 router.put("/updateStage", projectController.updateStage);
 router.post("/getProjectsCalendar", projectController.getProjectsCalendar);
-router.post("/getProjectsExhibitionCalendar", projectController.getProjectsExhibitionCalendar);
+router.post(
+  "/getProjectsExhibitionCalendar",
+  projectController.getProjectsExhibitionCalendar
+);
 router.post("/allProjects", projectController.allProjects);
 router.post("/getProjectTable", projectController.getProjectTable);
 router.get(
@@ -221,9 +225,18 @@ router.get(
   projectController.getGroupIdOfProject
 );
 router.post("/selectedDelete", projectController.deleteSelectedProjects);
-router.post("/selectedDeleteExhibition", projectController.selectedDeleteExhibition);
+router.post(
+  "/selectedDeleteExhibition",
+  projectController.selectedDeleteExhibition
+);
 router.post("/allProjectsExhibition", projectController.allProjectsExhibition);
-router.post("/getProjectExhibitionTable", projectController.getProjectExhibitionTable);
+router.post(
+  "/getProjectExhibitionTable",
+  projectController.getProjectExhibitionTable
+);
 router.post("/allProjectsForGroup", projectController.allProjectsForGroup);
-router.post("/getProjectTableForGroup", projectController.getProjectTableForGroup);
+router.post(
+  "/getProjectTableForGroup",
+  projectController.getProjectTableForGroup
+);
 module.exports = router;

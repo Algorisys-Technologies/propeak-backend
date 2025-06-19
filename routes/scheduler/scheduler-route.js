@@ -1,9 +1,13 @@
-const express = require('express');
+//const express = require('express');
+const express = require("ultimate-express");
 const router = express.Router();
-var schedulerController = require('../../controllers/scheduler/scheduler-controller');
+var schedulerController = require("../../controllers/scheduler/scheduler-controller");
 const verifyToken = require("../../verify-token/auto-verify-token");
 
-router.get('/getdata',verifyToken, schedulerController.getTaskStatusDataScheduler);
-
+router.get(
+  "/getdata",
+  verifyToken,
+  schedulerController.getTaskStatusDataScheduler
+);
 
 module.exports = router;

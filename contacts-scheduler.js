@@ -1,13 +1,12 @@
 const rabbitMQ = require("./rabbitmq/index.js");
 // const fetch = require("node-fetch");
-const express = require("express");
+//const express = require("express");
 const fs = require("fs").promises; // Use the promises API of fs
 const schedule = require("node-schedule");
 const config = require("./config.js");
 const { logError, logInfo } = require("./common/logger.js");
 const contactModel = require("./models/contact/contact-model.js");
 require("dotenv").config();
-
 
 // try {
 //   const j = schedule.scheduleJob(config.contactsSchedule, function () {
@@ -281,10 +280,7 @@ try {
 
                 contacts.push(contact);
               } catch (error) {
-                console.error(
-                  "Error processing contact:",
-                  error
-                );
+                console.error("Error processing contact:", error);
               }
             });
 
