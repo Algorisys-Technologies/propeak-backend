@@ -3906,7 +3906,11 @@ exports.getProjectTable = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .populate("userid", "name")
-      .populate("group", "name")
+      .populate({
+        path: "group",
+        select: "name",
+        match: { _id: { $exists: true } }, // skip invalid _id
+      })
       .populate("projectTypeId", "projectType")
       .populate({
         path: "projectUsers",
