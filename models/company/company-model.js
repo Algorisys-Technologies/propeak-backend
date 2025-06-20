@@ -28,9 +28,23 @@ const CompanySchema = new mongoose.Schema(
     isDeleted: {
       type: Boolean,
     },
-    trackingInterval : {
-      type: Number
-    }
+    trackingInterval: {
+      type: Number,
+    },
+    geoTrackingTime: {
+      startHour: {
+        type: Number,
+        min: 0,
+        max: 23,
+        default: 9,
+      },
+      endHour: {
+        type: Number,
+        min: 0,
+        max: 23,
+        default: 18,
+      },
+    },
   },
   { collection: "company" },
   {

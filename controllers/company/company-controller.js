@@ -15,7 +15,8 @@ exports.createCompany = async (req, res) => {
       contact,
       numberOfUsers,
       trackingInterval,
-      logo
+      logo,
+      geoTrackingTime,
     } = req.body;
     // console.log(req.body, "request body response ");
     // Validate required fields
@@ -35,7 +36,11 @@ exports.createCompany = async (req, res) => {
       numberOfUsers,
       trackingInterval,
       isDeleted: false, // Set default value for isDeleted
-      logo
+      logo,
+      geoTrackingTime: {
+        startHour: geoTrackingTime?.startHour ?? 9,
+        endHour: geoTrackingTime?.endHour ?? 18,
+      },
     });
 
     await newCompany.save();
@@ -55,9 +60,9 @@ exports.getAllCompanies = async (req, res) => {
         $match: {
           isDeleted: false,
           ...(query && {
-            companyName: { $regex: query, $options: "i" }
-          })
-        }
+            companyName: { $regex: query, $options: "i" },
+          }),
+        },
       },
       {
         $lookup: {
@@ -69,19 +74,19 @@ exports.getAllCompanies = async (req, res) => {
                 $expr: {
                   $and: [
                     { $eq: [{ $toObjectId: "$companyId" }, "$$companyId"] },
-                    { $ne: ["$isDeleted", true] }
-                  ]
-                }
-              }
-            }
+                    { $ne: ["$isDeleted", true] },
+                  ],
+                },
+              },
+            },
           ],
-          as: "users"
-        }
+          as: "users",
+        },
       },
       {
         $addFields: {
-          userCount: { $size: "$users" }
-        }
+          userCount: { $size: "$users" },
+        },
       },
       {
         $project: {
@@ -89,9 +94,9 @@ exports.getAllCompanies = async (req, res) => {
           companyName: 1,
           companyCode: 1,
           userCount: 1,
-          createdAt: 1 
-        }
-      }
+          createdAt: 1,
+        },
+      },
     ]);
 
     if (result.length === 0) {
@@ -172,19 +177,19 @@ exports.deleteCompany = async (req, res) => {
   console.log("Attempting to delete company with ID:", id);
 
   try {
-      const deletedCompany = await Company.findOneAndUpdate(
-        { _id: id },
-        { isDeleted: true },
-        { new: true }
-      );
+    const deletedCompany = await Company.findOneAndUpdate(
+      { _id: id },
+      { isDeleted: true },
+      { new: true }
+    );
 
-        console.log(deletedCompany, "deletedCompany............");
+    console.log(deletedCompany, "deletedCompany............");
 
-        if (!deletedCompany) {
-          return res
-            .status(404)
-            .json({ success: false, error: "Company not found." });
-      }
+    if (!deletedCompany) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Company not found." });
+    }
     return res.status(204).send();
   } catch (error) {
     console.error("Error deleting company:", error);
@@ -202,16 +207,15 @@ exports.getCompaniesByEmail = async (req, res) => {
         .status(400)
         .json({ success: false, error: "Email is required." });
     }
-    const users = await userModel.find({email: email})
-    
+    const users = await userModel.find({ email: email });
 
     // Extract all unique org_ids from the user's documents
     const companyIds = [...new Set(users.map((user) => user.companyId))];
 
     // Find all organization documents that match the org_ids
-    const companies = await Company.find({ _id: { $in: companyIds } })
-    
-    console.log(companies)
+    const companies = await Company.find({ _id: { $in: companyIds } });
+
+    console.log(companies);
     // Assuming contact field holds email
 
     if (companies.length === 0) {
