@@ -90,6 +90,11 @@ router.post(
   reportsController.getUserPerformanceReport
 );
 
+router.post(
+  "/sendNotificationAndEmailForLocation",
+  reportsController.sendNotificationAndEmailForLocation
+);
+
 router.post("/generate", reportsController.generateExport);
 
 module.exports = router;

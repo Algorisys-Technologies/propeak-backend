@@ -2186,3 +2186,67 @@ exports.getUserPerformanceReport = (req, res) => {
     res.json({ err: error.message });
   }
 };
+
+exports.sendNotificationAndEmailForLocation = async (req, res) => {
+  try {
+    console.log("req.body sendNotificationAndEmailForLocation", req.body);
+    const { userId, companyId, location, timestamp = new Date() } = req.body;
+
+    const user = await User.findById(userId);
+    const email = user?.email;
+
+    if (!email) {
+      return res.status(400).json({ error: "User email not found" });
+    }
+
+    const formattedTime = new Date(timestamp).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour12: true,
+    });
+
+    // Email content
+    const emailHtml = `
+      <p>Hello,</p>
+      <p>Your location has been tracked successfully.</p>
+      <p><strong>Location:</strong> ${location}</p>
+      <p><strong>Time:</strong> ${formattedTime}</p>
+    `;
+
+    const mailOptions = {
+      from: config.from,
+      to: email,
+      subject: `Location Tracked at ${formattedTime}`,
+      html: emailHtml,
+    };
+
+    // Send email via RabbitMQ
+    await rabbitMQ.sendMessageToQueue(mailOptions, "message_queue", "msgRoute");
+
+    // In-app user notification
+    await addMyNotification({
+      subject: `Your location was tracked at ${formattedTime}`,
+      url: "",
+      userId,
+    });
+
+    // System notification
+    await handleNotifications(
+      {
+        title: `Location Tracked`,
+        description: `Location: <strong>${location}</strong><br/>Time: ${formattedTime}`,
+        createdBy: userId,
+        userId,
+        projectId: null,
+        companyId,
+      },
+      "LOCATION_TRACKED"
+    );
+
+    return res.status(200).json({
+      message: "Location notification and email sent successfully.",
+    });
+  } catch (error) {
+    console.error("Error sending location notification/email:", error);
+    return res.status(500).json({ error: "Failed to send notification/email" });
+  }
+};
