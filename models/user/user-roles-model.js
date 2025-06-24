@@ -4,15 +4,19 @@ const mongoose = require('mongoose');
 const UserRoleSchema = new mongoose.Schema({
   roleId: {
     type: mongoose.Types.ObjectId,
-    ref: "role"
+    ref: "role",
+    index: true
   },
   userId: {
     type: mongoose.Types.ObjectId,
-    ref: "user"
+    ref: "user",
+    index: true,
   }
 }, {
   versionKey: false
 });
+
+UserRoleSchema.index({ userId: 1, roleId: 1 }, { unique: true });
 
 // Use the unique validator plugin
 // UserSchema.plugin(unique, { message: 'That {PATH} is already taken.' });

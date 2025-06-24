@@ -135,6 +135,29 @@ UserSchema.methods.comparePassword = function (candidatePassword, cb) {
   // });
 };
 
+UserSchema.index({ companyId: 1 }); 
+UserSchema.index({ reportingManagerId: 1 }); 
+UserSchema.index({ isActive: 1, isDeleted: 1 }); 
+UserSchema.index({ role: 1 }); 
+UserSchema.index({ isGeoTrackingEnabled: 1 }); 
+UserSchema.index({ resetPasswordToken: 1 }, { sparse: true }); 
+UserSchema.index({ companyId: 1, role: 1 }); 
+UserSchema.index({ 
+  currentLocation: '2dsphere' 
+});
+UserSchema.index(
+  { email: 1, companyId: 1, isActive: 1 },
+  { name: 'login_performance' }
+);
+
+UserSchema.index(
+  { email: 1, companyId: 1 },
+  { 
+    unique: true,
+    partialFilterExpression: { isActive: true },
+    name: 'unique_active_email_per_company' 
+  }
+);
 
 const User = module.exports = mongoose.model('user', UserSchema);
 

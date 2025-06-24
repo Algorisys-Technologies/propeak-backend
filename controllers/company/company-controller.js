@@ -203,15 +203,20 @@ exports.getCompaniesByEmail = async (req, res) => {
         .json({ success: false, error: "Email is required." });
     }
     const users = await userModel.find({email: email})
+    .select('companyId')
+    .lean();
     
 
     // Extract all unique org_ids from the user's documents
     const companyIds = [...new Set(users.map((user) => user.companyId))];
 
     // Find all organization documents that match the org_ids
-    const companies = await Company.find({ _id: { $in: companyIds } })
+    const companies = await Company.find({ 
+      _id: { $in: companyIds },
+      isDeleted: {$ne: true }
+    }).select('companyName logo contact')
     
-    console.log(companies)
+    // console.log(companies)
     // Assuming contact field holds email
 
     if (companies.length === 0) {
