@@ -9,8 +9,6 @@ const CompanySchema = new mongoose.Schema(
     },
     companyCode: {
       type: String,
-      unique: true,
-      sparse: true
     },
     country: {
       type: String,
