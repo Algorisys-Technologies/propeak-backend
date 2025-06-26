@@ -19,7 +19,7 @@ exports.getNotifications = async (req, res) => {
     const limit = 5;
 
     if (!companyId || !userId) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: "Company ID and User ID are required",
       });

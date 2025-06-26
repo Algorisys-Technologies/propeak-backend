@@ -81,4 +81,15 @@ const UserNotificationSchema = new mongoose.Schema(
   { versionKey: false }
 );
 
+UserNotificationSchema.index({ userId: 1, read: 1, createdOn: -1 });
+UserNotificationSchema.index({ userId: 1, read: 1 });
+UserNotificationSchema.index({ projectId: 1, createdOn: -1 });
+UserNotificationSchema.index({ taskId: 1, createdOn: -1 });
+UserNotificationSchema.index({ companyId: 1, createdOn: -1 });
+UserNotificationSchema.index({ category: 1, createdOn: -1 });
+UserNotificationSchema.index({ userId: 1, category: 1, createdOn: -1 });
+UserNotificationSchema.index({ active: 1, isDeleted: 1 });
+UserNotificationSchema.index({ eventType: 1, createdOn: -1 });
+UserNotificationSchema.index({ notifyRoleNames: 1, createdOn: -1 });
+
 module.exports = mongoose.model("UserNotification", UserNotificationSchema);

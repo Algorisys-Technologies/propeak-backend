@@ -43,5 +43,10 @@ const GroupMasterSchema = new mongoose.Schema(
   { versionKey: false }
 );
 
+GroupMasterSchema.index({ companyId: 1, isDeleted: 1 });
+GroupMasterSchema.index({ name: "text" });
+GroupMasterSchema.index({ companyId: 1, name: 1 });
+GroupMasterSchema.index({ createdBy: 1 });
+GroupMasterSchema.index({ showInMenu: 1 });
 const GroupMaster = mongoose.model("groupMaster", GroupMasterSchema);
 module.exports = GroupMaster;

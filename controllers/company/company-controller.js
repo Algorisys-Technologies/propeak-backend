@@ -27,6 +27,15 @@ exports.createCompany = async (req, res) => {
       });
     }
 
+    const exists = await Company.findOne({
+      $or: [{ companyName }, { companyCode }],
+    });
+    // if(exists){
+    //   return res.status(200).json({
+    //     success: false,
+    //     message: "Company Already exists!",
+    //   });
+    // }
     const newCompany = new Company({
       companyName,
       companyCode,
@@ -207,15 +216,21 @@ exports.getCompaniesByEmail = async (req, res) => {
         .status(400)
         .json({ success: false, error: "Email is required." });
     }
-    const users = await userModel.find({ email: email });
+    const users = await userModel
+      .find({ email: email })
+      .select("companyId")
+      .lean();
 
     // Extract all unique org_ids from the user's documents
     const companyIds = [...new Set(users.map((user) => user.companyId))];
 
     // Find all organization documents that match the org_ids
-    const companies = await Company.find({ _id: { $in: companyIds } });
+    const companies = await Company.find({
+      _id: { $in: companyIds },
+      isDeleted: { $ne: true },
+    }).select("companyName logo contact");
 
-    console.log(companies);
+    // console.log(companies)
     // Assuming contact field holds email
 
     if (companies.length === 0) {

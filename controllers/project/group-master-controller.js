@@ -39,7 +39,7 @@ const getGroups = async (req, res) => {
   const { q } = req.query;
   if (!mongoose.Types.ObjectId.isValid(companyId)) {
     return res
-      .status(400)
+      .status(200)
       .json({ success: false, message: "Invalid companyId" });
   }
 

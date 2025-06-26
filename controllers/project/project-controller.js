@@ -1825,53 +1825,54 @@ exports.getProjectTypes = async (req, res) => {
 
 exports.getProjectsByCompanyId = async (req, res) => {
   try {
-    // const projects = await Project.find({
-    //   isDeleted: false,
-    //   companyId: req.params.companyId,
-    // });
-    const totalProjects = await Project.countDocuments({
-      isDeleted: false,
-      companyId: req.params.companyId,
-    });
-
-    const result = await Project.aggregate([
-      {
-        $match: {
-          isDeleted: false,
-          companyId: req.params.companyId,
+    // Run both queries in parallel
+    const [totalProjects, userCount] = await Promise.all([
+      Project.countDocuments({
+        isDeleted: false,
+        companyId: req.params.companyId
+      }),
+      
+      Project.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            companyId: req.params.companyId,
+            projectUsers: { $exists: true, $not: { $size: 0 } } // Filter upfront
+          }
         },
-      },
-      {
-        $project: {
-          projectUsers: 1,
+        {
+          $project: {
+            projectUsers: 1,
+            _id: 0
+          }
         },
-      },
-      {
-        $unwind: "$projectUsers",
-      },
-      {
-        $match: {
-          projectUsers: { $ne: null }, // Remove nulls
+        {
+          $unwind: "$projectUsers"
         },
-      },
-      {
-        $group: {
-          _id: "$projectUsers",
+        {
+          $group: {
+            _id: null,
+            uniqueUsers: { $addToSet: "$projectUsers" }
+          }
         },
-      },
-      {
-        $count: "uniqueProjectUsersCount",
-      },
+        {
+          $project: {
+            count: { $size: "$uniqueUsers" }
+          }
+        }
+      ])
     ]);
+
     return res.json({
       success: true,
       projectTotal: totalProjects,
-      projectMembers: result[0]?.uniqueProjectUsersCount,
+      projectMembers: userCount[0]?.count || 0
     });
   } catch (e) {
-    return res.json({
+    console.error("Error in getProjectsByCompanyId:", e);
+    return res.status(500).json({
       success: false,
-      message: e.message,
+      message: "Server error"
     });
   }
 };

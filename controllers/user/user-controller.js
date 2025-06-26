@@ -602,8 +602,9 @@ exports.getProfilePicture = (req, res) => {
 exports.checkUser = async (req, res) => {
   try {
     console.log("BODY", req.body);
-    const user = await User.findOne({ email: req.body.email });
-    console.log(user);
+    const user = await User.findOne({ email: req.body.email })
+    .select('_id email companyId isActive')
+    .lean();
     if (user) {
       return res.json({ success: true, user: user });
     } else {
