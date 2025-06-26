@@ -44,5 +44,7 @@ const MeetingSchema = new mongoose.Schema(
 );
 
 MeetingSchema.index({ projectId: 1, companyId: 1 });
+MeetingSchema.index({ userId: 1 });
+MeetingSchema.index({ isDeleted: 1 });
 
 module.exports = mongoose.model("Meeting", MeetingSchema);

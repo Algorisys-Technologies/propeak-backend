@@ -26,6 +26,18 @@ exports.createCompany = async (req, res) => {
       });
     }
 
+    const exists = await Company.findOne({ 
+      $or: [
+        { companyName },
+        { companyCode }
+      ]
+    });
+    // if(exists){
+    //   return res.status(200).json({
+    //     success: false,
+    //     message: "Company Already exists!",
+    //   });
+    // }
     const newCompany = new Company({
       companyName,
       companyCode,

@@ -92,4 +92,7 @@ const ContactSchema = new mongoose.Schema({
     }
 });
 
+ContactSchema.index({ companyId: 1 });
+ContactSchema.index({ isDeleted: 1 });
+ContactSchema.index({ created_on: -1 })
 module.exports = mongoose.model("contact", ContactSchema);
