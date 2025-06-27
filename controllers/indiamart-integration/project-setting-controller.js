@@ -541,6 +541,19 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           console.log("users...", users);
 
           console.log("Existing Project:", existingProject);
+          const projectUsers = Array.from(
+            new Set(
+              [
+                new mongoose.Types.ObjectId(userId),
+                new mongoose.Types.ObjectId(projectOwnerId),
+                new mongoose.Types.ObjectId(notifyUserId),
+                users[0]?._id, // This one is already an ObjectId
+              ]
+                .filter(Boolean)
+                .map((id) => id.toString())
+            ),
+            (idStr) => new mongoose.Types.ObjectId(idStr)
+          );
 
           if (!existingProject) {
             existingProject = new Project({
@@ -565,12 +578,13 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               miscellaneous: false,
               archive: false,
               customFieldValues: {},
-              projectUsers: [
-                new mongoose.Types.ObjectId(userId),
-                new mongoose.Types.ObjectId(projectOwnerId),
-                new mongoose.Types.ObjectId(notifyUserId),
-                users[0]?._id || null,
-              ],
+              // projectUsers: [
+              //   new mongoose.Types.ObjectId(userId),
+              //   new mongoose.Types.ObjectId(projectOwnerId),
+              //   new mongoose.Types.ObjectId(notifyUserId),
+              //   users[0]?._id || null,
+              // ],
+              projectUsers: projectUsers,
               notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
               messages: [],
               uploadFiles: [],
@@ -769,6 +783,19 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         console.log("users...", users);
 
         // console.log("existingProject", existingProject);
+        const projectUsers = Array.from(
+          new Set(
+            [
+              new mongoose.Types.ObjectId(userId),
+              new mongoose.Types.ObjectId(projectOwnerId),
+              new mongoose.Types.ObjectId(notifyUserId),
+              users[0]?._id, // This one is already an ObjectId
+            ]
+              .filter(Boolean)
+              .map((id) => id.toString())
+          ),
+          (idStr) => new mongoose.Types.ObjectId(idStr)
+        );
 
         if (!existingProject) {
           existingProject = new Project({
@@ -796,12 +823,13 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             customFieldValues: {
               address: lead.address,
             },
-            projectUsers: [
-              new mongoose.Types.ObjectId(userId),
-              new mongoose.Types.ObjectId(projectOwnerId),
-              new mongoose.Types.ObjectId(notifyUserId),
-              users[0]?._id || null,
-            ],
+            // projectUsers: [
+            //   new mongoose.Types.ObjectId(userId),
+            //   new mongoose.Types.ObjectId(projectOwnerId),
+            //   new mongoose.Types.ObjectId(notifyUserId),
+            //   users[0]?._id || null,
+            // ],
+            projectUsers: projectUsers,
             notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
             messages: [],
             uploadFiles: [],
