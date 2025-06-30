@@ -168,54 +168,59 @@ exports.getStatusOptions = (req, res) => {
 exports.getProjectByProjectId = (req, res) => {
   Project.findById({
     _id: new mongoose.Types.ObjectId(req.params.projectId),
-  }).then(
-    (result) => {
-      let messages = result.messages.filter((r) => {
-        return r.isDeleted === false;
-      });
-      let uploadFiles = result.uploadFiles.filter((r) => {
-        return r.isDeleted === false;
-      });
-      let data = {
-        _id: result._id,
-        title: result.title,
-        description: result.description,
-        startdate: result.startdate,
-        enddate: result.enddate,
-        status: result.status,
-        taskStages: result.taskStages,
-        projectStageId: result.projectStageId,
-        group: result.group,
-        userid: result.userid,
-        companyId: result.companyId,
-        userGroups: result.userGroups,
-        sendnotification: result.sendnotification,
-        createdBy: result.createdBy,
-        createdOn: result.createdOn,
-        modifiedBy: result.modifiedBy,
-        modifiedOn: result.modifiedOn,
-        isDeleted: result.isDeleted,
-        projectUsers: result.projectUsers,
-        notifyUsers: result.notifyUsers,
-        miscellaneous: result.miscellaneous,
-        archive: result.archive,
-        customFieldValues: result.customFieldValues,
-        projectTypeId: result.projectTypeId,
-        tag: result.tag,
-        projectType: result.projectType,
-      };
-      // logInfo("getProjectByProjectId before return response");
-      res.json({
-        data: data,
-        messages: messages,
-        uploadFiles: uploadFiles,
-      });
-    },
-    (err) => {
-      logError("getProjectByProjectId err ", err);
-      res.json(err);
-    }
-  );
+  })
+    .populate({
+      path: "projectTypeId",
+      select: "projectType",
+    })
+    .then(
+      (result) => {
+        let messages = result.messages.filter((r) => {
+          return r.isDeleted === false;
+        });
+        let uploadFiles = result.uploadFiles.filter((r) => {
+          return r.isDeleted === false;
+        });
+        let data = {
+          _id: result._id,
+          title: result.title,
+          description: result.description,
+          startdate: result.startdate,
+          enddate: result.enddate,
+          status: result.status,
+          taskStages: result.taskStages,
+          projectStageId: result.projectStageId,
+          group: result.group,
+          userid: result.userid,
+          companyId: result.companyId,
+          userGroups: result.userGroups,
+          sendnotification: result.sendnotification,
+          createdBy: result.createdBy,
+          createdOn: result.createdOn,
+          modifiedBy: result.modifiedBy,
+          modifiedOn: result.modifiedOn,
+          isDeleted: result.isDeleted,
+          projectUsers: result.projectUsers,
+          notifyUsers: result.notifyUsers,
+          miscellaneous: result.miscellaneous,
+          archive: result.archive,
+          customFieldValues: result.customFieldValues,
+          projectTypeId: result.projectTypeId,
+          tag: result.tag,
+          projectType: result.projectType,
+        };
+        // logInfo("getProjectByProjectId before return response");
+        res.json({
+          data: data,
+          messages: messages,
+          uploadFiles: uploadFiles,
+        });
+      },
+      (err) => {
+        logError("getProjectByProjectId err ", err);
+        res.json(err);
+      }
+    );
 };
 
 //Get Project With Task
@@ -1829,50 +1834,50 @@ exports.getProjectsByCompanyId = async (req, res) => {
     const [totalProjects, userCount] = await Promise.all([
       Project.countDocuments({
         isDeleted: false,
-        companyId: req.params.companyId
+        companyId: req.params.companyId,
       }),
-      
+
       Project.aggregate([
         {
           $match: {
             isDeleted: false,
             companyId: req.params.companyId,
-            projectUsers: { $exists: true, $not: { $size: 0 } } // Filter upfront
-          }
+            projectUsers: { $exists: true, $not: { $size: 0 } }, // Filter upfront
+          },
         },
         {
           $project: {
             projectUsers: 1,
-            _id: 0
-          }
+            _id: 0,
+          },
         },
         {
-          $unwind: "$projectUsers"
+          $unwind: "$projectUsers",
         },
         {
           $group: {
             _id: null,
-            uniqueUsers: { $addToSet: "$projectUsers" }
-          }
+            uniqueUsers: { $addToSet: "$projectUsers" },
+          },
         },
         {
           $project: {
-            count: { $size: "$uniqueUsers" }
-          }
-        }
-      ])
+            count: { $size: "$uniqueUsers" },
+          },
+        },
+      ]),
     ]);
 
     return res.json({
       success: true,
       projectTotal: totalProjects,
-      projectMembers: userCount[0]?.count || 0
+      projectMembers: userCount[0]?.count || 0,
     });
   } catch (e) {
     console.error("Error in getProjectsByCompanyId:", e);
     return res.status(500).json({
       success: false,
-      message: "Server error"
+      message: "Server error",
     });
   }
 };
@@ -3701,7 +3706,7 @@ exports.getProjectTableForGroup = async (req, res) => {
       .populate({
         path: "group",
         select: "name",
-        match: { _id: { $exists: true } }, 
+        match: { _id: { $exists: true } },
       })
       .populate("projectTypeId", "projectType")
       .populate({
