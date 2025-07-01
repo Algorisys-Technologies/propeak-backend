@@ -23,7 +23,7 @@ const {
   fetchEmailScheduleEvery10Min,
 } = require("./config");
 const fetchLeads = require("./webscrape");
-schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
+schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
