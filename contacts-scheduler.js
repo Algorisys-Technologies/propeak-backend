@@ -238,7 +238,7 @@ try {
                   companyId,
                   first_name: extractDetail.first_name,
                   last_name: extractDetail.last_name,
-                  file_name: extractDetail.file_name,
+                  file_name: extractDetail.filename,
                   email: extractDetail.email_address.join(","),
                   phone:
                     typeof extractDetail.phone_numbers === "object"
