@@ -23,7 +23,7 @@ const {
   fetchEmailScheduleEvery10Min,
 } = require("./config");
 const fetchLeads = require("./webscrape");
-schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
+schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
@@ -97,12 +97,30 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
 
           for (const lead of leadsData) {
             // Check if a project already exists for the same SENDER_NAME
-            let existingProject = await Project.findOne({
+            // let existingProject = await Project.findOne({
+            //   companyId,
+            //   group: new mongoose.Types.ObjectId(groupId),
+            //   title: lead.SENDER_COMPANY,
+            //   isDeleted: false,
+            // });
+
+            const projectTitle =
+              lead.SENDER_COMPANY?.trim() ||
+              lead.SENDER_NAME ||
+              `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+
+            let projectQuery = {
               companyId,
               group: new mongoose.Types.ObjectId(groupId),
-              title: lead.SENDER_COMPANY,
+              title: projectTitle,
               isDeleted: false,
-            });
+            };
+
+            if (lead.address) {
+              projectQuery["customFieldValues.address"] = lead.address;
+            }
+
+            let existingProject = await Project.findOne(projectQuery);
 
             const regex = new RegExp(lead.label, "i");
 
@@ -132,7 +150,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 companyId,
                 title: lead.SENDER_COMPANY,
                 description: lead.SENDER_COMPANY,
-                startdate: new Date(),
+                startdate: lead.QUERY_TIME,
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
@@ -147,7 +165,13 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
-                customFieldValues: {},
+                customFieldValues: {
+                  address: `${lead.SENDER_ADDRESS}, 
+                City: ${lead.SENDER_CITY}, 
+                State: ${lead.SENDER_STATE}, 
+                Pincode: ${lead.SENDER_PINCODE}, 
+                Country: ${lead.SENDER_COUNTRY_ISO}`,
+                },
                 // projectUsers: [
                 //   new mongoose.Types.ObjectId(userId),
                 //   new mongoose.Types.ObjectId(projectOwnerId),
@@ -208,7 +232,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               lead_source: "INDIAMART",
               userId: users[0]?._id || null,
               customFieldValues: {
-                date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
+                //date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
+                date: moment(lead.QUERY_TIME).format("DD/MM/YYYY"),
                 name: lead.SENDER_NAME,
                 mobile_number: lead.SENDER_MOBILE,
                 mobile_number_alt: lead.SENDER_MOBILE_ALT,
@@ -305,12 +330,25 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
 
           for (const lead of leadsData) {
             // Check if a project already exists for the same SENDER_NAME
-            let existingProject = await Project.findOne({
+            // let existingProject = await Project.findOne({
+            //   companyId,
+            //   group: new mongoose.Types.ObjectId(groupId),
+            //   title: lead.name,
+            //   isDeleted: false,
+            // });
+
+            let projectQuery = {
               companyId,
               group: new mongoose.Types.ObjectId(groupId),
               title: lead.name,
               isDeleted: false,
-            });
+            };
+
+            if (lead.address) {
+              projectQuery["customFieldValues.address"] = lead.address;
+            }
+
+            let existingProject = await Project.findOne(projectQuery);
 
             const regex = new RegExp(lead.label, "i");
 
@@ -358,7 +396,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
-                customFieldValues: {},
+                customFieldValues: { address: lead.address },
                 // projectUsers: [
                 //   new mongoose.Types.ObjectId(userId),
                 //   new mongoose.Types.ObjectId(projectOwnerId),
