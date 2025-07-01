@@ -185,7 +185,7 @@ try {
             // Wait for all promises to complete
             await Promise.all(promises);
             const extractResponse = await fetch(
-              `http://142.93.222.95:5001/card-extractions`,
+              `http://94.136.186.31:5001/card-extractions`,
               {
                 method: "POST",
                 body: formDataToSend,
@@ -197,7 +197,7 @@ try {
 
             if (!extractResponse.ok) {
               console.log(extractResponse);
-              await fetch(`http://142.93.222.95:5001/reset_usage`, {
+              await fetch(`http://94.136.186.31:5001/reset_usage`, {
                 method: "POST",
                 body: {},
                 headers: {
@@ -215,7 +215,7 @@ try {
             const extractDetails = await extractResponse.json();
 
             if (extractDetails.error) {
-              await fetch(`http://142.93.222.95:5001/reset_usage`, {
+              await fetch(`http://94.136.186.31:5001/reset_usage`, {
                 method: "POST",
                 body: {},
                 headers: {
