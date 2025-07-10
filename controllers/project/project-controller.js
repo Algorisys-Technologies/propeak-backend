@@ -2412,16 +2412,93 @@ exports.getKanbanProjectsData = async (req, res) => {
     }).lean();
     const favoriteSet = new Set(favorites.map((f) => f.projectId.toString()));
 
-    const projects = iprojects.map((p) => ({
-      ...p,
-      tasksCount: taskCountMap.get(p._id.toString()) || 0,
-      isFavourite: favoriteSet.has(p._id.toString()),
-      projectUsers: (p.projectUsers || []).map((uid) => {
-        const user = usersMap.get(uid?.toString());
-        return user || "Unknown"; // Fallback if null or undefined
-      }),
-      createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
-    }));
+    // const projects = iprojects.map((p) => ({
+    //   ...p,
+    //   tasksCount: taskCountMap.get(p._id.toString()) || 0,
+    //   isFavourite: favoriteSet.has(p._id.toString()),
+    //   projectUsers: (p.projectUsers || []).map((uid) => {
+    //     const user = usersMap.get(uid?.toString());
+    //     return user || "Unknown"; // Fallback if null or undefined
+    //   }),
+    //   createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
+    // }));
+
+    const taskStageStats = await Task.aggregate([
+      {
+        $match: {
+          isDeleted: false,
+          projectId: { $in: projectIds }
+        }
+      },
+      {
+        $group: {
+          _id: "$projectId",
+          total: { $sum: 1 },
+          completed: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "completed"] }, 1, 0]
+            }
+          },
+          inProgress: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "inProgress"] }, 1, 0]
+            }
+          },
+          todo: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "todo"] }, 1, 0]
+            }
+          },
+          customStages: {
+            $push: {
+              $cond: [
+                { $in: ["$status", ["todo", "inProgress", "completed"]] },
+                "$$REMOVE",
+                "$status"
+              ]
+            }
+          }
+        }
+      }
+    ]);    
+    
+    const stageStatsMap = new Map();
+
+    for (const stat of taskStageStats) {
+      stageStatsMap.set(stat._id.toString(), {
+        total: stat.total || 0,
+        completed: stat.completed || 0,
+        inProgress: stat.inProgress || 0,
+        todo: stat.todo || 0,
+        customStages: stat.customStages || []
+      });
+    }
+
+
+    const projects = iprojects.map((project) => {
+      const projectId = project._id.toString();
+      const stageData = stageStatsMap.get(projectId) || {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        todo: 0,
+        customStages: []
+      };
+    
+      const { total, completed } = stageData;
+    
+      return {
+        ...project,
+        tasksCount: total,
+        progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+        stageBreakdown: stageData,
+        isFavourite: favoriteSet.has(projectId),
+        projectUsers: (project.projectUsers || []).map(
+          (uid) => usersMap.get(uid?.toString()) || "Unknown"
+        ),
+        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown"
+      };
+    });    
 
     return res.json({
       success: true,
@@ -2885,16 +2962,94 @@ exports.getKanbanExhibitionData = async (req, res) => {
     }).lean();
     const favoriteSet = new Set(favorites.map((f) => f.projectId.toString()));
 
-    const projects = projectsRaw.map((p) => ({
-      ...p,
-      tasksCount: taskCountMap.get(p._id.toString()) || 0,
-      isFavourite: favoriteSet.has(p._id.toString()),
-      projectUsers: (p.projectUsers || []).map((uid) => {
-        const user = usersMap.get(uid?.toString());
-        return user || "Unknown"; // Fallback if null or undefined
-      }),
-      createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
-    }));
+    // const projects = projectsRaw.map((p) => ({
+    //   ...p,
+    //   tasksCount: taskCountMap.get(p._id.toString()) || 0,
+    //   isFavourite: favoriteSet.has(p._id.toString()),
+    //   projectUsers: (p.projectUsers || []).map((uid) => {
+    //     const user = usersMap.get(uid?.toString());
+    //     return user || "Unknown"; // Fallback if null or undefined
+    //   }),
+    //   createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
+    // }));
+
+
+    const taskStageStats = await Task.aggregate([
+      {
+        $match: {
+          isDeleted: false,
+          projectId: { $in: projectIds }
+        }
+      },
+      {
+        $group: {
+          _id: "$projectId",
+          total: { $sum: 1 },
+          completed: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "completed"] }, 1, 0]
+            }
+          },
+          inProgress: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "inProgress"] }, 1, 0]
+            }
+          },
+          todo: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "todo"] }, 1, 0]
+            }
+          },
+          customStages: {
+            $push: {
+              $cond: [
+                { $in: ["$status", ["todo", "inProgress", "completed"]] },
+                "$$REMOVE",
+                "$status"
+              ]
+            }
+          }
+        }
+      }
+    ]); 
+    
+    const stageStatsMap = new Map();
+
+    for (const stat of taskStageStats) {
+      stageStatsMap.set(stat._id.toString(), {
+        total: stat.total || 0,
+        completed: stat.completed || 0,
+        inProgress: stat.inProgress || 0,
+        todo: stat.todo || 0,
+        customStages: stat.customStages || []
+      });
+    }
+
+
+    const projects = projectsRaw.map((project) => {
+      const projectId = project._id.toString();
+      const stageData = stageStatsMap.get(projectId) || {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        todo: 0,
+        customStages: []
+      };
+    
+      const { total, completed } = stageData;
+    
+      return {
+        ...project,
+        tasksCount: total,
+        progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+        stageBreakdown: stageData,
+        isFavourite: favoriteSet.has(projectId),
+        projectUsers: (project.projectUsers || []).map(
+          (uid) => usersMap.get(uid?.toString()) || "Unknown"
+        ),
+        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown"
+      };
+    }); 
 
     return res.json({
       success: true,
@@ -3255,16 +3410,93 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
     const favoriteSet = new Set(favorites.map((f) => f.projectId.toString()));
 
     // Map the fetched projects with additional details
-    const projects = iprojects.map((p) => ({
-      ...p,
-      tasksCount: taskCountMap.get(p._id.toString()) || 0,
-      isFavourite: favoriteSet.has(p._id.toString()),
-      projectUsers: (p.projectUsers || []).map((uid) => {
-        const user = usersMap.get(uid?.toString());
-        return user || "Unknown"; // Fallback if null or undefined
-      }),
-      createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
-    }));
+    // const projects = iprojects.map((p) => ({
+    //   ...p,
+    //   tasksCount: taskCountMap.get(p._id.toString()) || 0,
+    //   isFavourite: favoriteSet.has(p._id.toString()),
+    //   projectUsers: (p.projectUsers || []).map((uid) => {
+    //     const user = usersMap.get(uid?.toString());
+    //     return user || "Unknown"; // Fallback if null or undefined
+    //   }),
+    //   createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
+    // }));
+
+    const taskStageStats = await Task.aggregate([
+      {
+        $match: {
+          isDeleted: false,
+          projectId: { $in: projectIds }
+        }
+      },
+      {
+        $group: {
+          _id: "$projectId",
+          total: { $sum: 1 },
+          completed: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "completed"] }, 1, 0]
+            }
+          },
+          inProgress: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "inProgress"] }, 1, 0]
+            }
+          },
+          todo: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "todo"] }, 1, 0]
+            }
+          },
+          customStages: {
+            $push: {
+              $cond: [
+                { $in: ["$status", ["todo", "inProgress", "completed"]] },
+                "$$REMOVE",
+                "$status"
+              ]
+            }
+          }
+        }
+      }
+    ]);    
+    
+    const stageStatsMap = new Map();
+
+    for (const stat of taskStageStats) {
+      stageStatsMap.set(stat._id.toString(), {
+        total: stat.total || 0,
+        completed: stat.completed || 0,
+        inProgress: stat.inProgress || 0,
+        todo: stat.todo || 0,
+        customStages: stat.customStages || []
+      });
+    }
+
+
+    const projects = iprojects.map((project) => {
+      const projectId = project._id.toString();
+      const stageData = stageStatsMap.get(projectId) || {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        todo: 0,
+        customStages: []
+      };
+    
+      const { total, completed } = stageData;
+    
+      return {
+        ...project,
+        tasksCount: total,
+        progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+        stageBreakdown: stageData,
+        isFavourite: favoriteSet.has(projectId),
+        projectUsers: (project.projectUsers || []).map(
+          (uid) => usersMap.get(uid?.toString()) || "Unknown"
+        ),
+        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown"
+      };
+    });
 
     return res.json({
       success: true,
