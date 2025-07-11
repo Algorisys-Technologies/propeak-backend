@@ -183,10 +183,11 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
       companyId,
       role,
       userId,
-      reportParams: { year, month, dateFrom, dateTo },
+      reportParams: { year, month, dateFrom, dateTo, customFilters = {} },
       pagination = { page: 1, limit: 10 },
     } = req.body;
-    console.log(req.body, "req.bodyreq.body???s");
+    console.log("Full request body:", JSON.stringify(req.body, null, 2));
+    console.log("Custom Filters Received:", customFilters);
     const { page, limit: rawLimit } = pagination;
     const limit = parseInt(rawLimit, 10);
     const skip = (page - 1) * limit;
@@ -240,6 +241,39 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
       return res.json({ err: "Required search parameters are missing." });
     }
 
+    // ✅ Add custom filter conditions if present
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        if (value && typeof value === "string" && value.trim() !== "") {
+          const trimmedValue = value.trim();
+
+          if (
+            [
+              "status",
+              "storyPoint",
+              "title",
+              "description",
+              "projectTitle",
+              "userName",
+              "products",
+            ].includes(key)
+          ) {
+            condition[key] = { $regex: new RegExp(trimmedValue, "i") };
+          } else {
+            // Custom fields stored under customFieldValues
+            condition[`customFieldValues.${key}`] = {
+              $regex: new RegExp(trimmedValue, "i"),
+            };
+          }
+        }
+      }
+    }
+
+    // console.log(
+    //   "🔍 Final MongoDB Query Condition:",
+    //   JSON.stringify(condition, null, 2)
+    // );
+
     const totalCount = await Task.countDocuments(condition);
 
     const tasks = await Task.find(condition)
@@ -249,6 +283,8 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
       .populate("userId", "name")
       .populate({ path: "interested_products.product_id" })
       .lean();
+
+    console.log(`Fetched ${tasks.length} tasks out of total ${totalCount}`);
 
     return res.json({
       success: true,
@@ -272,7 +308,7 @@ exports.getMonthlyGlobalTaskReport = async ({
   reportParams,
 }) => {
   try {
-    const { year, month, dateFrom, dateTo } = reportParams;
+    const { year, month, dateFrom, dateTo, customFilters = {} } = reportParams;
 
     // console.log("Request body task report for company:", {
     //   companyId,
@@ -330,6 +366,33 @@ exports.getMonthlyGlobalTaskReport = async ({
       condition.startDate = { $gte: fromDate, $lte: toDate };
     } else {
       return { success: false, err: "Required search parameters are missing." };
+    }
+
+    // ✅ Apply custom filters if provided
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        if (value && typeof value === "string" && value.trim() !== "") {
+          const trimmedValue = value.trim();
+
+          if (
+            [
+              "status",
+              "storyPoint",
+              "title",
+              "description",
+              "projectTitle",
+              "userName",
+              "products",
+            ].includes(key)
+          ) {
+            condition[key] = { $regex: new RegExp(trimmedValue, "i") };
+          } else {
+            condition[`customFieldValues.${key}`] = {
+              $regex: new RegExp(trimmedValue, "i"),
+            };
+          }
+        }
+      }
     }
 
     const tasks = await Task.find(condition)

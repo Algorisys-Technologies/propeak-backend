@@ -236,8 +236,8 @@ require("../models/product/product-model");
 
       // Generate the download URL
       //const downloadUrl = `https://propeak.algorisys.com/uploads/${filename}.${type}`;
-      // const downloadUrl = `http://localhost:3001/uploads/${filename}.${type}`;
-      const downloadUrl = `https://propeak.app/uploads/${filename}.${type}`;
+      const downloadUrl = `http://localhost:3001/uploads/${filename}.${type}`;
+      //const downloadUrl = `https://propeak.app/uploads/${filename}.${type}`;
 
       console.log(
         "All...",
