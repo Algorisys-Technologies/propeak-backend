@@ -447,7 +447,7 @@ exports.getMonthlyGlobalUserReport = async ({
   reportParams,
 }) => {
   try {
-    const { year, month, dateFrom, dateTo } = reportParams;
+    const { year, month, dateFrom, dateTo, customFilters = {} } = reportParams;
 
     // console.log("Request for global user report:", {
     //   companyId,
@@ -519,6 +519,33 @@ exports.getMonthlyGlobalUserReport = async ({
       //console.log("Condition for tasks with custom date range:", condition);
     } else {
       return res.json({ err: "Required search parameters are missing." });
+    }
+
+    // ✅ Apply custom filters if provided
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        if (value && typeof value === "string" && value.trim() !== "") {
+          const trimmedValue = value.trim();
+
+          if (
+            [
+              "status",
+              "storyPoint",
+              "title",
+              "description",
+              "projectTitle",
+              "userName",
+              "products",
+            ].includes(key)
+          ) {
+            condition[key] = { $regex: new RegExp(trimmedValue, "i") };
+          } else {
+            condition[`customFieldValues.${key}`] = {
+              $regex: new RegExp(trimmedValue, "i"),
+            };
+          }
+        }
+      }
     }
 
     const tasks = await Task.find(condition)
@@ -976,7 +1003,14 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
     const {
       companyId,
 
-      reportParams: { year, month, dateFrom, dateTo, userId },
+      reportParams: {
+        year,
+        month,
+        dateFrom,
+        dateTo,
+        userId,
+        customFilters = {},
+      },
       pagination = { page: 1, limit: 10 },
     } = req.body;
 
@@ -1050,6 +1084,34 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
       //console.log("Condition for tasks with custom date range:", condition);
     } else {
       return res.json({ err: "Required search parameters are missing." });
+    }
+
+    // ✅ Add custom filter conditions if present
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        if (value && typeof value === "string" && value.trim() !== "") {
+          const trimmedValue = value.trim();
+
+          if (
+            [
+              "status",
+              "storyPoint",
+              "title",
+              "description",
+              "projectTitle",
+              "userName",
+              "products",
+            ].includes(key)
+          ) {
+            condition[key] = { $regex: new RegExp(trimmedValue, "i") };
+          } else {
+            // Custom fields stored under customFieldValues
+            condition[`customFieldValues.${key}`] = {
+              $regex: new RegExp(trimmedValue, "i"),
+            };
+          }
+        }
+      }
     }
 
     // Count total matching tasks
