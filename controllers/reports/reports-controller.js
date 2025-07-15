@@ -274,16 +274,16 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
     //   JSON.stringify(condition, null, 2)
     // );
 
-    const totalCount = await Task.countDocuments(condition);
-
-    const tasks = await Task.find(condition)
+    
+      const tasks = await Task.find(condition)
       .skip(skip)
       .limit(limit)
       .populate("projectId", "title")
       .populate("userId", "name")
       .populate({ path: "interested_products.product_id" })
       .lean();
-
+      
+      const totalCount = await Task.countDocuments(condition);
     // console.log(`Fetched ${tasks.length} tasks out of total ${totalCount}`);
 
     const tasksData = await Task.find({
