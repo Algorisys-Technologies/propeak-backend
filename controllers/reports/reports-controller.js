@@ -39,7 +39,7 @@ exports.getMonthlyTaskReport = async (req, res) => {
   try {
     const {
       projectId,
-      reportParams: { year, month, dateFrom, dateTo },
+      reportParams: { year, month, dateFrom, dateTo, customFilters = {} },
       pagination = { page: 1, limit: 10 },
       role,
       userId,
@@ -85,6 +85,34 @@ exports.getMonthlyTaskReport = async (req, res) => {
     } else {
       return res.json({ err: "Required search parameters are missing." });
     }
+
+    // ✅ Handle custom filters
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        if (value && typeof value === "string" && value.trim() !== "") {
+          const trimmedValue = value.trim();
+
+          if (
+            [
+              "status",
+              "storyPoint",
+              "title",
+              "description",
+              "projectTitle",
+              "userName",
+              "products",
+            ].includes(key)
+          ) {
+            condition[key] = { $regex: new RegExp(trimmedValue, "i") };
+          } else {
+            condition[`customFieldValues.${key}`] = {
+              $regex: new RegExp(trimmedValue, "i"),
+            };
+          }
+        }
+      }
+    }
+
     const totalCount = await Task.countDocuments(condition);
     // const tasks = await Task.find(condition).skip(skip).limit(limit).lean();
     const tasks = await Task.find(condition)
@@ -605,7 +633,7 @@ exports.getMonthlyProjectTaskReport = async ({
   role,
 }) => {
   try {
-    const { year, month, dateFrom, dateTo } = reportParams;
+    const { year, month, dateFrom, dateTo, customFilters = {} } = reportParams;
 
     // console.log("Request for monthly project task report:", {
     //   projectId,
@@ -654,6 +682,33 @@ exports.getMonthlyProjectTaskReport = async ({
       };
     } else {
       return { err: "Required search parameters are missing." };
+    }
+
+    // ✅ Handle custom filters
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        if (value && typeof value === "string" && value.trim() !== "") {
+          const trimmedValue = value.trim();
+
+          if (
+            [
+              "status",
+              "storyPoint",
+              "title",
+              "description",
+              "projectTitle",
+              "userName",
+              "products",
+            ].includes(key)
+          ) {
+            condition[key] = { $regex: new RegExp(trimmedValue, "i") };
+          } else {
+            condition[`customFieldValues.${key}`] = {
+              $regex: new RegExp(trimmedValue, "i"),
+            };
+          }
+        }
+      }
     }
 
     // Fetch tasks
@@ -711,7 +766,7 @@ exports.getMonthlyProjectUserReport = async ({
   role,
 }) => {
   try {
-    const { year, month, dateFrom, dateTo } = reportParams;
+    const { year, month, dateFrom, dateTo, customFilters = {} } = reportParams;
 
     // console.log("Request for monthly project user report:", {
     //   projectId,
@@ -763,6 +818,33 @@ exports.getMonthlyProjectUserReport = async ({
       };
     } else {
       return { err: "Required search parameters are missing." };
+    }
+
+    // ✅ Handle custom filters
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        if (value && typeof value === "string" && value.trim() !== "") {
+          const trimmedValue = value.trim();
+
+          if (
+            [
+              "status",
+              "storyPoint",
+              "title",
+              "description",
+              "projectTitle",
+              "userName",
+              "products",
+            ].includes(key)
+          ) {
+            condition[key] = { $regex: new RegExp(trimmedValue, "i") };
+          } else {
+            condition[`customFieldValues.${key}`] = {
+              $regex: new RegExp(trimmedValue, "i"),
+            };
+          }
+        }
+      }
     }
 
     // Fetch tasks
@@ -1147,7 +1229,14 @@ exports.getMonthlyUserReportForProject = async (req, res) => {
   try {
     const {
       projectId,
-      reportParams: { year, month, dateFrom, dateTo, userId },
+      reportParams: {
+        year,
+        month,
+        dateFrom,
+        dateTo,
+        userId,
+        customFilters = {},
+      },
       pagination = { page: 1, limit: 10 },
     } = req.body;
 
@@ -1201,6 +1290,33 @@ exports.getMonthlyUserReportForProject = async (req, res) => {
       console.log("Condition for tasks with custom date range:", condition);
     } else {
       return res.json({ err: "Required search parameters are missing." });
+    }
+
+    // ✅ Handle custom filters
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        if (value && typeof value === "string" && value.trim() !== "") {
+          const trimmedValue = value.trim();
+
+          if (
+            [
+              "status",
+              "storyPoint",
+              "title",
+              "description",
+              "projectTitle",
+              "userName",
+              "products",
+            ].includes(key)
+          ) {
+            condition[key] = { $regex: new RegExp(trimmedValue, "i") };
+          } else {
+            condition[`customFieldValues.${key}`] = {
+              $regex: new RegExp(trimmedValue, "i"),
+            };
+          }
+        }
+      }
     }
 
     // Count total matching tasks
