@@ -273,7 +273,7 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
     if (customFilters && Object.keys(customFilters).length > 0) {
       for (const [key, value] of Object.entries(customFilters)) {
         if (value && typeof value === "string" && value.trim() !== "") {
-          const trimmedValue = value.trim();
+          const trimmedValue = value.trim().replace(/,+$/, "");
 
           if (
             [
@@ -302,23 +302,47 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
     //   JSON.stringify(condition, null, 2)
     // );
 
-    const totalCount = await Task.countDocuments(condition);
-
-    const tasks = await Task.find(condition)
+    
+      const tasks = await Task.find(condition)
       .skip(skip)
       .limit(limit)
       .populate("projectId", "title")
       .populate("userId", "name")
       .populate({ path: "interested_products.product_id" })
       .lean();
+      
+      const totalCount = await Task.countDocuments(condition);
+    // console.log(`Fetched ${tasks.length} tasks out of total ${totalCount}`);
 
-    console.log(`Fetched ${tasks.length} tasks out of total ${totalCount}`);
+    const tasksData = await Task.find({
+      projectId: { $in: projectIds },
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    })
+    const customFieldMap = new Map();
 
+    for (const task of tasksData) {
+      let cfv = task.customFieldValues || {};
+
+      if (cfv instanceof Map) {
+        cfv = Object.fromEntries(cfv);
+      }
+
+      for (const [key, value] of Object.entries(cfv)) {
+        if (!customFieldMap.has(key)) {
+          customFieldMap.set(key, value);
+        }
+      }
+    } 
+
+    const customFields = Array.from(customFieldMap.entries()).map(
+      ([key]) => ({ key })
+    );
     return res.json({
       success: true,
       data: tasks,
       totalCount,
       page,
+      customFields,
       totalPages: Math.ceil(totalCount / limit),
     });
   } catch (error) {
