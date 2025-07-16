@@ -113,21 +113,45 @@ exports.getMonthlyTaskReport = async (req, res) => {
       }
     }
 
-    const totalCount = await Task.countDocuments(condition);
     // const tasks = await Task.find(condition).skip(skip).limit(limit).lean();
     const tasks = await Task.find(condition)
-      .skip(skip)
-      .limit(limit)
-      .populate("projectId", "title")
-      .populate("userId", "name")
-      .populate({ path: "interested_products.product_id" })
-      .lean();
+    .skip(skip)
+    .limit(limit)
+    .populate("projectId", "title")
+    .populate("userId", "name")
+    .populate({ path: "interested_products.product_id" })
+    .lean();
+    
+    const totalCount = await Task.countDocuments(condition);
+    const tasksData = await Task.find({
+      projectId: new mongoose.Types.ObjectId(projectId),
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    })
+    const customFieldMap = new Map();
 
+    for (const task of tasksData) {
+      let cfv = task.customFieldValues || {};
+
+      if (cfv instanceof Map) {
+        cfv = Object.fromEntries(cfv);
+      }
+
+      for (const [key, value] of Object.entries(cfv)) {
+        if (!customFieldMap.has(key)) {
+          customFieldMap.set(key, value);
+        }
+      }
+    } 
+
+    const customFields = Array.from(customFieldMap.entries()).map(
+      ([key]) => ({ key })
+    );
     res.json({
       success: true,
       data: tasks.length > 0 ? tasks : [],
       totalCount,
       page,
+      customFields,
       totalPages: Math.ceil(totalCount / limit),
     });
   } catch (error) {
@@ -1155,6 +1179,7 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
     let condition = {
       projectId: { $in: projectIds },
       userId: new mongoose.Types.ObjectId(userId),
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     };
 
     // if (role !== "ADMIN" && role !== "OWNER") {
@@ -1221,24 +1246,49 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
     }
 
     // Count total matching tasks
-    const totalCount = await Task.countDocuments(condition);
     //console.log("Total user-specific task count:", totalCount);
-
+    
     // Fetch paginated tasks
     const tasks = await Task.find(condition)
-      .skip(skip)
-      .limit(limit)
-      .populate("projectId", "title")
-      .populate("userId", "name")
-      .lean();
-
+    .skip(skip)
+    .limit(limit)
+    .populate("projectId", "title")
+    .populate("userId", "name")
+    .lean();
+    
+    const totalCount = await Task.countDocuments(condition);
     //console.log("Fetched user-specific tasks:", tasks);
+    const tasksData = await Task.find({
+      projectId: { $in: projectIds },
+      userId: new mongoose.Types.ObjectId(userId),
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    })
+    const customFieldMap = new Map();
+
+    for (const task of tasksData) {
+      let cfv = task.customFieldValues || {};
+
+      if (cfv instanceof Map) {
+        cfv = Object.fromEntries(cfv);
+      }
+
+      for (const [key, value] of Object.entries(cfv)) {
+        if (!customFieldMap.has(key)) {
+          customFieldMap.set(key, value);
+        }
+      }
+    } 
+
+    const customFields = Array.from(customFieldMap.entries()).map(
+      ([key]) => ({ key })
+    );
 
     res.json({
       success: true,
       data: tasks.length > 0 ? tasks : [],
       totalCount,
       page,
+      customFields,
       totalPages: Math.ceil(totalCount / limit),
     });
   } catch (error) {
@@ -1344,24 +1394,48 @@ exports.getMonthlyUserReportForProject = async (req, res) => {
     }
 
     // Count total matching tasks
-    const totalCount = await Task.countDocuments(condition);
     //console.log("Total user-specific task count for project:", totalCount);
-
+    
     // Fetch paginated tasks
     const tasks = await Task.find(condition)
-      .skip(skip)
-      .limit(limit)
-      .populate("projectId", "title")
-      .populate("userId", "name")
-      .lean();
-
+    .skip(skip)
+    .limit(limit)
+    .populate("projectId", "title")
+    .populate("userId", "name")
+    .lean();
+    
+    const totalCount = await Task.countDocuments(condition);
     //console.log("Fetched user-specific tasks for project:", tasks);
+    const tasksData = await Task.find({
+      projectId: new mongoose.Types.ObjectId(projectId),
+      userId: new mongoose.Types.ObjectId(userId),
+    })
+    const customFieldMap = new Map();
+
+    for (const task of tasksData) {
+      let cfv = task.customFieldValues || {};
+
+      if (cfv instanceof Map) {
+        cfv = Object.fromEntries(cfv);
+      }
+
+      for (const [key, value] of Object.entries(cfv)) {
+        if (!customFieldMap.has(key)) {
+          customFieldMap.set(key, value);
+        }
+      }
+    } 
+
+    const customFields = Array.from(customFieldMap.entries()).map(
+      ([key]) => ({ key })
+    );
 
     res.json({
       success: true,
       data: tasks.length > 0 ? tasks : [],
       totalCount,
       page,
+      customFields,
       totalPages: Math.ceil(totalCount / limit),
     });
   } catch (error) {
