@@ -337,10 +337,7 @@ exports.getMonthlyTaskReportForCompany = async (req, res) => {
     const totalCount = await Task.countDocuments(condition);
     // console.log(`Fetched ${tasks.length} tasks out of total ${totalCount}`);
 
-    const tasksData = await Task.find({
-      projectId: { $in: projectIds },
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-    });
+    const tasksData = await Task.find(condition);
     const customFieldMap = new Map();
 
     for (const task of tasksData) {
@@ -1257,11 +1254,7 @@ exports.getMonthlyUserReportForCompany = async (req, res) => {
 
     const totalCount = await Task.countDocuments(condition);
     //console.log("Fetched user-specific tasks:", tasks);
-    const tasksData = await Task.find({
-      projectId: { $in: projectIds },
-      userId: new mongoose.Types.ObjectId(userId),
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-    });
+    const tasksData = await Task.find(condition);
     const customFieldMap = new Map();
 
     for (const task of tasksData) {
