@@ -24,7 +24,7 @@ const {
   fetchINDIAMARTScheduleEveryTwoHour,
 } = require("./config");
 const fetchLeads = require("./webscrape");
-schedule.scheduleJob(fetchINDIAMARTScheduleEveryTwoHour, async () => {
+schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
@@ -105,10 +105,24 @@ schedule.scheduleJob(fetchINDIAMARTScheduleEveryTwoHour, async () => {
             //   isDeleted: false,
             // });
 
-            const projectTitle =
-              lead.SENDER_COMPANY?.trim() ||
-              lead.SENDER_NAME ||
-              `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+            // const projectTitle =
+            //   lead.SENDER_COMPANY ||
+            //   lead.SENDER_NAME ||
+            //   `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+
+            const company = lead.SENDER_COMPANY?.trim();
+            const name = lead.SENDER_NAME?.trim();
+
+            //console.log("company name:", { company, name });
+
+            let projectTitle =
+              company && company.length > 0
+                ? company
+                : name && name.length > 0
+                ? name
+                : `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+
+            //console.log("Computed title:", projectTitle);
 
             let projectQuery = {
               companyId,
@@ -149,8 +163,8 @@ schedule.scheduleJob(fetchINDIAMARTScheduleEveryTwoHour, async () => {
             if (!existingProject) {
               existingProject = new Project({
                 companyId,
-                title: lead.SENDER_COMPANY,
-                description: lead.SENDER_COMPANY,
+                title: projectTitle,
+                description: projectTitle,
                 startdate: lead.QUERY_TIME,
                 enddate: new Date(),
                 status: "todo",

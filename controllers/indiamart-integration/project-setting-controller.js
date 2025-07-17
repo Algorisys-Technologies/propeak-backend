@@ -519,10 +519,20 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
       if (enabled) {
         for (const lead of leadsData) {
-          const projectTitle =
-            lead.SENDER_COMPANY?.trim() ||
-            lead.SENDER_NAME ||
-            `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+          // const projectTitle =
+          //   lead.SENDER_COMPANY ||
+          //   lead.SENDER_NAME ||
+          //   `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+
+          const company = lead.SENDER_COMPANY?.trim();
+          const name = lead.SENDER_NAME?.trim();
+
+          let projectTitle =
+            company && company.length > 0
+              ? company
+              : name && name.length > 0
+              ? name
+              : `Lead-${lead.SENDER_MOBILE || Date.now()}`;
 
           // Check if a project already exists for the same SENDER_NAME
           // let existingProject = await Project.findOne({
@@ -574,7 +584,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               companyId,
               // title: lead.SENDER_COMPANY,
               title: projectTitle,
-              description: lead.SENDER_COMPANY,
+              description: projectTitle,
               startdate: lead.QUERY_TIME,
               enddate: new Date(),
               status: "todo",
