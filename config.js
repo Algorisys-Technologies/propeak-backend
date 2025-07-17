@@ -27,4 +27,5 @@ module.exports = Object.freeze({
   fetchEmailScheduleWeekly: "0 0 * * 0", // Every week
   fetchEmailScheduleMonthly: "0 0 1 * *", // Every month
   fetchINDIAMARTScheduleEveryHour: "0 * * * *", // Every hour
+  fetchINDIAMARTScheduleEveryTwoHour: "0 */2 * * *", // Every Two hour
 });

@@ -21,9 +21,10 @@ const GroupSetting = require("./models/indiamart-integration/group-setting-model
 const {
   fetchEmailScheduleEveryHour,
   fetchEmailScheduleEvery10Min,
+  fetchINDIAMARTScheduleEveryTwoHour,
 } = require("./config");
 const fetchLeads = require("./webscrape");
-schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
+schedule.scheduleJob(fetchINDIAMARTScheduleEveryTwoHour, async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
