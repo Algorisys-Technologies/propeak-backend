@@ -25,7 +25,7 @@ const fs = require("fs");
 const path = require("path");
 const createCsvWriter = require("csv-writer").createObjectCsvWriter;
 let uploadFolder = config.UPLOAD_PATH;
-const { chromium } = require("playwright");
+const { chromium } = require("@playwright/test");
 
 const errors = {
   SEARCH_PARAM_MISSING:
