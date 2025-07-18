@@ -550,8 +550,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
           };
 
-          if (lead.address) {
-            projectQuery["customFieldValues.address"] = lead.address;
+          let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
+
+          if (address) {
+            projectQuery["customFieldValues.address"] = address;
           }
 
           let existingProject = await Project.findOne(projectQuery);
