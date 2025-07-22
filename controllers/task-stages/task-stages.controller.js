@@ -65,7 +65,31 @@ exports.create_task_stage = async (req, res) => {
     });
   }
 };
+exports.get_task_stages = async (req, res) => {
+  try {
+    const { companyId } = req.params;
 
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        error: "Company ID is required.",
+      });
+    }
+
+    const stages = await TaskStage.find({ companyId, isDeleted: { $ne: true } });
+
+    return res.status(200).json({
+      success: true,
+      stages,
+    });
+  } catch (error) {
+    console.error("Error fetching task stages:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error in fetching task stages.",
+    });
+  }
+};
 // Get task stages by company ID
 // exports.get_task_stages_by_company = async (req, res) => {
 //   try {
@@ -328,111 +352,3 @@ exports.delete_task_stage = async (req, res) => {
     });
   }
 };
-
-// exports.delete_task_stage = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const deletedStage = await TaskStage.findByIdAndDelete(id);
-
-//     if (!deletedStage) {
-//       return res.status(404).json({ message: "Task stage not found" });
-//     }
-//     return res.json({
-//       success: true,
-//       message: "task stage delete successful.",
-//     });
-//   } catch (error) {
-//     return res.json({
-//       error: error.message,
-//       success: false,
-//       message: "error in delete task stage.",
-//     });
-//   }
-// };
-
-// const mongoose = require("mongoose");
-// const Category = require("../../models/category/category-model");
-
-// // Create a new task stage
-// exports.create_task_stage = async (req, res) => {
-//   try {
-//     const { sequence, title, displayName, show, companyId } = req.body;
-
-//     if (!companyId) {
-//       return res.status(400).json({ success: false, error: "Company ID is required." });
-//     }
-//     if (!title || !displayName) {
-//       return res.status(400).json({
-//         success: false,
-//         error: "Title and display name are required.",
-//       });
-//     }
-
-//     const newStage = new Category({
-//       sequence,
-//       title,
-//       displayName,
-//       show,
-//       companyId,
-//     });
-
-//     await newStage.save();
-//     return res.status(201).json({ success: true, stage: newStage });
-//   } catch (error) {
-//     console.error("Error creating task stage:", error);
-//     return res.status(500).json({ success: false, error: error.message });
-//   }
-// };
-
-// // Get task stages by company ID
-// exports.get_task_stages_by_company = async (req, res) => {
-//   try {
-//     const { companyId } = req.params;
-
-//     if (!companyId) {
-//       return res.status(400).json({ error: "Company ID is required." });
-//     }
-
-//     const stages = await Category.find({ companyId });
-
-//     if (stages.length === 0) {
-//       return res.status(404).json({ error: "No task stages found for this company." });
-//     }
-//     return res.status(200).json({ success: true, stages });
-//   } catch (error) {
-//     console.error("Error fetching task stages for companyId:", req.params.companyId, error);
-//     return res.status(500).json({ success: false, error: "Failed to load task stages." });
-//   }
-// };
-
-// // Update a task stage by ID
-// exports.update_task_stage = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const updatedStage = await Category.findByIdAndUpdate(id, req.body, {
-//       new: true,
-//     });
-
-//     if (!updatedStage) {
-//       return res.status(404).json({ message: "Task stage not found" });
-//     }
-//     return res.status(200).json(updatedStage);
-//   } catch (error) {
-//     return res.status(500).json({ error: error.message });
-//   }
-// };
-
-// // Delete a task stage by ID
-// exports.delete_task_stage = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const deletedStage = await Category.findByIdAndDelete(id);
-
-//     if (!deletedStage) {
-//       return res.status(404).json({ message: "Task stage not found" });
-//     }
-//     return res.status(204).send();
-//   } catch (error) {
-//     return res.status(500).json({ error: error.message });
-//   }
-// };

@@ -21,9 +21,10 @@ const GroupSetting = require("./models/indiamart-integration/group-setting-model
 const {
   fetchEmailScheduleEveryHour,
   fetchEmailScheduleEvery10Min,
+  fetchINDIAMARTScheduleEveryTwoHour,
 } = require("./config");
 const fetchLeads = require("./webscrape");
-schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
+schedule.scheduleJob(fetchINDIAMARTScheduleEveryTwoHour, async () => {
   console.log("IndiaMART Lead Scheduler triggered...");
 
   try {
@@ -97,12 +98,46 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
 
           for (const lead of leadsData) {
             // Check if a project already exists for the same SENDER_NAME
-            let existingProject = await Project.findOne({
+            // let existingProject = await Project.findOne({
+            //   companyId,
+            //   group: new mongoose.Types.ObjectId(groupId),
+            //   title: lead.SENDER_COMPANY,
+            //   isDeleted: false,
+            // });
+
+            // const projectTitle =
+            //   lead.SENDER_COMPANY ||
+            //   lead.SENDER_NAME ||
+            //   `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+
+            const company = lead.SENDER_COMPANY?.trim();
+            const name = lead.SENDER_NAME?.trim();
+
+            //console.log("company name:", { company, name });
+
+            let projectTitle =
+              company && company.length > 0
+                ? company
+                : name && name.length > 0
+                ? name
+                : `Lead-${lead.SENDER_MOBILE || Date.now()}`;
+
+            //console.log("Computed title:", projectTitle);
+
+            let projectQuery = {
               companyId,
               group: new mongoose.Types.ObjectId(groupId),
-              title: lead.SENDER_COMPANY,
+              title: projectTitle,
               isDeleted: false,
-            });
+            };
+
+            let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
+
+            if (address) {
+              projectQuery["customFieldValues.address"] = address;
+            }
+
+            let existingProject = await Project.findOne(projectQuery);
 
             const regex = new RegExp(lead.label, "i");
 
@@ -113,12 +148,26 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
 
             console.log("Existing Project:", existingProject);
 
+            const projectUsers = Array.from(
+              new Set(
+                [
+                  new mongoose.Types.ObjectId(userId),
+                  new mongoose.Types.ObjectId(projectOwnerId),
+                  new mongoose.Types.ObjectId(notifyUserId),
+                  users[0]?._id, // This one is already an ObjectId
+                ]
+                  .filter(Boolean)
+                  .map((id) => id.toString())
+              ),
+              (idStr) => new mongoose.Types.ObjectId(idStr)
+            );
+
             if (!existingProject) {
               existingProject = new Project({
                 companyId,
-                title: lead.SENDER_COMPANY,
-                description: lead.SENDER_COMPANY,
-                startdate: new Date(),
+                title: projectTitle,
+                description: projectTitle,
+                startdate: lead.QUERY_TIME,
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
@@ -133,13 +182,14 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
-                customFieldValues: {},
-                projectUsers: [
-                  new mongoose.Types.ObjectId(userId),
-                  new mongoose.Types.ObjectId(projectOwnerId),
-                  new mongoose.Types.ObjectId(notifyUserId),
-                  users[0]?._id || null,
-                ],
+                customFieldValues: { address: address },
+                // projectUsers: [
+                //   new mongoose.Types.ObjectId(userId),
+                //   new mongoose.Types.ObjectId(projectOwnerId),
+                //   new mongoose.Types.ObjectId(notifyUserId),
+                //   users[0]?._id || null,
+                // ],
+                projectUsers: projectUsers,
                 notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
                 messages: [],
                 uploadFiles: [],
@@ -193,7 +243,8 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
               lead_source: "INDIAMART",
               userId: users[0]?._id || null,
               customFieldValues: {
-                date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
+                //date: new Date(lead.QUERY_TIME).toLocaleDateString("IN"),
+                date: moment(lead.QUERY_TIME).format("DD/MM/YYYY"),
                 name: lead.SENDER_NAME,
                 mobile_number: lead.SENDER_MOBILE,
                 mobile_number_alt: lead.SENDER_MOBILE_ALT,
@@ -202,11 +253,7 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 phone: lead.SENDER_PHONE,
                 phone_alt: lead.SENDER_PHONE_ALT,
                 company_name: lead.SENDER_COMPANY,
-                address: `${lead.SENDER_ADDRESS}, 
-                City: ${lead.SENDER_CITY}, 
-                State: ${lead.SENDER_STATE}, 
-                Pincode: ${lead.SENDER_PINCODE}, 
-                Country: ${lead.SENDER_COUNTRY_ISO}`,
+                address: address,
                 leads_details: `${lead.QUERY_PRODUCT_NAME},${lead.QUERY_MESSAGE},${lead.QUERY_MCAT_NAME}`,
               },
               isDeleted: false,
@@ -290,12 +337,25 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
 
           for (const lead of leadsData) {
             // Check if a project already exists for the same SENDER_NAME
-            let existingProject = await Project.findOne({
+            // let existingProject = await Project.findOne({
+            //   companyId,
+            //   group: new mongoose.Types.ObjectId(groupId),
+            //   title: lead.name,
+            //   isDeleted: false,
+            // });
+
+            let projectQuery = {
               companyId,
               group: new mongoose.Types.ObjectId(groupId),
               title: lead.name,
               isDeleted: false,
-            });
+            };
+
+            if (lead.address) {
+              projectQuery["customFieldValues.address"] = lead.address;
+            }
+
+            let existingProject = await Project.findOne(projectQuery);
 
             const regex = new RegExp(lead.label, "i");
 
@@ -305,6 +365,20 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
             });
 
             console.log("existingProject", existingProject);
+
+            const projectUsers = Array.from(
+              new Set(
+                [
+                  new mongoose.Types.ObjectId(userId),
+                  new mongoose.Types.ObjectId(projectOwnerId),
+                  new mongoose.Types.ObjectId(notifyUserId),
+                  users[0]?._id, // This one is already an ObjectId
+                ]
+                  .filter(Boolean)
+                  .map((id) => id.toString())
+              ),
+              (idStr) => new mongoose.Types.ObjectId(idStr)
+            );
 
             if (!existingProject) {
               existingProject = new Project({
@@ -329,13 +403,14 @@ schedule.scheduleJob(fetchEmailScheduleEveryHour, async () => {
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
-                customFieldValues: {},
-                projectUsers: [
-                  new mongoose.Types.ObjectId(userId),
-                  new mongoose.Types.ObjectId(projectOwnerId),
-                  new mongoose.Types.ObjectId(notifyUserId),
-                  users[0]?._id || null,
-                ],
+                customFieldValues: { address: lead.address },
+                // projectUsers: [
+                //   new mongoose.Types.ObjectId(userId),
+                //   new mongoose.Types.ObjectId(projectOwnerId),
+                //   new mongoose.Types.ObjectId(notifyUserId),
+                //   users[0]?._id || null,
+                // ],
+                projectUsers: projectUsers,
                 notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
                 messages: [],
                 uploadFiles: [],

@@ -1,10 +1,13 @@
-const express = require('express');
+//const express = require('express');
+const express = require("ultimate-express");
 const router = express.Router();
-var projectAutoCloneController = require('../../controllers/project/project-auto-clone-controller');
+var projectAutoCloneController = require("../../controllers/project/project-auto-clone-controller");
 const verifyToken = require("../../verify-token/auto-verify-token");
 
-router.get('/getdata', verifyToken, projectAutoCloneController.getDataSchedulerAutoClone);
-
-
+router.get(
+  "/getdata",
+  verifyToken,
+  projectAutoCloneController.getDataSchedulerAutoClone
+);
 
 module.exports = router;

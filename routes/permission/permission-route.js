@@ -1,4 +1,5 @@
-const express = require("express");
+//const express = require("express");
+const express = require("ultimate-express");
 const router = express.Router();
 const permissionController = require("../../controllers/permission/permission-controller");
 

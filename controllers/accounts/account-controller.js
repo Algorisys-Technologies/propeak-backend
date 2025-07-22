@@ -109,25 +109,34 @@ exports.getAllAccounts = async (req, res) => {
       .json({ success: false, msg: "Company ID is required." });
   }
 
-  const accounts = await Account.find({
-    $or: [{account_name:{ $regex: regex } }, {account_number:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {website: {$regex: regex}}, {account_type: {$regex: regex}} ],
-  
+  const queryFilter = {
+    $or: [
+      { account_name: { $regex: regex } },
+      { account_number: { $regex: regex } },
+      { phone: { $regex: regex } },
+      { email: { $regex: regex } },
+      { website: { $regex: regex } },
+      { account_type: { $regex: regex } },
+    ],
     companyId: companyId,
     isDeleted: false,
-  }).skip(limit*page).limit(limit).populate("vfolderId");
+  };
 
-  const totalPages = Math.ceil(await Account.countDocuments({
-    $or: [{account_name:{ $regex: regex } }, {account_number:{ $regex: regex } }, {phone:{ $regex: regex } }, {email:{ $regex: regex }}, {website: {$regex: regex}}, {account_type: {$regex: regex}} ],
-    companyId: companyId,
-    isDeleted: false,
-  })/ limit)
+  const accounts = await Account.find(queryFilter)
+  .skip(limit * page)
+  .limit(limit)
+  .populate("vfolderId");
+
+  const totalCount = await Account.countDocuments(queryFilter);
+
+  const totalPages = Math.ceil(await Account.countDocuments(queryFilter)/ limit)
   if (!accounts || accounts.length === 0) {
     return res
       .status(404)
       .json({ success: false,data: [], totalPages:0, msg: "No accounts found for this company." });
   }
 
-  res.json({data: accounts, totalPages});
+  res.json({data: accounts, totalPages, totalCount});
 };
 
 // Get Account By ID (includes company ID validation)

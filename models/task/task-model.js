@@ -61,7 +61,9 @@ const TaskSchema = new mongoose.Schema(
       ref: "user",
     },
     modifiedBy: {
-      type: String,
+      // type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
     },
     isDeleted: {
       type: Boolean,
@@ -144,6 +146,25 @@ const TaskSchema = new mongoose.Schema(
 
 // Use the unique validator plugin
 // TaskSchema.plugin(unique, { message: 'That {PATH} is already taken.' });
+TaskSchema.index({ companyId: 1 });
+TaskSchema.index({ endDate: 1 });
+TaskSchema.index({ startDate: 1 });
+TaskSchema.index({ createdOn: 1 }); 
+TaskSchema.index({ status: 1 }); 
+TaskSchema.index({ projectId: 1 });
+TaskSchema.index({ userId: 1 });
+TaskSchema.index({ isDeleted: 1 });
+TaskSchema.index({ companyId: 1, endDate: 1 });
+TaskSchema.index({ companyId: 1, status: 1 }); 
+
+TaskSchema.virtual('isOverdue').get(function() {
+  return this.endDate < new Date() && this.status !== 'completed';
+});
+
+TaskSchema.virtual('isActive').get(function() {
+  const now = new Date();
+  return this.startDate <= now && this.endDate >= now && !this.completed;
+});
 
 const Task = mongoose.model("task", TaskSchema);
 module.exports = Task;

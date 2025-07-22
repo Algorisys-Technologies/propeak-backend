@@ -1,4 +1,5 @@
-const express = require("express");
+//const express = require("express");
+const express = require("ultimate-express");
 const bodyParser = require("body-parser");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -8,6 +9,7 @@ const fileUpload = require("express-fileupload");
 require("dotenv").config();
 
 const { logError, logInfo } = require("./common/logger");
+const decode = require("decode-uri-component");
 
 // const fileUpload = require('express-fileupload');
 
@@ -28,7 +30,16 @@ const app = express();
 app.set("view engine", "ejs");
 
 app.use(express.static(path.join(__dirname, "../build")));
-app.use("/uploads", express.static(process.env.UPLOAD_PATH));
+//app.use("/uploads", express.static(process.env.UPLOAD_PATH));
+// Decode URLs before serving static files
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    req.url = decode(req.url); // Decodes %20 → space
+    next();
+  },
+  express.static(process.env.UPLOAD_PATH)
+);
 const port = config.serverPort;
 
 app.use(bodyParser.json());
@@ -170,6 +181,10 @@ try {
   app.use(
     "/api/notifications",
     require("./routes/notification/notification-route")
+  );
+  app.use(
+    "/api/notification-setting",
+    require("./routes/notification-setting/notification-setting-route")
   );
   app.use("/api/reminders", require("./routes/reminder/reminder-route"));
   app.use(

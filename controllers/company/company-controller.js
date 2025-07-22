@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Company = require("../../models/company/company-model.js");
 const userModel = require("../../models/user/user-model.js");
+const { companyCode } = require("../../config/config.js");
 
 // Create a Company
 exports.createCompany = async (req, res) => {
@@ -14,7 +15,8 @@ exports.createCompany = async (req, res) => {
       contact,
       numberOfUsers,
       trackingInterval,
-      logo
+      logo,
+      geoTrackingTime,
     } = req.body;
     // console.log(req.body, "request body response ");
     // Validate required fields
@@ -25,6 +27,15 @@ exports.createCompany = async (req, res) => {
       });
     }
 
+    const exists = await Company.findOne({
+      $or: [{ companyName }, { companyCode }],
+    });
+    // if(exists){
+    //   return res.status(200).json({
+    //     success: false,
+    //     message: "Company Already exists!",
+    //   });
+    // }
     const newCompany = new Company({
       companyName,
       companyCode,
@@ -34,7 +45,11 @@ exports.createCompany = async (req, res) => {
       numberOfUsers,
       trackingInterval,
       isDeleted: false, // Set default value for isDeleted
-      logo
+      logo,
+      geoTrackingTime: {
+        startHour: geoTrackingTime?.startHour ?? 9,
+        endHour: geoTrackingTime?.endHour ?? 18,
+      },
     });
 
     await newCompany.save();
@@ -49,20 +64,57 @@ exports.createCompany = async (req, res) => {
 exports.getAllCompanies = async (req, res) => {
   const query = req.query.q;
   try {
-    const companies = await Company.find({
-      isDeleted: false,
-      ...(query && { 
-        $or: [{ companyName: { $regex: query, $options: "i" } }] 
-      })
-    }); //
-    // console.log(companies, "companiess...............")
-    if (companies.length === 0) {
+    const result = await Company.aggregate([
+      {
+        $match: {
+          isDeleted: false,
+          ...(query && {
+            companyName: { $regex: query, $options: "i" },
+          }),
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          let: { companyId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: [{ $toObjectId: "$companyId" }, "$$companyId"] },
+                    { $ne: ["$isDeleted", true] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "users",
+        },
+      },
+      {
+        $addFields: {
+          userCount: { $size: "$users" },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          companyName: 1,
+          companyCode: 1,
+          userCount: 1,
+          createdAt: 1,
+        },
+      },
+    ]);
+
+    if (result.length === 0) {
       return res
         .status(404)
         .json({ success: false, error: "No companies found." });
     }
 
-    return res.status(200).json({ success: true, companies });
+    return res.status(200).json({ success: true, companies: result });
   } catch (error) {
     console.error("Error fetching companies:", error);
     return res
@@ -70,6 +122,7 @@ exports.getAllCompanies = async (req, res) => {
       .json({ success: false, error: "Failed to load companies." });
   }
 };
+
 exports.getCompanyById = async (req, res) => {
   try {
     const { id: companyId } = req.params;
@@ -146,7 +199,6 @@ exports.deleteCompany = async (req, res) => {
         .status(404)
         .json({ success: false, error: "Company not found." });
     }
-
     return res.status(204).send();
   } catch (error) {
     console.error("Error deleting company:", error);
@@ -164,16 +216,24 @@ exports.getCompaniesByEmail = async (req, res) => {
         .status(400)
         .json({ success: false, error: "Email is required." });
     }
-    const users = await userModel.find({email: email})
-    
+    const users = await userModel.find({ email: email });
+    // const users = await userModel.find({email: email})
+    // .select('companyId')
+    // .lean();
 
     // Extract all unique org_ids from the user's documents
     const companyIds = [...new Set(users.map((user) => user.companyId))];
 
     // Find all organization documents that match the org_ids
-    const companies = await Company.find({ _id: { $in: companyIds } })
-    
-    console.log(companies)
+    const companies = await Company.find({ _id: { $in: companyIds } });
+
+    // console.log(companies);
+    // const companies = await Company.find({
+    //   _id: { $in: companyIds },
+    //   isDeleted: {$ne: true }
+    // }).select('companyName logo contact')
+
+    // console.log(companies)
     // Assuming contact field holds email
 
     if (companies.length === 0) {

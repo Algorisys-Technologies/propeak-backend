@@ -1,10 +1,8 @@
-const express = require("express");
+//const express = require("express");
+const express = require("ultimate-express");
 const router = express.Router();
 const verifyToken = require("../../verify-token/verify-token");
 var globalController = require("../../controllers/global-search/global-search-controller");
 
-router.post(
-  "/globalSearch",
-  globalController.searchByTasksAndProjects
-);
+router.post("/globalSearch", globalController.searchByTasksAndProjects);
 module.exports = router;

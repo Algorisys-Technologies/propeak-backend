@@ -32,7 +32,8 @@ const ProjectSchema = new mongoose.Schema(
       type: Array,
     },
     userid: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
     },
     createdBy: {
       type: String,
@@ -51,11 +52,12 @@ const ProjectSchema = new mongoose.Schema(
     },
     companyId: {
       type: String,
+      index: true,
     },
     userGroups: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "userGroup",
+        ref: "group",
       },
     ],
     // group: {
@@ -71,6 +73,7 @@ const ProjectSchema = new mongoose.Schema(
     },
     isDeleted: {
       type: Boolean,
+      index: true,
     },
     miscellaneous: {
       type: Boolean,
@@ -84,13 +87,14 @@ const ProjectSchema = new mongoose.Schema(
     projectUsers: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "projectuser",
+        ref: "user",
+        index: true,
       },
     ],
     notifyUsers: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "notifyuser",
+        ref: "user",
       },
     ],
 
@@ -135,6 +139,9 @@ const ProjectSchema = new mongoose.Schema(
   },
   { versionKey: false }
 );
+
+ProjectSchema.index({ companyId: 1, isDeleted: 1 });
+ProjectSchema.index({ projectUsers: 1, isDeleted: 1 });
 
 const Project = (module.exports = mongoose.model("project", ProjectSchema));
 

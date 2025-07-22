@@ -1,4 +1,5 @@
-const express = require("express");
+//const express = require("express");
+const express = require("ultimate-express");
 const router = express.Router();
 const verifyToken = require("../../verify-token/verify-token");
 var reportsController = require("../../controllers/reports/reports-controller");
@@ -11,7 +12,7 @@ router.post(
   // checkRole,
   // verifyAppLevelAccess,
   reportsController.getMonthlyTaskReport
-); 
+);
 router.post(
   "/getMonthlyTaskReportExcel",
   reportsController.getMonthlyTaskReportExcel
@@ -88,5 +89,12 @@ router.post(
   // verifyAppLevelAccess,
   reportsController.getUserPerformanceReport
 );
+
+router.post(
+  "/sendNotificationAndEmailForLocation",
+  reportsController.sendNotificationAndEmailForLocation
+);
+
+router.post("/generate", reportsController.generateExport);
 
 module.exports = router;

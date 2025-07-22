@@ -47,7 +47,8 @@ exports.login = async function (req, res) {
   }
 
   try {
-    const user = await User.findOne({ email: req.body.email, companyId: req.body.companyId, isActive: true });
+    const user = await User.findOne({ email: req.body.email, companyId: req.body.companyId, isActive: true })
+    .select('+password');
 
     console.log(user, "user")
 
@@ -75,10 +76,10 @@ exports.login = async function (req, res) {
       user.loginAttempts = 0;
       await user.save();
 
-      const owner = await User.findOne({role:"OWNER", companyId: req.body.companyId})
-
-      const company = await Company.findOne({_id: req.body.companyId})
-
+      const [owner, company] = await Promise.all([
+        User.findOne({ role: "OWNER", companyId: req.body.companyId }, '_id').lean(),
+        Company.findOne({ _id: req.body.companyId }, 'companyName logo').lean()
+      ]);
       const userResponse = {
         _id: user._id,
         name: user.name,
@@ -102,8 +103,10 @@ exports.login = async function (req, res) {
 
       console.log("tokenContent", tokenContent);
 
-      const token = generateAccessToken(tokenContent);
-      const refreshToken = generateRefreshToken(tokenContent);
+      const [token, refreshToken] = await Promise.all([
+        generateAccessToken(tokenContent),
+        generateRefreshToken(tokenContent)
+      ]);
 
       res.setHeader(ACCESS_TOKEN, token);
       res.setHeader(REFRESH_TOKEN, refreshToken);

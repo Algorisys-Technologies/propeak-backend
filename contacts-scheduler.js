@@ -1,14 +1,12 @@
 const rabbitMQ = require("./rabbitmq/index.js");
 // const fetch = require("node-fetch");
-const express = require("express");
+//const express = require("express");
 const fs = require("fs").promises; // Use the promises API of fs
 const schedule = require("node-schedule");
 const config = require("./config.js");
 const { logError, logInfo } = require("./common/logger.js");
 const contactModel = require("./models/contact/contact-model.js");
 require("dotenv").config();
-
-console.log(process.env.DB);
 
 // try {
 //   const j = schedule.scheduleJob(config.contactsSchedule, function () {
@@ -187,7 +185,7 @@ try {
             // Wait for all promises to complete
             await Promise.all(promises);
             const extractResponse = await fetch(
-              `http://142.93.222.95:5001/card-extractions`,
+              `http://94.136.186.31:5001/card-extractions`,
               {
                 method: "POST",
                 body: formDataToSend,
@@ -199,7 +197,7 @@ try {
 
             if (!extractResponse.ok) {
               console.log(extractResponse);
-              await fetch(`http://142.93.222.95:5001/reset_usage`, {
+              await fetch(`http://94.136.186.31:5001/reset_usage`, {
                 method: "POST",
                 body: {},
                 headers: {
@@ -217,7 +215,7 @@ try {
             const extractDetails = await extractResponse.json();
 
             if (extractDetails.error) {
-              await fetch(`http://142.93.222.95:5001/reset_usage`, {
+              await fetch(`http://94.136.186.31:5001/reset_usage`, {
                 method: "POST",
                 body: {},
                 headers: {
@@ -240,7 +238,7 @@ try {
                   companyId,
                   first_name: extractDetail.first_name,
                   last_name: extractDetail.last_name,
-                  file_name: extractDetail.file_name,
+                  file_name: extractDetail.filename,
                   email: extractDetail.email_address.join(","),
                   phone:
                     typeof extractDetail.phone_numbers === "object"
@@ -282,10 +280,7 @@ try {
 
                 contacts.push(contact);
               } catch (error) {
-                console.error(
-                  "Error processing contact:",
-                  error
-                );
+                console.error("Error processing contact:", error);
               }
             });
 
