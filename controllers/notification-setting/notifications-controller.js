@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { logError, logInfo } = require("../../common/logger");
 const UserNotification = require("../../models/notification-setting/user-notification-model");
+const JSONStream = require("JSONStream");
 
 const errors = {
   ADDNOTIFICATIONERROR: "Error occurred while adding the notification",
@@ -13,8 +14,8 @@ const errors = {
 exports.getNotifications = async (req, res) => {
   try {
     const { companyId, userId } = req.body;
-    const page = req.query.page ? req.query.page : 0;
-    const npage = req.query.npage ? req.query.npage : 0;
+    const page = parseInt(req.query.page || 0);
+    const npage = parseInt(req.query.npage || 0);
     const filter = req.query.filter;
     const limit = 5;
 
@@ -25,68 +26,90 @@ exports.getNotifications = async (req, res) => {
       });
     }
 
-    // Build base query
+    // Build filter query for center
     const filterQuery = {
       isDeleted: false,
       companyId,
-      userId, // ← show only for this user
+      userId,
     };
 
-    // Optional filters
     if (filter === "unread") filterQuery.read = false;
     if (filter === "project") filterQuery.category = "project";
     if (filter === "assign") filterQuery.category = "assign";
     if (filter === "field") filterQuery.category = "field";
     if (filter === "task") filterQuery.category = "task";
 
-    // Paged notifications
-    const notificationCenter = await UserNotification.find(filterQuery)
-      .sort({ createdOn: -1 })
-      .limit(limit)
-      .skip(limit * page)
-      .lean();
-
-    const notifications = await UserNotification.find({isDeleted: false,
+    // Perform other queries first
+    const settings = await UserNotification.find({
+      isDeleted: false,
       companyId,
       userId,
-      read: false
+      read: false,
     })
       .sort({ createdOn: -1 })
       .limit(limit)
-      .skip(limit * npage);
+      .skip(limit * npage)
+      .lean();
 
-    const totalDocuments = await UserNotification.countDocuments(filterQuery);
-    const centerTotalPages = Math.ceil(totalDocuments / limit);
+    const centerTotalDocs = await UserNotification.countDocuments(filterQuery);
+    const centerTotalPages = Math.ceil(centerTotalDocs / limit);
 
-    const totalPages = Math.ceil(
-      (await UserNotification.countDocuments({ isDeleted: false,
-        companyId,
-        userId,
-        read: false
-      })) / limit
-    );
-
-    const unReadNotification = await UserNotification.countDocuments({
+    const totalUnread = await UserNotification.countDocuments({
       read: false,
       companyId,
       userId,
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Notifications fetched successfully",
-      settings: notifications,
-      center: notificationCenter,
-      totalCenterPages: centerTotalPages,
-      totalPages,
-      unReadNotification,
+    const totalPages = Math.ceil(
+      (await UserNotification.countDocuments({
+        isDeleted: false,
+        companyId,
+        userId,
+        read: false,
+      })) / limit
+    );
+
+    // Start response
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.write('{"success":true,');
+    res.write('"message":"Notifications fetched successfully",');
+
+    // Stream settings array
+    res.write(`"settings":${JSON.stringify(settings)},`);
+    res.write(`"totalCenterPages":${centerTotalPages},`);
+    res.write(`"totalPages":${totalPages},`);
+    res.write(`"unReadNotification":${totalUnread},`);
+    res.write(`"center":`);
+
+    // Create stream for `center` data
+    const centerStream = UserNotification.find(filterQuery)
+      .sort({ createdOn: -1 })
+      .limit(limit)
+      .skip(limit * page)
+      .cursor();
+
+    const jsonStream = JSONStream.stringify("[", ",", "]");
+
+    jsonStream.pipe(res, { end: false });
+
+    centerStream.on("data", (doc) => jsonStream.write(doc));
+
+    centerStream.on("end", () => {
+      jsonStream.end();
     });
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
+
+    jsonStream.on("end", () => {
+      res.write("}"); // Close JSON object
+      res.end();
     });
+
+    centerStream.on("error", (err) => {
+      console.error("Stream error:", err);
+      res.status(500).json({ success: false, message: "Stream failed" });
+    });
+  } catch (err) {
+    console.error("Error fetching notifications:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
