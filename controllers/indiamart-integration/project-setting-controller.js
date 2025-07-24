@@ -517,6 +517,48 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       const leadsData = response.data.RESPONSE;
       console.log("leadsData...API...", leadsData);
 
+      const countryCodeToName = {
+        IN: "India",
+        US: "United States",
+        CA: "Canada",
+        GB: "United Kingdom",
+        AU: "Australia",
+        EE: "Estonia",
+        // Add other country codes here if needed
+      };
+
+      function normalizeCountry(countryInput) {
+        // If countryInput is null, undefined, or an empty string, return an empty string
+        if (!countryInput || countryInput.trim().length === 0) return "";
+
+        let upper = countryInput.trim().toUpperCase();
+
+        // Normalize country code to full name if found in the mapping
+        if (countryCodeToName[upper]) {
+          return countryCodeToName[upper];
+        }
+
+        // If country is already a full name, normalize casing
+        return upper[0] + upper.slice(1).toLowerCase();
+      }
+
+      function normalizeAddress({ address, city, state, pincode, country }) {
+        // Normalize country name
+        const normalizedCountry = normalizeCountry(country);
+
+        // Clean up the address and fields
+        const parts = [];
+
+        if (address) parts.push(address.trim());
+        if (city) parts.push(`City: ${city.trim()}`);
+        if (state) parts.push(`State: ${state.trim()}`);
+        if (pincode) parts.push(`Pincode: ${pincode.trim()}`);
+        if (normalizedCountry) parts.push(`Country: ${normalizedCountry}`);
+
+        // Join all the parts with a consistent format
+        return parts.join(", ");
+      }
+
       if (enabled) {
         for (const lead of leadsData) {
           // const projectTitle =
@@ -550,10 +592,24 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
           };
 
-          let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
+          // let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
 
-          if (address) {
-            projectQuery["customFieldValues.address"] = address;
+          // if (address) {
+          //   projectQuery["customFieldValues.address"] = address;
+          // }
+
+          // Normalize the address using the newly created function
+          const normalizedAddress = normalizeAddress({
+            address: lead.SENDER_ADDRESS,
+            city: lead.SENDER_CITY,
+            state: lead.SENDER_STATE,
+            pincode: lead.SENDER_PINCODE,
+            country: lead.SENDER_COUNTRY_ISO,
+          });
+
+          // Use the normalized address in the query and saving process
+          if (normalizedAddress) {
+            projectQuery["customFieldValues.address"] = normalizedAddress;
           }
 
           let existingProject = await Project.findOne(projectQuery);
@@ -603,7 +659,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               isDeleted: false,
               miscellaneous: false,
               archive: false,
-              customFieldValues: { address: address },
+              customFieldValues: { address: normalizedAddress },
               // projectUsers: [
               //   new mongoose.Types.ObjectId(userId),
               //   new mongoose.Types.ObjectId(projectOwnerId),
@@ -677,7 +733,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               phone: lead.SENDER_PHONE,
               phone_alt: lead.SENDER_PHONE_ALT,
               company_name: lead.SENDER_COMPANY,
-              address: address,
+              address: normalizedAddress,
               leads_details: `${lead.QUERY_PRODUCT_NAME},${lead.QUERY_MESSAGE},${lead.QUERY_MCAT_NAME}`,
             },
             isDeleted: false,
