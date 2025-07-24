@@ -2427,14 +2427,14 @@ exports.getKanbanProjectsData = async (req, res) => {
       {
         $match: {
           isDeleted: false,
-          projectId: { $in: projectIds }
-        }
+          projectId: { $in: projectIds },
+        },
       },
       {
         $group: {
           _id: { projectId: "$projectId", status: "$status" },
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       {
         $group: {
@@ -2442,32 +2442,32 @@ exports.getKanbanProjectsData = async (req, res) => {
           total: { $sum: "$count" },
           completed: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "completed"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "completed"] }, "$count", 0],
+            },
           },
           inprogress: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "inprogress"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "inprogress"] }, "$count", 0],
+            },
           },
           todo: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "todo"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "todo"] }, "$count", 0],
+            },
           },
           customStages: {
             $push: {
               $cond: [
                 { $in: ["$_id.status", ["todo", "inprogress", "completed"]] },
                 "$$REMOVE",
-                { status: "$_id.status", count: "$count" }
-              ]
-            }
-          }
-        }
-      }
+                { status: "$_id.status", count: "$count" },
+              ],
+            },
+          },
+        },
+      },
     ]);
-   
+
     const stageStatsMap = new Map();
 
     for (const stat of taskStageStats) {
@@ -2476,10 +2476,9 @@ exports.getKanbanProjectsData = async (req, res) => {
         completed: stat.completed || 0,
         inProgress: stat.inprogress || 0,
         todo: stat.todo || 0,
-        customStages: stat.customStages || []
+        customStages: stat.customStages || [],
       });
     }
-
 
     const projects = iprojects.map((project) => {
       const projectId = project._id.toString();
@@ -2488,11 +2487,11 @@ exports.getKanbanProjectsData = async (req, res) => {
         completed: 0,
         inProgress: 0,
         todo: 0,
-        customStages: []
+        customStages: [],
       };
-    
+
       const { total, completed, inProgress, todo, customStages } = stageData;
-    
+
       return {
         ...project,
         tasksCount: total,
@@ -2506,9 +2505,9 @@ exports.getKanbanProjectsData = async (req, res) => {
         projectUsers: (project.projectUsers || []).map(
           (uid) => usersMap.get(uid?.toString()) || "Unknown"
         ),
-        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown"
+        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown",
       };
-    });    
+    });
 
     return res.json({
       success: true,
@@ -2983,19 +2982,18 @@ exports.getKanbanExhibitionData = async (req, res) => {
     //   createdBy: usersMap.get(p.createdBy?.toString()) || "Unknown", // Fallback if null or undefined
     // }));
 
-
     const taskStageStats = await Task.aggregate([
       {
         $match: {
           isDeleted: false,
-          projectId: { $in: projectIds }
-        }
+          projectId: { $in: projectIds },
+        },
       },
       {
         $group: {
           _id: { projectId: "$projectId", status: "$status" },
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       {
         $group: {
@@ -3003,32 +3001,32 @@ exports.getKanbanExhibitionData = async (req, res) => {
           total: { $sum: "$count" },
           completed: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "completed"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "completed"] }, "$count", 0],
+            },
           },
           inprogress: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "inprogress"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "inprogress"] }, "$count", 0],
+            },
           },
           todo: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "todo"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "todo"] }, "$count", 0],
+            },
           },
           customStages: {
             $push: {
               $cond: [
                 { $in: ["$_id.status", ["todo", "inprogress", "completed"]] },
                 "$$REMOVE",
-                { status: "$_id.status", count: "$count" }
-              ]
-            }
-          }
-        }
-      }
+                { status: "$_id.status", count: "$count" },
+              ],
+            },
+          },
+        },
+      },
     ]);
-    
+
     const stageStatsMap = new Map();
 
     for (const stat of taskStageStats) {
@@ -3037,10 +3035,9 @@ exports.getKanbanExhibitionData = async (req, res) => {
         completed: stat.completed || 0,
         inProgress: stat.inprogress || 0,
         todo: stat.todo || 0,
-        customStages: stat.customStages || []
+        customStages: stat.customStages || [],
       });
     }
-
 
     const projects = projectsRaw.map((project) => {
       const projectId = project._id.toString();
@@ -3049,11 +3046,11 @@ exports.getKanbanExhibitionData = async (req, res) => {
         completed: 0,
         inProgress: 0,
         todo: 0,
-        customStages: []
+        customStages: [],
       };
-    
+
       const { total, completed, inProgress, todo, customStages } = stageData;
-    
+
       return {
         ...project,
         tasksCount: total,
@@ -3067,9 +3064,9 @@ exports.getKanbanExhibitionData = async (req, res) => {
         projectUsers: (project.projectUsers || []).map(
           (uid) => usersMap.get(uid?.toString()) || "Unknown"
         ),
-        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown"
+        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown",
       };
-    }); 
+    });
 
     return res.json({
       success: true,
@@ -3358,10 +3355,15 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
 
     if (searchFilter) {
       const regex = new RegExp(searchFilter, "i");
-      projectWhereCondition.$or = [
-        { title: { $regex: regex } },
-        { description: { $regex: regex } },
-        { tag: { $regex: regex } },
+      projectWhereCondition.$and = [
+        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
+        {
+          $or: [
+            { title: { $regex: regex } },
+            { description: { $regex: regex } },
+            { tag: { $regex: regex } },
+          ],
+        },
       ];
     }
 
@@ -3445,14 +3447,14 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       {
         $match: {
           isDeleted: false,
-          projectId: { $in: projectIds }
-        }
+          projectId: { $in: projectIds },
+        },
       },
       {
         $group: {
           _id: { projectId: "$projectId", status: "$status" },
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       {
         $group: {
@@ -3460,32 +3462,32 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
           total: { $sum: "$count" },
           completed: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "completed"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "completed"] }, "$count", 0],
+            },
           },
           inprogress: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "inprogress"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "inprogress"] }, "$count", 0],
+            },
           },
           todo: {
             $sum: {
-              $cond: [{ $eq: ["$_id.status", "todo"] }, "$count", 0]
-            }
+              $cond: [{ $eq: ["$_id.status", "todo"] }, "$count", 0],
+            },
           },
           customStages: {
             $push: {
               $cond: [
                 { $in: ["$_id.status", ["todo", "inprogress", "completed"]] },
                 "$$REMOVE",
-                { status: "$_id.status", count: "$count" }
-              ]
-            }
-          }
-        }
-      }
-    ]);   
-    
+                { status: "$_id.status", count: "$count" },
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
     const stageStatsMap = new Map();
 
     for (const stat of taskStageStats) {
@@ -3494,10 +3496,9 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
         completed: stat.completed || 0,
         inProgress: stat.inprogress || 0,
         todo: stat.todo || 0,
-        customStages: stat.customStages || []
+        customStages: stat.customStages || [],
       });
     }
-
 
     const projects = iprojects.map((project) => {
       const projectId = project._id.toString();
@@ -3506,11 +3507,11 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
         completed: 0,
         inProgress: 0,
         todo: 0,
-        customStages: []
+        customStages: [],
       };
-    
+
       const { total, completed, inProgress, todo, customStages } = stageData;
-    
+
       return {
         ...project,
         tasksCount: total,
@@ -3524,7 +3525,7 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
         projectUsers: (project.projectUsers || []).map(
           (uid) => usersMap.get(uid?.toString()) || "Unknown"
         ),
-        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown"
+        createdBy: usersMap.get(project.createdBy?.toString()) || "Unknown",
       };
     });
 
