@@ -552,8 +552,35 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
           let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
 
+          // if (address) {
+          //   projectQuery["customFieldValues.address"] = address;
+          // }
+
+          function normalizeAddress(address) {
+            return address
+              .replace(/City:\s*\w+\,?/gi, "")
+              .replace(/State:\s*\w+\,?/gi, "")
+              .replace(/Pincode:\s*\d+\,?/gi, "")
+              .replace(/Country:\s*IN\b/gi, "India")
+              .replace(/\s+/g, " ")
+              .replace(/,+/g, ",")
+              .trim()
+              .toLowerCase();
+          }
+
+          let normalizedAddress;
+          let normalizedAddress1;
           if (address) {
-            projectQuery["customFieldValues.address"] = address;
+            normalizedAddress = normalizeAddress(address);
+            if (projectQuery["customFieldValues.address"]) {
+              normalizedAddress1 = normalizeAddress(
+                projectQuery["customFieldValues.address"]
+              );
+            }
+            if (normalizedAddress1 === normalizedAddress) {
+              console.log("Address is same");
+            }
+            //projectQuery["customFieldValues.address"] = normalizedAddress;
           }
 
           let existingProject = await Project.findOne(projectQuery);
@@ -603,7 +630,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               isDeleted: false,
               miscellaneous: false,
               archive: false,
-              customFieldValues: { address: address },
+              customFieldValues: { address: normalizedAddress },
               // projectUsers: [
               //   new mongoose.Types.ObjectId(userId),
               //   new mongoose.Types.ObjectId(projectOwnerId),
@@ -677,7 +704,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               phone: lead.SENDER_PHONE,
               phone_alt: lead.SENDER_PHONE_ALT,
               company_name: lead.SENDER_COMPANY,
-              address: address,
+              address: normalizedAddress,
               leads_details: `${lead.QUERY_PRODUCT_NAME},${lead.QUERY_MESSAGE},${lead.QUERY_MCAT_NAME}`,
             },
             isDeleted: false,

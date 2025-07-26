@@ -1,7 +1,6 @@
 const path = require("path");
 require("dotenv").config();
 
-
 module.exports = Object.freeze({
   UPLOAD_PATH: process.env.UPLOAD_PATH,
   // host: "smtp.mail.yahoo.com",
@@ -10,12 +9,12 @@ module.exports = Object.freeze({
   //   user: "devbootcamp24x7@yahoo.com",
   //   pass: "uuiznvqfwhiiqrjy",
   // },
-  host: "smtp-relay.brevo.com",
+  host: process.env.EMAIL_HOST,
   port: 465, // non secure 587,
   secure: true,
   auth: {
-    user: "5208e9001@smtp-brevo.com",
-    pass: "ODBfjtL0UcavY1bp",
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
   link: process.env.URL,
   // from: "devbootcamp24x7@yahoo.com",
@@ -23,20 +22,19 @@ module.exports = Object.freeze({
   serverPort: 3001,
   //staging
   db: process.env.DB,
-  taskEmailContent:
-    `Hi, <br/> <br/> A new task has been created.<br/><br/> <b> Project </b> : #projectName# <br/> <b> Task </b> : #title#
+  taskEmailContent: `Hi, <br/> <br/> A new task has been created.<br/><br/> <b> Project </b> : #projectName# <br/> <b> Task </b> : #title#
     <br/> <b> Priority </b> : #priority# <br/> <b> Description </b> : #description# <br/> <br/> To view task details, click <a href="${process.env.URL}tasks/edit/#projectId#/#newTaskId#/update" alt="task">
     here</a>  <br/><br/> Thanks, <br/> proPeak Team`,
-    
+
   editlink: process.env.PUBLIC_URL + "project/tasks/",
-      
+
   servercert: "../cert/localhost.crt",
   servercertkey: "../cert/localhost.key",
   secureSite: true,
   securePort: 9000,
   tokenExpiry: 5000,
   refreshTokenExpiry: 3600000,
-  msgLink: process.env.URL + "project/task/edit/", 
+  msgLink: process.env.URL + "project/task/edit/",
   daysForMessageMail: 3,
   projectStatusCheck: ["inprogress", "new", "onHold"],
 
