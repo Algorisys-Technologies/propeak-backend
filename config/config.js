@@ -18,7 +18,7 @@ module.exports = Object.freeze({
   },
   link: process.env.URL,
   // from: "devbootcamp24x7@yahoo.com",
-  from: "support@algorisys.com",
+  from: process.env.EMAIL_FORM,
   serverPort: 3001,
   //staging
   db: process.env.DB,
