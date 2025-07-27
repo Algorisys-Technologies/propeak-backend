@@ -153,7 +153,7 @@ exports.getUsers = async (req, res) => {
     else{
        query = { isDeleted: false, companyId, ...searchFilter };
     }
-    const result = await User.find(query)
+    const result = await User.find(query).select('_id name');
     return res.status(200).json(result);
   } catch (err) {
     console.error("Error fetching users:", err);
