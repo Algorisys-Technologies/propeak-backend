@@ -1,4 +1,4 @@
-// const config = require("../config/config");
+const config = require("../config/config");
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 const { logError, logInfo } = require("./logger");

@@ -10,8 +10,8 @@ module.exports = Object.freeze({
   //   pass: "uuiznvqfwhiiqrjy",
   // },
   host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT, // non secure 587,
-  secure: false,
+  port: parseInt(process.env.SMTP_PORT), // non secure 587,
+  secure: JSON.parse(process.env.SMTP_SECURE),
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
