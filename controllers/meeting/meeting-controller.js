@@ -6,6 +6,7 @@ const User = require("../../models/user/user-model");
 const Project = require("../../models/project/project-model");
 const activeClients = new Map();
 const config = require("../../config/config");
+require("dotenv").config();
 
 const errors = {
   REGISTER_EMAIL_TAKEN: "Email is unavailable",
@@ -119,7 +120,7 @@ exports.endMeeting = async (req, res) => {
       console.log("Publishing meeting email job to RabbitMQ...");
 
       const mailOptions = {
-        from: config.from,
+        from: process.env.SMTP_EMAIL,
         to: reportingManager.email, // Send email to Reporting Manager
         subject: "ProPeak Management System - Meeting Summary",
         html: `
@@ -141,6 +142,9 @@ exports.endMeeting = async (req, res) => {
           <p>Best Regards,</p>
           <p><strong>ProPeak Team</strong></p>
         `,
+        headers:{
+          'X-Mailin-Tag': process.env.BREVO_EMAIL_TAG || "propeak-staging"
+        }
       };
 
       // Publish email job to RabbitMQ
