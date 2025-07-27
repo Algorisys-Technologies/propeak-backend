@@ -1,43 +1,31 @@
 // const config = require("../config/config");
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 require("dotenv").config();
-const {
-    logError,
-    logInfo
-} = require('./logger');
+const { logError, logInfo } = require("./logger");
 let transporter = null;
 
 const sendEmail = async (mailOptions) => {
-    try {
-
-        if (transporter === null) {
-            transporter = nodemailer.createTransport({
-                // host: config.host,
-                // port: config.port,
-                // secure: config.secure, // use SSL
-                // auth: config.auth
-                host: process.env.SMTP_HOST,
-                port: process.env.SMTP_PORT || 587,
-                secure: false,
-                auth: {
-                    user: process.env.SMTP_USER, 
-                    pass: process.env.SMTP_PASS, 
-                },
-            });
-        }
-        let response = await transporter.sendMail(mailOptions);
-
-        // console.log("message sending ", response)
-
-        // console.log("mailOptions",mailOptions);
-        // console.log("userId",userId);
-        return response;
+  try {
+    if (transporter === null) {
+      transporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure, // use SSL
+        auth: config.auth,
+      });
     }
-    catch (e) {
-        logInfo(e, 'Error occured while sending email ');
-    }
-}
+    let response = await transporter.sendMail(mailOptions);
+
+    // console.log("message sending ", response)
+
+    // console.log("mailOptions",mailOptions);
+    // console.log("userId",userId);
+    return response;
+  } catch (e) {
+    logInfo(e, "Error occured while sending email ");
+  }
+};
 
 module.exports = {
-    sendEmail
-}
+  sendEmail,
+};

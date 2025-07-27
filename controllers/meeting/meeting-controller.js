@@ -87,7 +87,9 @@ exports.endMeeting = async (req, res) => {
     );
 
     if (!meeting) {
-      return res.status(404).json({ success: false, message: "Meeting not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Meeting not found" });
     }
 
     // Fetch the owner (ADMIN) of the company
@@ -130,11 +132,21 @@ exports.endMeeting = async (req, res) => {
       
           <p><strong>Meeting Details:</strong></p>
           <ul>
-            <li><strong>Start Time:</strong> ${new Date(meeting.startTime).toLocaleString()}</li>
-            <li><strong>Start Location:</strong> ${meeting.startLocation || "Not provided"}</li>
-            <li><strong>End Time:</strong> ${new Date(meeting.endTime).toLocaleString()}</li>
-            <li><strong>End Location:</strong> ${meeting.endLocation || "Not provided"}</li>
-            <li><strong>Description:</strong> ${meeting.meetingDescription || "No description provided"}</li>
+            <li><strong>Start Time:</strong> ${new Date(
+              meeting.startTime
+            ).toLocaleString()}</li>
+            <li><strong>Start Location:</strong> ${
+              meeting.startLocation || "Not provided"
+            }</li>
+            <li><strong>End Time:</strong> ${new Date(
+              meeting.endTime
+            ).toLocaleString()}</li>
+            <li><strong>End Location:</strong> ${
+              meeting.endLocation || "Not provided"
+            }</li>
+            <li><strong>Description:</strong> ${
+              meeting.meetingDescription || "No description provided"
+            }</li>
           </ul>
       
           <p>If you have any questions, please contact your administrator.</p>
@@ -142,13 +154,14 @@ exports.endMeeting = async (req, res) => {
           <p>Best Regards,</p>
           <p><strong>ProPeak Team</strong></p>
         `,
-        headers:{
-          'X-Mailin-Tag': process.env.BREVO_EMAIL_TAG || "propeak-staging"
-        }
       };
 
       // Publish email job to RabbitMQ
-      await rabbitMQ.sendMessageToQueue(mailOptions, "message_queue", "msgRoute");
+      await rabbitMQ.sendMessageToQueue(
+        mailOptions,
+        "message_queue",
+        "msgRoute"
+      );
 
       console.log("Meeting email job published to RabbitMQ");
     } else {
@@ -177,7 +190,9 @@ exports.endMeeting = async (req, res) => {
     });
   } catch (error) {
     console.error("Error ending meeting:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -247,9 +262,9 @@ exports.endMeeting = async (req, res) => {
 //         subject: "ProPeak Management System - Meeting Summary",
 //         html: `
 //           <p>Dear ${owner.name || "Sir"},</p>
-      
+
 //           <p>The meeting has been successfully completed in the <strong>ProPeak Management System</strong>.</p>
-      
+
 //           <p><strong>Meeting Details:</strong></p>
 //           <ul>
 //             <li><strong>Start Time:</strong> ${new Date(
@@ -268,9 +283,9 @@ exports.endMeeting = async (req, res) => {
 //               meeting.meetingDescription || "No description provided"
 //             }</li>
 //           </ul>
-      
+
 //           <p>If you have any questions, please contact your administrator.</p>
-      
+
 //           <p>Best Regards,</p>
 //           <p><strong>ProPeak Team</strong></p>
 //         `,
@@ -347,8 +362,10 @@ exports.getMeetings = async (req, res) => {
 exports.getAllMeetings = async (req, res) => {
   try {
     const { companyId, currentPage, projectIdData, userIdData } = req.body;
-    console.log(userIdData, "from projectId")
-    let selectedProjectId, companyIdData, selectedUserId = null;
+    console.log(userIdData, "from projectId");
+    let selectedProjectId,
+      companyIdData,
+      selectedUserId = null;
     const projectId = projectIdData;
     const userId = userIdData;
     if (mongoose.Types.ObjectId.isValid(companyId)) {
@@ -360,7 +377,7 @@ exports.getAllMeetings = async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(userId)) {
       selectedUserId = new mongoose.Types.ObjectId(userId);
     }
-    const limit = 5
+    const limit = 5;
     const queryConditions = [{ companyId }];
     if (selectedProjectId) {
       queryConditions.push({ projectId: selectedProjectId._id });
@@ -399,19 +416,19 @@ exports.getAllMeetings = async (req, res) => {
         select: "title", // Fetch only the title field of the project
       })
       .skip(limit * currentPage)
-      .limit(Number(limit))
-    const totalMeetings = await Meeting.countDocuments({ 
+      .limit(Number(limit));
+    const totalMeetings = await Meeting.countDocuments({
       $and: queryConditions,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-    }); 
+    });
     const totalPages = Math.ceil(
-      await Meeting.countDocuments({
+      (await Meeting.countDocuments({
         $and: queryConditions,
         $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-      }) / limit
+      })) / limit
     );
 
-    console.log(totalPages, "from total project")
+    console.log(totalPages, "from total project");
     return res.status(200).json({
       success: true,
       message: "Meetings fetched successfully",
@@ -429,15 +446,14 @@ exports.getAllMeetings = async (req, res) => {
   }
 };
 
-
 exports.deleteMeeting = async (req, res) => {
   const meetingId = req.body.meetingId;
-  try{
-    if(meetingId){
+  try {
+    if (meetingId) {
       await Meeting.updateOne(
-        {_id: meetingId},
-        {$set: {isDeleted: true}}
-      )
+        { _id: meetingId },
+        { $set: { isDeleted: true } }
+      );
       return res.status(200).json({
         success: true,
         message: "Meetings Deleted successfully",
@@ -447,10 +463,10 @@ exports.deleteMeeting = async (req, res) => {
       success: false,
       message: "Meetings Id not Found!",
     });
-  }catch (error) {
+  } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
-}
+};
