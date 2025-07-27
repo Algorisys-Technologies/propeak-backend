@@ -1,8 +1,8 @@
 module.exports = Object.freeze({
   url: process.env.URL + "api",
-  host: "smtp-relay.brevo.com",
+  host: process.env.EMAIL_HOST,
   serverPort: 3001,
-  fromEmail: "support@algorisys.com",
+  fromEmail: process.env.EMAIL_FORM,
   link: process.env.URL,
   taskStatusNotificationSchedule: "*/30 * * * * 1-6",
   dsrNotificationSchedule: "*/30 * * * * 1-6",
