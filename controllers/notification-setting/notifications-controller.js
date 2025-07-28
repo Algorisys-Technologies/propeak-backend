@@ -10,6 +10,60 @@ const errors = {
   NOT_AUTHORIZED: "You're not authorized",
 };
 
+
+exports.bellNotifications = async(req, res) => {
+  try {
+    const { companyId, userId } = req.body;
+    const npage = req.query.npage ? req.query.npage : 0;
+    const limit = 5;
+
+    if (!companyId || !userId) {
+      return res.status(200).json({
+        success: false,
+        message: "Company ID and User ID are required",
+      });
+    }
+
+    const notifications = await UserNotification.find({isDeleted: false,
+      companyId,
+      userId,
+      read: false
+    }).select("_id userId subject message url read")
+      .sort({ createdOn: -1 })
+      .limit(limit)
+      .skip(limit * npage);
+
+
+    const totalPages = Math.ceil(
+      (await UserNotification.countDocuments({ isDeleted: false,
+        companyId,
+        userId,
+        read: false
+      })) / limit
+    );
+
+    const unReadNotification = await UserNotification.countDocuments({
+      read: false,
+      companyId,
+      userId,
+    }).select("read");
+
+    return res.status(200).json({
+      success: true,
+      message: "Notifications fetched successfully",
+      settings: notifications,
+      totalPages,
+      unReadNotification,
+    });
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
+
 exports.getNotifications = async (req, res) => {
   try {
     const { companyId, userId } = req.body;

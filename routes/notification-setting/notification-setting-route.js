@@ -18,6 +18,7 @@ router.put("/:id", notificationSettingController.updateNotificationSetting);
 
 //Notification Center
 router.post("/notifications", notificationController.getNotifications);
+router.post("/bellNotifications", notificationController.bellNotifications);
 router.post("/notificartions/:id", notificationController.deleteNotification);
 router.post(
   "/notificartions/read/:id",
