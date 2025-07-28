@@ -1,4 +1,6 @@
 //const express = require("express");
+require("./instrument.js");
+const Sentry = require("@sentry/node");
 const express = require("ultimate-express");
 const bodyParser = require("body-parser");
 const path = require("path");
@@ -264,6 +266,9 @@ try {
 } catch (e) {
   console.log(e);
 }
+
+// The error handler must be registered before any other error middleware and after all controllers
+Sentry.setupExpressErrorHandler(app);
 
 // Use express's default error handling middleware
 app.use((err, req, res, next) => {
