@@ -1,12 +1,14 @@
 const mongoose = require("mongoose");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
+const GroupProjectStage = require("../../models/project-stages/group-project-stages-model");
 const Project = require("../../models/project/project-model");
 const Task = require("../../models/task/task-model");
 const audit = require("../audit-log/audit-log-controller");
 
 exports.create_project_stage = async (req, res) => {
   try {
-    const { sequence, title, displayName, show, companyId, createdBy } = req.body;
+    const { sequence, title, displayName, show, companyId, createdBy } =
+      req.body;
 
     if (!companyId) {
       return res
@@ -35,19 +37,21 @@ exports.create_project_stage = async (req, res) => {
     const result = await newStage.save();
 
     // Insert audit logs
-    ["sequence", "title", "displayName", "show", "companyId"].forEach((field) => {
-      if (result[field] !== undefined) {
-        audit.insertAuditLog(
-          "",
-          result.title,
-          "ProjectStage",
-          field,
-          result[field],
-          createdBy,
-          result._id
-        );
+    ["sequence", "title", "displayName", "show", "companyId"].forEach(
+      (field) => {
+        if (result[field] !== undefined) {
+          audit.insertAuditLog(
+            "",
+            result.title,
+            "ProjectStage",
+            field,
+            result[field],
+            createdBy,
+            result._id
+          );
+        }
       }
-    });
+    );
 
     return res.status(201).json({
       success: true,
@@ -73,46 +77,55 @@ exports.get_project_stages_by_company = async (req, res) => {
     }
 
     const stages = await ProjectStage.find({
-      $or:[
-        { title: { $regex: regex} },
-        { displayName: { $regex: regex} },
-      ],
+      $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
     });
 
     const stagesWithProjectAndTaskCount = await ProjectStage.aggregate([
       {
-        $match: { 
-          companyId: new mongoose.Types.ObjectId(companyId), 
-          isDeleted: { $ne: true } 
-        }
+        $match: {
+          companyId: new mongoose.Types.ObjectId(companyId),
+          isDeleted: { $ne: true },
+        },
       },
       {
         $lookup: {
           from: "projects",
           let: { stageId: "$_id" },
           pipeline: [
-            { $match: { $expr: { $and: [
-              { $eq: ["$projectStageId", "$$stageId"] },
-              { $ne: ["$isDeleted", true] } // Exclude deleted projects
-            ] } } },
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$projectStageId", "$$stageId"] },
+                    { $ne: ["$isDeleted", true] }, // Exclude deleted projects
+                  ],
+                },
+              },
+            },
             {
               $lookup: {
                 from: "tasks",
                 let: { projectId: "$_id" },
                 pipeline: [
-                  { $match: { $expr: { $and: [
-                    { $eq: ["$projectId", "$$projectId"] },
-                    { $ne: ["$isDeleted", true] } // Exclude deleted tasks
-                  ] } } }
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          { $eq: ["$projectId", "$$projectId"] },
+                          { $ne: ["$isDeleted", true] }, // Exclude deleted tasks
+                        ],
+                      },
+                    },
+                  },
                 ],
-                as: "tasks"
-              }
-            }
+                as: "tasks",
+              },
+            },
           ],
-          as: "projects"
-        }
+          as: "projects",
+        },
       },
       {
         $addFields: {
@@ -122,22 +135,20 @@ exports.get_project_stages_by_company = async (req, res) => {
               $map: {
                 input: "$projects",
                 as: "proj",
-                in: { $size: "$$proj.tasks" } // Count only non-deleted tasks
-              }
-            }
-          }
-        }
+                in: { $size: "$$proj.tasks" }, // Count only non-deleted tasks
+              },
+            },
+          },
+        },
       },
       {
         $project: {
           _id: 1,
           projectCount: 1,
-          totalTasks: 1
-        }
-      }
+          totalTasks: 1,
+        },
+      },
     ]);
-    
-    
 
     if (stages.length === 0) {
       return res
@@ -145,7 +156,9 @@ exports.get_project_stages_by_company = async (req, res) => {
         .json({ error: "No project stages found for this company." });
     }
 
-    return res.status(200).json({ success: true, stages, stagesWithProjectAndTaskCount });
+    return res
+      .status(200)
+      .json({ success: true, stages, stagesWithProjectAndTaskCount });
   } catch (error) {
     console.error("Error fetching project stages:", error);
     return res
@@ -191,7 +204,9 @@ exports.update_project_stage = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating project stage:", error);
-    return res.status(500).json({ success: false, error: "Error updating project stage." });
+    return res
+      .status(500)
+      .json({ success: false, error: "Error updating project stage." });
   }
 };
 
@@ -212,13 +227,15 @@ exports.delete_project_stage = async (req, res) => {
     //   );
     // }
 
-    if (deletedStage) {  
+    if (deletedStage) {
       await Project.updateMany(
         { projectStageId: deletedStage._id },
         { $set: { isDeleted: true } }
       );
-      const projectIdArray = await Project.distinct("_id", { projectStageId: deletedStage._id });
-      console.log(projectIdArray, "project array")
+      const projectIdArray = await Project.distinct("_id", {
+        projectStageId: deletedStage._id,
+      });
+      console.log(projectIdArray, "project array");
       if (projectIdArray.length > 0) {
         await Task.updateMany(
           { projectId: { $in: projectIdArray } },
@@ -250,7 +267,9 @@ exports.delete_project_stage = async (req, res) => {
     });
   } catch (error) {
     console.error("Error deleting project stage:", error);
-    return res.status(500).json({ success: false, error: "Error deleting project stage." });
+    return res
+      .status(500)
+      .json({ success: false, error: "Error deleting project stage." });
   }
 };
 
@@ -302,6 +321,334 @@ exports.reorder_project_stages = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to reorder project stages.",
+    });
+  }
+};
+
+exports.create_group_project_stage = async (req, res) => {
+  try {
+    const {
+      sequence,
+      title,
+      displayName,
+      show,
+      companyId,
+      groupId,
+      createdBy,
+    } = req.body;
+
+    console.log("req.body...create_group_project_stage", req.body);
+
+    if (!companyId || !groupId) {
+      return res.status(400).json({
+        success: false,
+        error: "Company ID and Group ID are required.",
+      });
+    }
+
+    if (!title || !displayName) {
+      return res.status(400).json({
+        success: false,
+        error: "Title and display name are required.",
+      });
+    }
+
+    const newStage = new GroupProjectStage({
+      sequence,
+      title,
+      displayName,
+      show: show === "on",
+      companyId,
+      groupId,
+      createdBy,
+      createdOn: new Date(),
+      modifiedBy: createdBy,
+      modifiedOn: new Date(),
+    });
+
+    const result = await newStage.save();
+
+    // Insert audit logs
+    [
+      "sequence",
+      "title",
+      "displayName",
+      "show",
+      "companyId",
+      "groupId",
+    ].forEach((field) => {
+      if (result[field] !== undefined) {
+        audit.insertAuditLog(
+          "",
+          result.title,
+          "GroupProjectStage",
+          field,
+          result[field],
+          createdBy,
+          result._id
+        );
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      stage: result,
+      message: "Group-level project stage added successfully.",
+    });
+  } catch (error) {
+    console.error("Error creating group-level project stage:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error in adding group-level project stage.",
+    });
+  }
+};
+
+exports.get_project_stages_by_group = async (req, res) => {
+  try {
+    const { groupId, companyId, query } = req.body;
+
+    if (!groupId || !companyId) {
+      return res
+        .status(400)
+        .json({ error: "Group ID and Company ID are required." });
+    }
+
+    const regex = new RegExp(query, "i");
+
+    const stages = await GroupProjectStage.find({
+      $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
+      groupId: new mongoose.Types.ObjectId(groupId),
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    });
+
+    const stagesWithProjectAndTaskCount = await GroupProjectStage.aggregate([
+      {
+        $match: {
+          groupId: new mongoose.Types.ObjectId(groupId),
+          companyId: new mongoose.Types.ObjectId(companyId),
+          isDeleted: { $ne: true },
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          let: { stageId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$projectStageId", "$$stageId"] },
+                    { $ne: ["$isDeleted", true] },
+                  ],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "tasks",
+                let: { projectId: "$_id" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          { $eq: ["$projectId", "$$projectId"] },
+                          { $ne: ["$isDeleted", true] },
+                        ],
+                      },
+                    },
+                  },
+                ],
+                as: "tasks",
+              },
+            },
+          ],
+          as: "projects",
+        },
+      },
+      {
+        $addFields: {
+          projectCount: { $size: "$projects" },
+          totalTasks: {
+            $sum: {
+              $map: {
+                input: "$projects",
+                as: "proj",
+                in: { $size: "$$proj.tasks" },
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          projectCount: 1,
+          totalTasks: 1,
+        },
+      },
+    ]);
+
+    if (stages.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "No project stages found for this group." });
+    }
+
+    return res
+      .status(200)
+      .json({ success: true, stages, stagesWithProjectAndTaskCount });
+  } catch (error) {
+    console.error("Error fetching group project stages:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to load group project stages." });
+  }
+};
+
+exports.update_group_project_stage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sequence, title, displayName, show, groupId, modifiedBy } =
+      req.body;
+
+    if (!id || !groupId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "ID and Group ID are required." });
+    }
+
+    const updatedStage = await GroupProjectStage.findByIdAndUpdate(
+      id,
+      {
+        sequence,
+        title,
+        displayName,
+        show: show === "on",
+        groupId,
+        modifiedBy,
+        modifiedOn: new Date(),
+      },
+      { new: true }
+    );
+
+    if (!updatedStage) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Project stage not found." });
+    }
+
+    // Audit logging
+    ["sequence", "title", "displayName", "show", "groupId"].forEach((field) => {
+      if (req.body[field] !== undefined) {
+        audit.insertAuditLog(
+          "",
+          updatedStage.title,
+          "GroupProjectStage",
+          field,
+          req.body[field],
+          modifiedBy,
+          id
+        );
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Group-level project stage updated successfully.",
+      stage: updatedStage,
+    });
+  } catch (error) {
+    console.error("Error updating group-level project stage:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to update group-level project stage.",
+    });
+  }
+};
+
+exports.reorder_group_project_stages = async (req, res) => {
+  try {
+    const { stages, groupId, companyId } = req.body;
+
+    if (!groupId || !companyId || !Array.isArray(stages)) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid request body." });
+    }
+
+    const bulkOps = stages.map((stage, index) => ({
+      updateOne: {
+        filter: { _id: stage._id },
+        update: { $set: { sequence: index + 1, modifiedOn: new Date() } },
+      },
+    }));
+
+    await GroupProjectStage.bulkWrite(bulkOps);
+
+    return res.status(200).json({
+      success: true,
+      message: "Stages reordered successfully.",
+    });
+  } catch (error) {
+    console.error("Error reordering stages:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to reorder project stages.",
+    });
+  }
+};
+
+exports.delete_group_project_stage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { groupId, deletedBy } = req.body;
+
+    if (!id || !groupId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Stage ID and Group ID are required." });
+    }
+
+    const deletedStage = await GroupProjectStage.findByIdAndUpdate(
+      id,
+      {
+        isDeleted: true,
+        modifiedOn: new Date(),
+        modifiedBy: deletedBy,
+      },
+      { new: true }
+    );
+
+    if (!deletedStage) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Project stage not found." });
+    }
+
+    // Audit logging
+    audit.insertAuditLog(
+      "",
+      deletedStage.title,
+      "GroupProjectStage",
+      "isDeleted",
+      true,
+      deletedBy,
+      id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Group-level project stage deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Error deleting group-level project stage:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete project stage.",
     });
   }
 };
