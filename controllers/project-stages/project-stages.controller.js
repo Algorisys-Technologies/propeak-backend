@@ -652,3 +652,105 @@ exports.delete_group_project_stage = async (req, res) => {
     });
   }
 };
+
+exports.migrateGlobalStagesToGroupStage = async (req, res) => {
+  try {
+    const { groupId, companyId, createdBy } = req.body;
+
+    if (!groupId || !companyId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing groupId or companyId" });
+    }
+
+    console.log(
+      "Starting migration process for groupId:",
+      groupId,
+      "and companyId:",
+      companyId
+    );
+
+    // Step 1: Check if the "Unassigned" stage already exists for the group
+    const existingUnassignedStage = await GroupProjectStage.findOne({
+      title: "unassigned",
+      groupId,
+      companyId,
+      isDeleted: { $ne: true },
+    });
+
+    let unassignedStage;
+    if (existingUnassignedStage) {
+      console.log(
+        "Found existing 'Unassigned' stage:",
+        existingUnassignedStage._id
+      );
+      unassignedStage = existingUnassignedStage;
+    } else {
+      console.log(
+        "No existing 'Unassigned' stage found. Creating a new one..."
+      );
+      unassignedStage = await GroupProjectStage.create({
+        title: "unassigned",
+        displayName: "Unassigned",
+        sequence: 0,
+        show: true,
+        groupId,
+        companyId,
+        createdBy,
+        createdOn: new Date(),
+        modifiedBy: createdBy,
+        modifiedOn: new Date(),
+      });
+      console.log(
+        "Created new 'Unassigned' stage with ID:",
+        unassignedStage._id
+      );
+    }
+
+    // Step 2: Get all global project stages for the given company
+    console.log("Fetching global project stages for company:", companyId);
+    const globalStages = await ProjectStage.find({
+      companyId,
+      isDeleted: { $ne: true },
+    });
+
+    const globalStageIds = globalStages.map((s) => s._id);
+    console.log(
+      `Found ${globalStageIds.length} global stages for company ${companyId}`
+    );
+
+    // Step 3: Update projects with matching groupId and global stage
+    console.log(
+      "Updating projects in group",
+      groupId,
+      "with 'Unassigned' group stage..."
+    );
+    const result = await Project.updateMany(
+      {
+        companyId,
+        group: groupId,
+        projectStageId: { $in: globalStageIds },
+        isDeleted: { $ne: true },
+      },
+      {
+        $set: {
+          projectStageId: unassignedStage._id,
+          isDeleted: false, // Prevent accidentally marking the project as deleted
+        },
+      }
+    );
+
+    console.log(
+      `Successfully migrated ${result.modifiedCount} projects to 'Unassigned' group stage.`
+    );
+    return res.json({
+      success: true,
+      message: `✅ Migrated ${result.modifiedCount} projects to 'Unassigned' group stage.`,
+    });
+  } catch (error) {
+    console.error("❌ Migration error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Migration failed" });
+  }
+};
