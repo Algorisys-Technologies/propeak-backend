@@ -2551,7 +2551,7 @@ exports.sendNotificationAndEmailForLocation = async (req, res) => {
     };
 
     // Send email via RabbitMQ
-    await rabbitMQ.sendMessageToQueue(mailOptions, "message_queue", "msgRoute");
+    // await rabbitMQ.sendMessageToQueue(mailOptions, "message_queue", "msgRoute");
 
     // In-app user notification
     await addMyNotification({
