@@ -33,6 +33,36 @@ const createGroup = async (req, res) => {
   }
 };
 
+const selectGroup = async (req, res) => {
+  const { companyId } = req.params;
+  
+  if (!mongoose.Types.ObjectId.isValid(companyId)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Invalid companyId" 
+    });
+  }
+  
+  try {
+    const groups = await GroupMaster.find({ 
+      isDeleted: false, 
+      companyId 
+    }).select("_id name")
+      .lean();
+    
+    return res.status(200).json({ 
+      success: true, 
+      groups
+    });
+  } catch(error) {
+    return res.status(500).json({ 
+      success: false, 
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+}
+
 // Get Groups by Company ID
 const getGroups = async (req, res) => {
   const { companyId } = req.params;
@@ -205,4 +235,5 @@ module.exports = {
   getGroups,
   updateGroup,
   deleteGroup,
+  selectGroup,
 };
