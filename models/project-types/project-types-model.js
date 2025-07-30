@@ -31,4 +31,6 @@ const ProjectTypeSchema = new mongoose.Schema({
   }
 }, { versionKey: false });
 
+ProjectTypeSchema.index({ companyId: 1, isDeleted: 1 });
+
 const ProjectType = module.exports = mongoose.model('projectType', ProjectTypeSchema);
