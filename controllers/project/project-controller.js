@@ -166,8 +166,10 @@ exports.getStatusOptions = (req, res) => {
 };
 
 exports.getProjectByProjectId = (req, res) => {
+  const { companyId } = req.body;
   Project.findById({
     _id: new mongoose.Types.ObjectId(req.params.projectId),
+    companyId,
   })
     .populate({
       path: "projectTypeId",

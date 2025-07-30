@@ -129,6 +129,22 @@ exports.getUser = (req, res) => {
 //   }
 // };
 
+exports.selectUsers = async(req, res) => {
+  try{
+    const { companyId } = req.body;
+    const users = await User.find({
+      isDeleted: false,
+      companyId,
+    }).select("_id name")
+    return res.status(200).json(users);
+  }catch(err){
+    return res.status(500).json({
+      success: false,
+      msg: `Something went wrong. ${err.message}`,
+    });
+  }
+}
+
 exports.getUsers = async (req, res) => {
   try {
     const { companyId } = req.body;

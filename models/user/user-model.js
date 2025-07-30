@@ -135,7 +135,7 @@ UserSchema.methods.comparePassword = function (candidatePassword, cb) {
   // });
 };
 
-UserSchema.index({ companyId: 1 }); 
+UserSchema.index({ companyId: 1, isDeleted: 1 }); 
 UserSchema.index({ reportingManagerId: 1 }); 
 UserSchema.index({ isActive: 1, isDeleted: 1 }); 
 UserSchema.index({ role: 1 }); 

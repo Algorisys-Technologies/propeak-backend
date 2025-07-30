@@ -84,7 +84,7 @@ exports.get_project_types_by_company = async (req, res) => {
       ],
       companyId,
       isDeleted: { $ne: true },
-    });
+    }).select("_id projectType")
 
     return res.status(200).json({ success: true, projectTypes });
   } catch (error) {

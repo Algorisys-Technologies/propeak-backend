@@ -16,6 +16,8 @@ router.post(
   userController.getUsers
 );
 
+router.post("/selectUsers", userController.selectUsers);
+
 router.post("/projectId", userController.getProjectUsers);
 
 // READ (ONE)
