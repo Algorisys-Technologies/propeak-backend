@@ -40,7 +40,7 @@ module.exports = Object.freeze({
 
   socketPort: 3002,
   maxInprogressTaskCount: 2,
-  defaultEmail: "support@algorisys.com", //default emailId for sending the email
+  defaultEmail: process.env.EMAIL_FORM, //default emailId for sending the email
   leaveEmailContent:
     " //This is a system generated mail please do not reply this mail  <br> Dear Ma'am/Sir,<br><br> This is to inform you that I will not be able to attend office from <b>{fromDate}</b> to <b>{toDate}</b>.<br>Kindly grant me permission for <b>{workingDays}</b> day/s <b>{leaveType}.</b>.<br>Reason: {reason} <br>Please click on the following link, http://localhost:3000/leave-details/{leaveId} to view the leave details.<br><br> Thanks and Regards,<br> proPeak Team", //email Body
   leaveSubject: "Leave application {fromDate} to {toDate}- {userName}", // leave subject
@@ -69,7 +69,7 @@ module.exports = Object.freeze({
     <br/><br/> Thanks, <br/> proPeak Team`,
   companyCode: "Algo_",
   //emails: "dharmendra.singh@algorisys.com, rajesh@algorisys.com , radhika@algorisys.com"
-  emails: "support@algorisys.com",
+  emails: process.env.EMAIL_FORM,
   applytoEmail: "madhuri.bansode@algorisys.com",
   loginAttemptCount: 5,
   //applytoEmail: "dharmendra.singh@algorisys.com",
