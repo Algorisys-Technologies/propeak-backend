@@ -1,8 +1,11 @@
 module.exports = Object.freeze({
   url: process.env.URL + "api",
-  host: process.env.EMAIL_HOST,
+  // host: process.env.EMAIL_HOST,
+  // serverPort: 3001,
+  // fromEmail: process.env.EMAIL_FORM,
+  host: process.env.SMTP_HOST,
   serverPort: 3001,
-  fromEmail: process.env.EMAIL_FORM,
+  fromEmail: process.env.SMTP_EMAIL,
   link: process.env.URL,
   taskStatusNotificationSchedule: "*/30 * * * * 1-6",
   dsrNotificationSchedule: "*/30 * * * * 1-6",

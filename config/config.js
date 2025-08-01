@@ -9,16 +9,17 @@ module.exports = Object.freeze({
   //   user: "devbootcamp24x7@yahoo.com",
   //   pass: "uuiznvqfwhiiqrjy",
   // },
-  host: process.env.EMAIL_HOST,
-  port: 465, // non secure 587,
-  secure: true,
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT), // non secure 587,
+  secure: JSON.parse(process.env.SMTP_SECURE),
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
   link: process.env.URL,
   // from: "devbootcamp24x7@yahoo.com",
-  from: process.env.EMAIL_FORM,
+  // from: process.env.EMAIL_FORM,
+  from: process.env.SMTP_EMAIL,
   serverPort: 3001,
   //staging
   db: process.env.DB,
@@ -40,7 +41,8 @@ module.exports = Object.freeze({
 
   socketPort: 3002,
   maxInprogressTaskCount: 2,
-  defaultEmail: process.env.EMAIL_FORM, //default emailId for sending the email
+  // defaultEmail: process.env.EMAIL_FORM, //default emailId for sending the email
+  defaultEmail: process.env.SMTP_EMAIL, //default emailId for sending the email
   leaveEmailContent:
     " //This is a system generated mail please do not reply this mail  <br> Dear Ma'am/Sir,<br><br> This is to inform you that I will not be able to attend office from <b>{fromDate}</b> to <b>{toDate}</b>.<br>Kindly grant me permission for <b>{workingDays}</b> day/s <b>{leaveType}.</b>.<br>Reason: {reason} <br>Please click on the following link, http://localhost:3000/leave-details/{leaveId} to view the leave details.<br><br> Thanks and Regards,<br> proPeak Team", //email Body
   leaveSubject: "Leave application {fromDate} to {toDate}- {userName}", // leave subject
@@ -69,7 +71,8 @@ module.exports = Object.freeze({
     <br/><br/> Thanks, <br/> proPeak Team`,
   companyCode: "Algo_",
   //emails: "dharmendra.singh@algorisys.com, rajesh@algorisys.com , radhika@algorisys.com"
-  emails: process.env.EMAIL_FORM,
+  // emails: process.env.EMAIL_FORM,
+  emails: process.env.SMTP_EMAIL,
   applytoEmail: "madhuri.bansode@algorisys.com",
   loginAttemptCount: 5,
   //applytoEmail: "dharmendra.singh@algorisys.com",
