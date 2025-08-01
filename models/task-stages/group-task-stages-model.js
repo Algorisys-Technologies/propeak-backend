@@ -1,23 +1,23 @@
 const mongoose = require("mongoose");
 
-// Define the database model for project stages
-const ProjectStageSchema = new mongoose.Schema(
+// Define the database model for task stages
+const GroupTaskStageSchema = new mongoose.Schema(
   {
     sequence: {
       type: Number,
+      required: true,
     },
     title: {
       type: String,
+      required: true,
     },
     displayName: {
       type: String,
+      required: true,
     },
     show: {
       type: Boolean,
-    },
-    isDeleted: {
-      type: Boolean,
-      default: false,
+      default: true,
     },
     companyId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -27,12 +27,16 @@ const ProjectStageSchema = new mongoose.Schema(
     groupId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "GroupMaster",
+      required: true,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
     },
   },
   { versionKey: false }
 );
+GroupTaskStageSchema.index({ companyId: 1 });
 
-const ProjectStage = (module.exports = mongoose.model(
-  "projectStage",
-  ProjectStageSchema
-));
+const GroupTaskStage = mongoose.model("groupTaskStage", GroupTaskStageSchema);
+module.exports = GroupTaskStage;

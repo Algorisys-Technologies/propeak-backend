@@ -7,6 +7,7 @@ const nodemailer = require("nodemailer");
 const User = require("../../models/user/user-model");
 const audit = require("../audit-log/audit-log-controller");
 const TaskStage = require("../../models/task-stages/task-stages-model");
+const GroupTaskStage = require("../../models/task-stages/group-task-stages-model");
 const fs = require("fs");
 const config = require("../../config/config");
 const jwt = require("jsonwebtoken");
@@ -2697,12 +2698,33 @@ exports.getTasksStagesByProjectId = async (req, res) => {
     )[0];
     // console.log(project, "from project")
     const taskStagesTitles = project.taskStages;
-    const taskStages = await TaskStage.find({
+    // const taskStages = await TaskStage.find({
+    //   title: { $in: taskStagesTitles },
+    //   companyId: companyId,
+    //   $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    // }).sort({ sequence: "asc" });
+    // Find global task stages
+    const globalTaskStages = await TaskStage.find({
       title: { $in: taskStagesTitles },
       companyId: companyId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
-    return res.json({ success: true, taskStages, project });
+
+    console.log("globalTaskStages...", globalTaskStages);
+
+    // Find group task stages
+    const groupTaskStages = await GroupTaskStage.find({
+      title: { $in: taskStagesTitles },
+      companyId: companyId,
+      groupId: project.group, // ensure correct group
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    }).sort({ sequence: "asc" });
+
+    console.log("groupTaskStages...", groupTaskStages);
+
+    // Merge both results
+    const allTaskStages = [...groupTaskStages, ...globalTaskStages];
+    return res.json({ success: true, taskStages: allTaskStages, project });
   } catch (error) {
     console.log(error);
     return res.json({ message: "error fetching task kanban", success: false });

@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const TaskStage = require("../../models/task-stages/task-stages-model");
+const GroupTaskStage = require("../../models/task-stages/group-task-stages-model");
 const audit = require("../audit-log/audit-log-controller");
 const Task = require("../../models/task/task-model");
 
@@ -76,7 +77,10 @@ exports.get_task_stages = async (req, res) => {
       });
     }
 
-    const stages = await TaskStage.find({ companyId, isDeleted: { $ne: true } });
+    const stages = await TaskStage.find({
+      companyId,
+      isDeleted: { $ne: true },
+    });
 
     return res.status(200).json({
       success: true,
@@ -149,53 +153,49 @@ exports.get_task_stages_by_company = async (req, res) => {
 
     // Find task stages where isDeleted is false
     const stages = await TaskStage.find({
-      $or: [
-        { title: { $regex: regex } },
-        { displayName: { $regex: regex } },
-      ],
+      $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
     });
 
     const stagesWithTaskCount = await TaskStage.aggregate([
-  {
-    $match: {
-      companyId: new mongoose.Types.ObjectId(companyId),
-      isDeleted: { $ne: true } // Exclude deleted task stages
-    }
-  },
-  {
-    $lookup: {
-      from: "tasks",
-      let: { stageId: "$_id" },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $and: [
-                { $eq: ["$taskStageId", "$$stageId"] },
-                { $ne: ["$isDeleted", true] } // Exclude deleted tasks
-              ]
-            }
-          }
-        }
-      ],
-      as: "tasks"
-    }
-  },
-  {
-    $addFields: {
-      taskCount: { $size: "$tasks" } // Count only non-deleted tasks
-    }
-  },
-  {
-    $project: {
-      _id: 1,
-      taskCount: 1
-    }
-  }
-]);
-
+      {
+        $match: {
+          companyId: new mongoose.Types.ObjectId(companyId),
+          isDeleted: { $ne: true }, // Exclude deleted task stages
+        },
+      },
+      {
+        $lookup: {
+          from: "tasks",
+          let: { stageId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$taskStageId", "$$stageId"] },
+                    { $ne: ["$isDeleted", true] }, // Exclude deleted tasks
+                  ],
+                },
+              },
+            },
+          ],
+          as: "tasks",
+        },
+      },
+      {
+        $addFields: {
+          taskCount: { $size: "$tasks" }, // Count only non-deleted tasks
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          taskCount: 1,
+        },
+      },
+    ]);
 
     return res.status(200).json({ success: true, stages, stagesWithTaskCount });
   } catch (error) {
@@ -321,7 +321,7 @@ exports.delete_task_stage = async (req, res) => {
         { $set: { isDeleted: true } }
       );
     }
-    
+
     if (!deletedStage) {
       return res
         .status(404)
@@ -349,6 +349,260 @@ exports.delete_task_stage = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: "Error deleting task stage.",
+    });
+  }
+};
+
+exports.get_task_stages_by_group = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { companyId, query } = req.body;
+
+    if (!companyId || !groupId) {
+      return res
+        .status(400)
+        .json({ error: "Group ID and Company ID are required." });
+    }
+
+    const regex = new RegExp(query || "", "i");
+
+    const stages = await GroupTaskStage.find({
+      $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
+      groupId: new mongoose.Types.ObjectId(groupId),
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    });
+
+    const stagesWithTaskCount = await GroupTaskStage.aggregate([
+      {
+        $match: {
+          groupId: new mongoose.Types.ObjectId(groupId),
+          companyId: new mongoose.Types.ObjectId(companyId),
+          isDeleted: { $ne: true },
+        },
+      },
+      {
+        $lookup: {
+          from: "tasks",
+          let: { stageId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$taskStageId", "$$stageId"] },
+                    { $ne: ["$isDeleted", true] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "tasks",
+        },
+      },
+      {
+        $addFields: {
+          taskCount: { $size: "$tasks" },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          taskCount: 1,
+        },
+      },
+    ]);
+
+    return res.status(200).json({ success: true, stages, stagesWithTaskCount });
+  } catch (error) {
+    console.error("Error fetching group-level task stages:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load group-level task stages.",
+    });
+  }
+};
+
+exports.create_group_task_stage = async (req, res) => {
+  try {
+    const {
+      sequence,
+      title,
+      displayName,
+      show,
+      companyId,
+      groupId,
+      createdBy,
+    } = req.body;
+
+    if (!companyId || !groupId) {
+      return res.status(400).json({
+        success: false,
+        error: "Company ID and Group ID are required.",
+      });
+    }
+
+    if (!title || !displayName) {
+      return res.status(400).json({
+        success: false,
+        error: "Title and display name are required.",
+      });
+    }
+
+    const newStage = new GroupTaskStage({
+      sequence,
+      title,
+      displayName,
+      show,
+      companyId,
+      groupId,
+      createdBy,
+      createdOn: new Date(),
+      modifiedBy: createdBy,
+      modifiedOn: new Date(),
+    });
+
+    const result = await newStage.save();
+
+    [
+      "sequence",
+      "title",
+      "displayName",
+      "show",
+      "companyId",
+      "groupId",
+    ].forEach((field) => {
+      if (result[field] !== undefined) {
+        audit.insertAuditLog(
+          "",
+          result.title,
+          "GroupTaskStage",
+          field,
+          result[field],
+          createdBy,
+          result._id
+        );
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      stage: result,
+      message: "Group-level task stage added successfully.",
+    });
+  } catch (error) {
+    console.error("Error creating group-level task stage:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error in adding group-level task stage.",
+    });
+  }
+};
+
+exports.update_group_task_stage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sequence, title, displayName, show, groupId, modifiedBy } =
+      req.body;
+
+    if (!groupId || !id) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Group ID and Stage ID are required." });
+    }
+
+    const updatedData = {
+      sequence,
+      title,
+      displayName,
+      show,
+      groupId,
+      modifiedBy,
+      modifiedOn: new Date(),
+    };
+
+    const updatedStage = await GroupTaskStage.findByIdAndUpdate(
+      id,
+      updatedData,
+      {
+        new: true,
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      stage: updatedStage,
+      message: "Group-level task stage updated successfully.",
+    });
+  } catch (error) {
+    console.error("Error updating group-level task stage:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to update group-level task stage.",
+    });
+  }
+};
+
+exports.delete_group_task_stage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { groupId, deletedBy } = req.body;
+
+    if (!groupId || !id) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Group ID and Stage ID are required." });
+    }
+
+    const deletedStage = await GroupTaskStage.findByIdAndUpdate(id, {
+      isDeleted: true,
+      deletedBy,
+      deletedOn: new Date(),
+    });
+
+    return res.status(200).json({
+      success: true,
+      stage: deletedStage,
+      message: "Group-level task stage deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Error deleting group-level task stage:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete group-level task stage.",
+    });
+  }
+};
+
+exports.reorder_group_task_stages = async (req, res) => {
+  try {
+    const { companyId, groupId, stages = [] } = req.body;
+
+    if (!companyId || !groupId || !Array.isArray(stages)) {
+      return res.status(400).json({
+        success: false,
+        error: "Company ID, Group ID, and stages array are required.",
+      });
+    }
+
+    const bulkOps = stages.map((stage, index) => ({
+      updateOne: {
+        filter: { _id: stage._id, companyId, groupId },
+        update: { $set: { sequence: index } },
+      },
+    }));
+
+    await GroupTaskStage.bulkWrite(bulkOps);
+
+    return res.status(200).json({
+      success: true,
+      message: "Group-level task stages reordered successfully.",
+    });
+  } catch (error) {
+    console.error("Error reordering group-level task stages:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to reorder group-level task stages.",
     });
   }
 };

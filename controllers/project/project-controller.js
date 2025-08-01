@@ -8,6 +8,7 @@ const audit = require("../audit-log/audit-log-controller");
 const AuditLogs = require("../../models/auditlog/audit-log-model");
 const ProjectStatus = require("../../models/project/project-status-model");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
+const GroupProjectStage = require("../../models/project-stages/group-project-stages-model");
 const rabbitMQ = require("../../rabbitmq");
 
 const {
@@ -3097,11 +3098,29 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
         .json({ success: false, message: "Invalid groupId" });
     }
 
-    // Fetch all project stages for the given company
-    const projectStages = await ProjectStage.find({
+    // // Fetch all project stages for the given company
+    // const projectStages = await ProjectStage.find({
+    //   companyId,
+    //   $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    // }).sort({ sequence: "asc" });
+
+    // 🔍 Step 1: Try fetching group-level project stages
+    let projectStages = await GroupProjectStage.find({
       companyId,
+      groupId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
+
+    console.log("projectStages...", projectStages);
+
+    const isUsingGlobalStages = projectStages.length === 0;
+
+    if (isUsingGlobalStages) {
+      projectStages = await ProjectStage.find({
+        companyId,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      }).sort({ sequence: "asc" });
+    }
 
     // Fetch projects filtered by groupId
     const stagesWithProjects = await Promise.all(
@@ -3152,7 +3171,7 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
         //   })
         // );
 
-        return { ...stage.toObject(), projects: iprojects };
+        return { ...stage.toObject(), projects: iprojects || [] };
       })
     );
 
