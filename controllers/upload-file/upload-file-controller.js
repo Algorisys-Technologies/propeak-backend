@@ -22,6 +22,7 @@ const objectId = require("../../common/common");
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
 const TaskStage = require("../../models/task-stages/task-stages-model");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
+const GroupProjectStage = require("../../models/project-stages/group-project-stages-model");
 const { dateFnsLocalizer } = require("react-big-calendar");
 const Product = require("../../models/product/product-model");
 const projectType = require("../../models/project-types/project-types-model");
@@ -477,15 +478,51 @@ exports.projectFileUpload = async (req, res) => {
       .trim()
       .toLowerCase();
   }
-  async function getProjectStageIdByTitle(statusTitle, companyId) {
+  // async function getProjectStageIdByTitle(statusTitle, companyId) {
+  //   try {
+  //     const projectStage = await ProjectStage.findOne({
+  //       title: statusTitle,
+  //       companyId: companyId,
+  //       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+  //     });
+  //     console.log(projectStage, "projectStage...........");
+  //     return projectStage ? projectStage._id.toString() : null;
+  //   } catch (err) {
+  //     console.error("Error fetching projectStage ID:", err);
+  //     return null;
+  //   }
+  // }
+
+  async function getProjectStageIdByTitle(
+    statusTitle,
+    companyId,
+    groupId = null
+  ) {
     try {
       const projectStage = await ProjectStage.findOne({
         title: statusTitle,
         companyId: companyId,
         $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       });
-      console.log(projectStage, "projectStage...........");
-      return projectStage ? projectStage._id.toString() : null;
+
+      if (projectStage) {
+        return projectStage._id.toString();
+      }
+
+      if (groupId) {
+        const groupStage = await GroupProjectStage.findOne({
+          title: statusTitle,
+          companyId: companyId,
+          groupId: groupId,
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+        });
+
+        if (groupStage) {
+          return groupStage._id.toString();
+        }
+      }
+
+      return null;
     } catch (err) {
       console.error("Error fetching projectStage ID:", err);
       return null;
@@ -494,9 +531,9 @@ exports.projectFileUpload = async (req, res) => {
 
   async function getUserIdByName(name, companyId) {
     try {
-      const user = await User.findOne({ 
-        name: name, 
-        companyId, 
+      const user = await User.findOne({
+        name: name,
+        companyId,
         $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       });
       return user ? user._id : null;
@@ -615,7 +652,7 @@ exports.projectFileUpload = async (req, res) => {
                 }
                 hasValidFields = true;
               } else {
-                if(normalizedField === "projectusers") continue;
+                if (normalizedField === "projectusers") continue;
                 customFieldValues[normalizedField] = row[field];
               }
             }
@@ -657,9 +694,11 @@ exports.projectFileUpload = async (req, res) => {
                 .split(",")
                 .map((item) => item.trim());
             } else if (!Array.isArray(project.userGroups)) {
-              console.warn("userGroups is not a valid array or string, defaulting to empty array");
+              console.warn(
+                "userGroups is not a valid array or string, defaulting to empty array"
+              );
               project.userGroups = [];
-            }            
+            }
 
             if (project.projectUsers) {
               const userNames = project.projectUsers
@@ -684,18 +723,19 @@ exports.projectFileUpload = async (req, res) => {
               project.notifyUsers = users.map((user) => user._id);
             }
 
-
-            if (Array.isArray(project.userGroups) && project.userGroups.length > 0) {    
+            if (
+              Array.isArray(project.userGroups) &&
+              project.userGroups.length > 0
+            ) {
               // Fetch group members for each group in the array
               const groupList = await Promise.all(
                 project.userGroups.map(async (group) => {
                   return await getUserIdsByGroupName(group, companyId);
                 })
               );
-            
 
               project.userGroups = [...new Set(groupList.flat())];
-            
+
               if (project.userGroups.length === 0) {
                 console.warn(
                   `No users found for group: ${project.userGroups.join(
@@ -714,7 +754,6 @@ exports.projectFileUpload = async (req, res) => {
                 companyId
               );
 
-            
               if (projectTypeId) {
                 project.projectTypeId = projectTypeId;
               } else {
@@ -724,7 +763,6 @@ exports.projectFileUpload = async (req, res) => {
                 project.projectTypeId = null;
               }
             }
-
 
             if (project.taskStages) {
               const taskStageTitles = project.taskStages
@@ -797,12 +835,29 @@ exports.projectFileUpload = async (req, res) => {
               project.projectOwnerId = null;
             }
 
+            // if (project.status) {
+            //   const projectStageId = await getProjectStageIdByTitle(
+            //     project.status,
+            //     companyId
+            //   );
+            //   project.projectStageId = projectStageId;
+            // }
+
             if (project.status) {
               const projectStageId = await getProjectStageIdByTitle(
                 project.status,
-                companyId
+                companyId,
+                project.group // <-- important for group-specific stages
               );
-              project.projectStageId = projectStageId;
+
+              if (!projectStageId) {
+                console.warn(
+                  `No matching project stage found for status "${project.status}" in either ProjectStage or GroupProjectStage`
+                );
+                missingFields.push("valid project status (projectStage)");
+              } else {
+                project.projectStageId = projectStageId;
+              }
             }
 
             project.projectType = project.projectType || "Issue Tracker";
@@ -839,7 +894,7 @@ exports.projectFileUpload = async (req, res) => {
             if (missingFields.length === 0) {
               const existingProject = await Project.findOne({
                 title: project.title,
-                companyId: project.companyId
+                companyId: project.companyId,
               });
 
               if (!existingProject) {
@@ -849,18 +904,16 @@ exports.projectFileUpload = async (req, res) => {
 
               // Loop through projects to process further
               for (const proj of projects) {
-                
                 // Check again in case new projects are processed dynamically
                 const existingProj = await Project.findOne({
                   title: proj.title,
-                  companyId: proj.companyId
+                  companyId: proj.companyId,
                 });
 
                 if (!existingProj) {
                   await Project.create(proj);
                 }
               }
-              
             } else {
               console.log(
                 `project at row ${index + 1} missing required fields:`,
@@ -878,7 +931,7 @@ exports.projectFileUpload = async (req, res) => {
 
           if (projects.length > 0) {
             try {
-            //  await Project.insertMany(projects);
+              //  await Project.insertMany(projects);
               let missingFieldsSummary = failedRecords
                 .map(
                   (fail) =>
@@ -902,7 +955,7 @@ exports.projectFileUpload = async (req, res) => {
           } else {
             res.json({
               title: "Duplicate company created!",
-              description: "some project have duplicate project title"
+              description: "some project have duplicate project title",
             });
           }
         }
