@@ -94,6 +94,22 @@ exports.get_task_stages = async (req, res) => {
     });
   }
 };
+
+exports.get_task_stages = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+    const stages = await TaskStage.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    }).select("_id displayName title");
+    return res.status(200).json({ success: true, stages });
+  }catch(error){
+    return res
+    .status(500)
+    .json({ success: false, error: "Failed to load task stages." });
+  }
+}
+
 // Get task stages by company ID
 // exports.get_task_stages_by_company = async (req, res) => {
 //   try {

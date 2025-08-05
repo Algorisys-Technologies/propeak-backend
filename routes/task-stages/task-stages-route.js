@@ -15,5 +15,6 @@ router.post("/add/group", taskStageController.create_group_task_stage);
 router.put("/:id/group", taskStageController.update_group_task_stage);
 router.post("/:id/group", taskStageController.delete_group_task_stage);
 router.post("/reorder/group", taskStageController.reorder_group_task_stages);
+router.post("/get-taskStages", taskStageController.get_task_stages);
 
 module.exports = router;
