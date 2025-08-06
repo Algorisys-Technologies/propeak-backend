@@ -164,7 +164,7 @@ exports.select_task_stages = async (req, res) => {
 
     const stages = await TaskStage.find({
       companyId
-    }).select("_id displayName");
+    }).select("_id displayName title");
 
     if (!stages) {
       return res

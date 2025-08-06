@@ -78,7 +78,7 @@ exports.select_project_stages = async (req, res) => {
     const stages = await ProjectStage.find({
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
-    }).select("_id displayName");
+    }).select("_id displayName title");
 
     return res
       .status(200)
