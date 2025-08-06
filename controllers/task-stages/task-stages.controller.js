@@ -157,6 +157,30 @@ exports.get_task_stages = async (req, res) => {
 //       .json({ success: false, error: "Failed to load task stages." });
 //   }
 // };
+
+exports.select_task_stages = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+
+    const stages = await TaskStage.find({
+      companyId
+    }).select("_id displayName");
+
+    if (!stages) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Task stage not found." });
+    }
+
+    return res.status(200).json({ success: true, stages});
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: "Error selecting task stage.",
+    });
+  }
+}
+
 exports.get_task_stages_by_company = async (req, res) => {
   try {
     const { companyId, query } = req.body;

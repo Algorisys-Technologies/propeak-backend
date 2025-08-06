@@ -67,6 +67,30 @@ exports.create_project_stage = async (req, res) => {
   }
 };
 
+exports.select_project_stages = async (req, res) => {
+  try {
+    const { companyId} = req.body;
+
+    if (!companyId) {
+      return res.status(400).json({ error: "Company ID is required." });
+    }
+
+    const stages = await ProjectStage.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    }).select("_id displayName");
+
+    return res
+      .status(200)
+      .json({ success: true, stages });
+  } catch (error) {
+    console.error("Error fetching project stages:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to load project stages." });
+  }
+}
+
 exports.get_project_stages_by_company = async (req, res) => {
   try {
     const { companyId, query } = req.body;

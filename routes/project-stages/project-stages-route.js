@@ -9,6 +9,7 @@ router.post(
 );
 
 router.post("/companyId", projectStageController.get_project_stages_by_company);
+router.post("/select-project-stages", projectStageController.select_project_stages);
 router.post("/add", projectStageController.create_project_stage);
 router.put("/:id", projectStageController.update_project_stage);
 router.post("/reorder", projectStageController.reorder_project_stages);

@@ -33,6 +33,22 @@ const createGroup = async (req, res) => {
   }
 };
 
+const selectGroups = async (req, res) => {
+  const { companyId } = req.params;
+  console.log("companyId, ", companyId)
+  if (!mongoose.Types.ObjectId.isValid(companyId)) {
+    return res
+      .status(200)
+      .json({ success: false, message: "Invalid companyId" });
+  }
+  const groups = await GroupMaster.find({
+    companyId,
+    isDeleted: false,
+  }).select("_id name");
+
+  return res.status(200).json({ success: true, groups});
+}
+
 // Get Groups by Company ID
 const getGroups = async (req, res) => {
   const { companyId } = req.params;
@@ -205,4 +221,5 @@ module.exports = {
   getGroups,
   updateGroup,
   deleteGroup,
+  selectGroups,
 };
