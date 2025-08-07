@@ -178,7 +178,7 @@ router.delete(
 );
 
 router.get(
-  "/getProjectsByCompanyId/:companyId/:userId",
+  "/getProjectsByCompanyId/:companyId",
   // verifyToken,
   projectController.getProjectsByCompanyId
 );
