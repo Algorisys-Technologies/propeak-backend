@@ -44,7 +44,7 @@ const selectGroups = async (req, res) => {
   const groups = await GroupMaster.find({
     companyId,
     isDeleted: false,
-  }).select("_id name");
+  }).select("_id name showInMenu");
 
   return res.status(200).json({ success: true, groups});
 }
