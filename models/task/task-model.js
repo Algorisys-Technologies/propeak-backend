@@ -108,7 +108,7 @@ const TaskSchema = new mongoose.Schema(
     },
     lead_source: {
       type: String,
-      enum: ["INDIAMART", "EMAIL", "USER", "EXCEL", "OTHERS"],
+      enum: ["INDIAMART", "EMAIL", "USER", "EXCEL", "PRODUCT_TASK", "OTHERS"],
       // required: true,
     },
     interested_products: [
@@ -149,19 +149,19 @@ const TaskSchema = new mongoose.Schema(
 TaskSchema.index({ companyId: 1 });
 TaskSchema.index({ endDate: 1 });
 TaskSchema.index({ startDate: 1 });
-TaskSchema.index({ createdOn: 1 }); 
-TaskSchema.index({ status: 1 }); 
+TaskSchema.index({ createdOn: 1 });
+TaskSchema.index({ status: 1 });
 TaskSchema.index({ projectId: 1 });
 TaskSchema.index({ userId: 1 });
 TaskSchema.index({ isDeleted: 1 });
 TaskSchema.index({ companyId: 1, endDate: 1 });
-TaskSchema.index({ companyId: 1, status: 1 }); 
+TaskSchema.index({ companyId: 1, status: 1 });
 
-TaskSchema.virtual('isOverdue').get(function() {
-  return this.endDate < new Date() && this.status !== 'completed';
+TaskSchema.virtual("isOverdue").get(function () {
+  return this.endDate < new Date() && this.status !== "completed";
 });
 
-TaskSchema.virtual('isActive').get(function() {
+TaskSchema.virtual("isActive").get(function () {
   const now = new Date();
   return this.startDate <= now && this.endDate >= now && !this.completed;
 });

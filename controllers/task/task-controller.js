@@ -13,6 +13,7 @@ const config = require("../../config/config");
 const jwt = require("jsonwebtoken");
 const secret = require("../../config/secret");
 const Project = require("../../models/project/project-model");
+const Product = require("../../models/product/product-model");
 const TaskPriority = require("../../models/task/task-priority-model");
 const { logError, logInfo } = require("../../common/logger");
 const { sendEmail } = require("../../common/mailer");
@@ -453,6 +454,73 @@ exports.createTask = (req, res) => {
         }
       }
 
+      // ✅ Auto-create product tasks
+      if (
+        Array.isArray(interested_products) &&
+        interested_products.length > 0
+      ) {
+        console.log("Creating product tasks for:", interested_products);
+        const enrichedProducts = [];
+        for (const product of interested_products) {
+          const productDoc = await Product.findById(product.product_id).select(
+            "name category description"
+          );
+
+          const enrichedProduct = {
+            ...product,
+            product_name: productDoc?.name || "Unnamed Product",
+            product_category: productDoc?.category || "Uncategorized",
+            product_description: productDoc?.description || "No description",
+          };
+
+          enrichedProducts.push(enrichedProduct);
+
+          console.log("enrichedProducts", enrichedProducts);
+
+          const productTask = new Task({
+            title: `Product ${enrichedProduct.product_name}`,
+            description: `${enrichedProduct.product_description} Category: ${enrichedProduct.product_description}`,
+            startDate,
+            endDate,
+            taskStageId: taskStageId || null,
+            projectId,
+            status,
+            assignedUser,
+            taskType,
+            depId,
+            category,
+            tag,
+            storyPoint,
+            priority,
+            creation_mode: "AUTO",
+            lead_source: "PRODUCT_TASK",
+            multiUsers: multiUsers?.map((user) => user.id),
+            notifyUsers: notifyUsers?.map((id) => id),
+            customFieldValues,
+            companyId,
+            interested_products: [
+              {
+                product_id: enrichedProduct.product_id,
+                quantity: parseFloat(enrichedProduct.quantity || "0"),
+                priority: "",
+                unit: enrichedProduct.unit,
+                negotiated_price: parseFloat(enrichedProduct.price || "0"),
+                total_value: parseFloat(enrichedProduct.total || "0"),
+              },
+            ],
+            createdBy,
+            createdOn: new Date(),
+            modifiedBy,
+            modifiedOn: new Date(),
+            isDeleted: false,
+            publish_status: publishStatus,
+            parentTaskId: taskId,
+          });
+
+          await productTask.save();
+        }
+      }
+
       res.json({
         success: true,
         msg: "Task created successfully!",
@@ -694,6 +762,74 @@ exports.updateTask = (req, res) => {
         }
       }
       // }
+
+      // ✅ Auto-create product tasks
+      if (
+        Array.isArray(interested_products) &&
+        interested_products.length > 0
+      ) {
+        console.log(
+          "Creating product tasks for in update:",
+          interested_products
+        );
+        const enrichedProducts = [];
+        for (const product of interested_products) {
+          const productDoc = await Product.findById(product.product_id).select(
+            "name category description"
+          );
+
+          const enrichedProduct = {
+            ...product,
+            product_name: productDoc?.name || "Unnamed Product",
+            product_category: productDoc?.category || "Uncategorized",
+            product_description: productDoc?.description || "No description",
+          };
+
+          enrichedProducts.push(enrichedProduct);
+
+          console.log("enrichedProducts", enrichedProducts);
+
+          const productTask = new Task({
+            title: `Product ${enrichedProduct.product_name}`,
+            description: `${enrichedProduct.product_description} Category: ${enrichedProduct.product_description}`,
+            startDate,
+            endDate,
+            taskStageId: taskStageId || null,
+            projectId,
+            status,
+            assignedUser,
+            taskType,
+            depId,
+            category,
+            tag,
+            storyPoint,
+            priority,
+            creation_mode: "AUTO",
+            lead_source: "PRODUCT_TASK",
+            multiUsers: multiUsers?.map((user) => user.id),
+            notifyUsers: notifyUsers?.map((id) => id),
+            customFieldValues,
+            companyId,
+            interested_products: [
+              {
+                product_id: enrichedProduct.product_id,
+                quantity: parseFloat(enrichedProduct.quantity || "0"),
+                priority: "",
+                unit: enrichedProduct.unit,
+                negotiated_price: parseFloat(enrichedProduct.price || "0"),
+                total_value: parseFloat(enrichedProduct.total || "0"),
+              },
+            ],
+            modifiedBy,
+            modifiedOn: new Date(),
+            isDeleted: false,
+            publish_status: publishStatus,
+            parentTaskId: taskId,
+          });
+
+          await productTask.save();
+        }
+      }
 
       res.json({
         success: true,
