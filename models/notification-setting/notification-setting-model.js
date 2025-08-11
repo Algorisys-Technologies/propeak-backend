@@ -6,15 +6,18 @@ const NotificationSettingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
       // required: true,
+      index: true,
     },
     projectId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Project",
       // required: true,
+      index: true,
     },
     taskStageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TaskStage",
+      index: true,
     },
     eventType: {
       type: String,
@@ -69,6 +72,17 @@ const NotificationSettingSchema = new mongoose.Schema(
     },
   },
   { versionKey: false }
+);
+
+// Compound indexes for common queries
+NotificationSettingSchema.index(
+  { companyId: 1, eventType: 1, isDeleted: 1 }
+);
+NotificationSettingSchema.index(
+  { projectId: 1, eventType: 1, isDeleted: 1 }
+);
+NotificationSettingSchema.index(
+  { companyId: 1, projectId: 1, taskStageId: 1, isDeleted: 1 }
 );
 
 module.exports = mongoose.model(
