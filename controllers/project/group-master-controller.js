@@ -75,7 +75,7 @@ const getGroups = async (req, res) => {
     }
 
     const [groups, totalCount] = await Promise.all([
-      GroupMaster.find(filter),
+      GroupMaster.find(filter).select("_id name description showInMenu"),
       GroupMaster.countDocuments(filter),
     ]);
 
