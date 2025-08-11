@@ -32,6 +32,10 @@ const ProjectStageSchema = new mongoose.Schema(
   { versionKey: false }
 );
 
+ProjectStageSchema.index({ companyId: 1, isDeleted: 1 });
+ProjectStageSchema.index({ companyId: 1, groupId: 1 });
+ProjectStageSchema.index({ companyId: 1, sequence: 1 });
+
 const ProjectStage = (module.exports = mongoose.model(
   "projectStage",
   ProjectStageSchema

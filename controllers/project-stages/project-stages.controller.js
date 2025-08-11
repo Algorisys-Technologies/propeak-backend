@@ -104,9 +104,9 @@ exports.get_project_stages_by_company = async (req, res) => {
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
-    });
+    })
 
-    const stagesWithProjectAndTaskCount = await ProjectStage.aggregate([
+    const stagesWithProjectCount = await ProjectStage.aggregate([
       {
         $match: {
           companyId: new mongoose.Types.ObjectId(companyId),
@@ -123,45 +123,20 @@ exports.get_project_stages_by_company = async (req, res) => {
                 $expr: {
                   $and: [
                     { $eq: ["$projectStageId", "$$stageId"] },
-                    { $ne: ["$isDeleted", true] }, // Exclude deleted projects
+                    { $ne: ["$isDeleted", true] }, // only active projects
                   ],
                 },
               },
             },
-            {
-              $lookup: {
-                from: "tasks",
-                let: { projectId: "$_id" },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $and: [
-                          { $eq: ["$projectId", "$$projectId"] },
-                          { $ne: ["$isDeleted", true] }, // Exclude deleted tasks
-                        ],
-                      },
-                    },
-                  },
-                ],
-                as: "tasks",
-              },
-            },
+            { $count: "count" }, // directly count in the lookup stage
           ],
-          as: "projects",
+          as: "projectStats",
         },
       },
       {
         $addFields: {
-          projectCount: { $size: "$projects" }, // Count only non-deleted projects
-          totalTasks: {
-            $sum: {
-              $map: {
-                input: "$projects",
-                as: "proj",
-                in: { $size: "$$proj.tasks" }, // Count only non-deleted tasks
-              },
-            },
+          projectCount: {
+            $ifNull: [{ $arrayElemAt: ["$projectStats.count", 0] }, 0],
           },
         },
       },
@@ -169,10 +144,9 @@ exports.get_project_stages_by_company = async (req, res) => {
         $project: {
           _id: 1,
           projectCount: 1,
-          totalTasks: 1,
         },
       },
-    ]);
+    ]);    
 
     if (stages.length === 0) {
       return res
@@ -182,7 +156,7 @@ exports.get_project_stages_by_company = async (req, res) => {
 
     return res
       .status(200)
-      .json({ success: true, stages, stagesWithProjectAndTaskCount });
+      .json({ success: true, stages, stagesWithProjectCount });
   } catch (error) {
     console.error("Error fetching project stages:", error);
     return res

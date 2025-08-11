@@ -142,6 +142,7 @@ const ProjectSchema = new mongoose.Schema(
 
 ProjectSchema.index({ companyId: 1, isDeleted: 1 });
 ProjectSchema.index({ projectUsers: 1, isDeleted: 1 });
+ProjectSchema.index({ projectStageId: 1, isDeleted: 1 });
 
 const Project = (module.exports = mongoose.model("project", ProjectSchema));
 
