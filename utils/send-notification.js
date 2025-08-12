@@ -43,7 +43,8 @@ module.exports = async function sendNotification(task, eventType) {
     task.projectId?._id ||
     eventType === "TASK_ASSIGNED" ||
     eventType === "STAGE_CHANGED" ||
-    eventType === "TASK_CREATED"
+    eventType === "TASK_CREATED" ||
+    eventType === "TASK_REMINDER_DUE"
   ) {
     const settings = await NotificationSetting.find({
       projectId: task.projectId._id,
@@ -236,6 +237,13 @@ module.exports = async function sendNotification(task, eventType) {
       case "TASK_CREATED":
         subject = "Task created.";
         category = "task";
+        url = `/tasks/show/${task.projectId?._id || task.projectId}/${
+          task._id
+        }`;
+        break;
+      case "TASK_REMINDER_DUE":
+        subject = "Task reminder due.";
+        category = "reminder";
         url = `/tasks/show/${task.projectId?._id || task.projectId}/${
           task._id
         }`;
