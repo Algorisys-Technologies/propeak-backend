@@ -220,13 +220,17 @@ exports.get_task_stages_by_company = async (req, res) => {
                 },
               },
             },
+            { $limit: 1 }, // stop after first found
+            { $count: "count" } // will be 1 if found, 0 otherwise
           ],
-          as: "tasks",
+          as: "taskStats",
         },
       },
       {
         $addFields: {
-          taskCount: { $size: "$tasks" }, // Count only non-deleted tasks
+          taskCount: {
+            $ifNull: [{ $arrayElemAt: ["$taskStats.count", 0] }, 0],
+          },
         },
       },
       {

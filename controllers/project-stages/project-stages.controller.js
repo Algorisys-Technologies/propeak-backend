@@ -128,6 +128,7 @@ exports.get_project_stages_by_company = async (req, res) => {
                 },
               },
             },
+            { $limit: 1 }, // Take only the first record
             { $count: "count" }, // directly count in the lookup stage
           ],
           as: "projectStats",

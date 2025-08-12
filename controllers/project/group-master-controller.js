@@ -101,6 +101,7 @@ const getGroups = async (req, res) => {
                 }
               }
             },
+            { $limit: 1 },
             { $count: "count" } // directly count matching projects
           ],
           as: "projectStats"

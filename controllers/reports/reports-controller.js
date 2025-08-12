@@ -1528,7 +1528,7 @@ exports.getIncompleteTaskCountReportForCompany = async (req, res) => {
 
     // Validate company ID format
     if (!mongoose.Types.ObjectId.isValid(companyId)) {
-      console.log("Invalid company ID format.");
+      // console.log("Invalid company ID format.");
       return res.status(400).json({ err: "Invalid company ID format." });
     }
 
