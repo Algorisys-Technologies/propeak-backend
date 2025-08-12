@@ -1035,7 +1035,7 @@ exports.sendExportNotificationAndEmail =
     email,
     companyId,
   }) {
-    //console.log("asdfghjk...");
+    console.log("email...", email);
     try {
       // Send the email
       const emailHtml = `
@@ -1092,6 +1092,7 @@ exports.generateExport = async (req, res) => {
       reportParams,
       role,
       configHeaders,
+      loginUserId,
     } = req.body;
 
     //console.log("req.body...generateExport", req.body);
@@ -1108,6 +1109,7 @@ exports.generateExport = async (req, res) => {
       email,
       reportParams,
       role,
+      loginUserId,
       configHeaders,
     };
 

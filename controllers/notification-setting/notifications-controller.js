@@ -28,7 +28,7 @@ exports.bellNotification = async (req, res) => {
       userId,
       read: false
     })
-      .select("_id userId subject message url read category")
+      .select("_id userId subject message url read category createdOn")
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * npage);
