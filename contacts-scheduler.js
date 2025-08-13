@@ -147,6 +147,12 @@ try {
             filePath,
             visitingCardsIds,
             vfolderId,
+            userId,
+            projectOwnerId,
+            notifyUserId,
+            projectTypeId,
+            projectStageId,
+            groupId,
           } = msg;
 
           try {
@@ -276,6 +282,12 @@ try {
                   isDeleted: false,
                   creationMode: "AUTO",
                   vfolderId,
+                  userId,
+                  projectOwnerId,
+                  notifyUserId,
+                  projectTypeId,
+                  projectStageId,
+                  groupId,
                 };
 
                 contacts.push(contact);

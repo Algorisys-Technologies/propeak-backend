@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 // Define the database model
 const VFolderSchema = new mongoose.Schema({
-  companyId:{
+  companyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "company",
   },
@@ -10,7 +10,36 @@ const VFolderSchema = new mongoose.Schema({
     type: String,
     unique: true,
     required: true,
- 
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
+    default: null,
+  },
+  projectOwnerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
+    default: null,
+  },
+  notifyUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
+    default: null,
+  },
+  projectTypeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "projectType",
+    default: null,
+  },
+  projectStageId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "projectStage",
+    default: null,
+  },
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "groupMaster",
+    default: null,
   },
   isDeleted: {
     type: Boolean,
@@ -22,7 +51,6 @@ const VFolderSchema = new mongoose.Schema({
   modified_on: {
     type: Date,
   },
-}
-);
+});
 
 const VFolder = (module.exports = mongoose.model("vfolder", VFolderSchema));

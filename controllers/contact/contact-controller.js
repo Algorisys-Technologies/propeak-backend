@@ -1,4 +1,5 @@
 const Contact = require("../../models/contact/contact-model");
+const Project = require("../../models/project/project-model");
 const mongoose = require("mongoose");
 
 const { logError, logInfo } = require("../../common/logger");
@@ -25,13 +26,15 @@ exports.getContacts = async (req, res) => {
         .json({ success: false, message: "Company ID is required" });
     }
 
-    const accountName = await Account.findOne({_id: accountId});
+    const accountName = await Account.findOne({ _id: accountId });
     const contacts = await Contact.find({
       companyId: companyId,
       account_id: accountId,
       isDeleted: false,
     });
-    return res.status(200).json({ success: true, contacts, accountName: accountName.account_name });
+    return res
+      .status(200)
+      .json({ success: true, contacts, accountName: accountName.account_name });
   } catch (error) {
     console.error("Error fetching contacts:", error.message);
     return res.status(500).json({
@@ -68,7 +71,7 @@ exports.getAllContact = async (req, res) => {
     { last_name: { $regex: regex } },
     { phone: { $regex: regex } },
     { email: { $regex: regex } },
-    { title: { $regex: regex } }
+    { title: { $regex: regex } },
   ];
 
   if (vfolderId) {
@@ -99,7 +102,7 @@ exports.getAllContact = async (req, res) => {
   );
 
   const totalContact = Math.ceil(
-    (await Contact.countDocuments({
+    await Contact.countDocuments({
       account_id: accountId,
       $and: [
         { $or: orConditions },
@@ -107,7 +110,8 @@ exports.getAllContact = async (req, res) => {
         { account_id: accountId },
         { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
       ],
-    })))
+    })
+  );
   if (!contacts || contacts.length === 0) {
     return res.status(404).json({
       success: false,
@@ -230,12 +234,13 @@ exports.updateVisitingCardsStatus = async (req, res) => {
 
 const generateUniqueAccountNumber = async () => {
   const lastAccount = await Account.findOne({}, { account_number: 1 })
-    .sort({ account_number: -1 }) 
+    .sort({ account_number: -1 })
     .lean();
 
-  let newNumber = lastAccount && lastAccount.account_number
-    ? parseInt(lastAccount.account_number, 10) + 1 
-    : 1; 
+  let newNumber =
+    lastAccount && lastAccount.account_number
+      ? parseInt(lastAccount.account_number, 10) + 1
+      : 1;
 
   return newNumber.toString().padStart(9, "0");
 };
@@ -309,6 +314,121 @@ exports.createMultipleContacts = async (req, res) => {
     // Insert contacts into the Contact collection
     const newContacts = await Contact.insertMany(contacts);
 
+    // Auto-create projects for each new contact
+    for (const contact of newContacts) {
+      try {
+        // Prepare project title
+        const company = contact.title?.trim();
+        const name = `${contact.first_name || ""} ${
+          contact.last_name || ""
+        }`.trim();
+
+        let projectTitle =
+          company && company.length > 0
+            ? company
+            : name && name.length > 0
+            ? name
+            : `Contact-${contact.mobile || Date.now()}`;
+
+        // Prepare normalized address
+        let address = `${contact.address?.street || ""}, City: ${
+          contact.address?.city || ""
+        }, State: ${contact.address?.state || ""}, Pincode: ${
+          contact.address?.postal_code || ""
+        }, Country: ${contact.address?.country || ""}`;
+
+        function normalizeAddress(addr) {
+          return addr
+            .replace(/City:\s*\w+\,?/gi, "")
+            .replace(/State:\s*\w+\,?/gi, "")
+            .replace(/Pincode:\s*\d+\,?/gi, "")
+            .replace(/Country:\s*IN\b/gi, "India")
+            .replace(/\s+/g, " ")
+            .replace(/,+/g, ",")
+            .trim()
+            .toLowerCase();
+        }
+
+        const normalizedAddress = normalizeAddress(address);
+
+        // Check if project already exists
+        let existingProject = await Project.findOne({
+          companyId,
+          group: contact.groupId || null,
+          title: projectTitle,
+          isDeleted: false,
+        });
+
+        // Build project users array
+        const projectUsers = Array.from(
+          new Set(
+            [contact.userId, contact.projectOwnerId, contact.notifyUserId]
+              .filter(Boolean)
+              .map((id) => id.toString())
+          ),
+          (idStr) => new mongoose.Types.ObjectId(idStr)
+        );
+
+        if (!existingProject) {
+          existingProject = new Project({
+            companyId,
+            title: projectTitle,
+            description: contact.description,
+            contactId: contact._id,
+            startdate: new Date(),
+            enddate: null,
+            status: "todo",
+            projectStageId,
+            taskStages: ["todo", "inprogress", "completed"],
+            userid: contact.projectOwnerId,
+            createdBy: contact.userId ? contact.userId : null,
+            createdOn: new Date(),
+            modifiedOn: new Date(),
+            sendnotification: false,
+            group: contact.groupId || null,
+            isDeleted: false,
+            miscellaneous: false,
+            archive: false,
+            customFieldValues: {
+              address: normalizedAddress,
+              first_name: contact.first_name,
+              last_name: contact.last_name,
+              email: contact.email,
+              phone: contact.phone,
+              mobile: contact.mobile,
+              department: contact.department,
+              account_name: contact.account_name,
+              secondary_address: contact.secondary_address,
+            },
+            projectUsers,
+            notifyUsers: [contact.notifyUserId],
+            messages: [],
+            uploadFiles: [],
+            tasks: [],
+            customTaskFields: [],
+            projectTypeId: contact.projectTypeId || null,
+            creation_mode: "AUTO",
+            lead_source: "CONTACT_CONVERSION",
+            tag: ["contact-conversion"],
+          });
+
+          await existingProject.save();
+          console.log(
+            `Project created for contact ${contact._id}: ${projectTitle}`
+          );
+        } else {
+          console.log(
+            `Project already exists for contact ${contact._id} - Skipping.`
+          );
+        }
+      } catch (err) {
+        console.error(
+          `Failed to create project for contact ${contact._id}`,
+          err
+        );
+      }
+    }
+
     // Find one matching uploaded file
     const checkUploadFiles = await UploadRepositoryFile.find({
       fileName: { $in: contacts.map((contact) => contact.file_name) },
@@ -377,33 +497,142 @@ exports.createContact = async (req, res) => {
       });
     }
 
-    if(contactData.first_name == "" || contactData.last_name == "" || contactData.email == ""){
+    if (
+      contactData.first_name == "" ||
+      contactData.last_name == "" ||
+      contactData.email == ""
+    ) {
       return res
         .status(400)
         .send("All fields marked with an asterisk (*) are mandatory.");
     }
-
-    // if(contactData.creationMode == "AUTO"){
-
-    //   const contactsQueueCount = await getQueueMessageCount("contact_extraction_queue")
-    //   const users = activeClients.get(companyId)
-    //   users.forEach((user)=> {
-    //     user.send(JSON.stringify({event: "contact-created", contactsQueueCount }))
-    //   })
-    // }
 
     const newContact = new Contact({
       ...contactData,
       companyId: companyId,
     });
 
-    const result = await newContact.save();
-    console.log("contact created successfully:", result);
+    const savedContact = await newContact.save();
+
+    console.log("Contact created successfully:", savedContact);
+
+    // ---------- AUTO-CREATE PROJECT ----------
+    try {
+      const company = savedContact.title?.trim();
+      const name = `${savedContact.first_name || ""} ${
+        savedContact.last_name || ""
+      }`.trim();
+
+      let projectTitle =
+        company && company.length > 0
+          ? company
+          : name && name.length > 0
+          ? name
+          : `Contact-${savedContact.mobile || Date.now()}`;
+
+      let address = `${savedContact.address?.street || ""}, City: ${
+        savedContact.address?.city || ""
+      }, State: ${savedContact.address?.state || ""}, Pincode: ${
+        savedContact.address?.postal_code || ""
+      }, Country: ${savedContact.address?.country || ""}`;
+
+      function normalizeAddress(addr) {
+        return addr
+          .replace(/City:\s*\w+\,?/gi, "")
+          .replace(/State:\s*\w+\,?/gi, "")
+          .replace(/Pincode:\s*\d+\,?/gi, "")
+          .replace(/Country:\s*IN\b/gi, "India")
+          .replace(/\s+/g, " ")
+          .replace(/,+/g, ",")
+          .trim()
+          .toLowerCase();
+      }
+
+      const normalizedAddress = normalizeAddress(address);
+
+      let existingProject = await Project.findOne({
+        companyId,
+        group: savedContact.groupId || null,
+        title: projectTitle,
+        isDeleted: false,
+      });
+
+      const projectUsers = Array.from(
+        new Set(
+          [
+            savedContact.userId,
+            savedContact.projectOwnerId,
+            savedContact.notifyUserId,
+          ]
+            .filter(Boolean)
+            .map((id) => id.toString())
+        ),
+        (idStr) => new mongoose.Types.ObjectId(idStr)
+      );
+
+      if (!existingProject) {
+        existingProject = new Project({
+          companyId,
+          title: projectTitle,
+          description: savedContact.description,
+          contactId: savedContact._id,
+          startdate: new Date(),
+          enddate: null,
+          status: "todo",
+          projectStageId: savedContact.projectStageId || null,
+          taskStages: ["todo", "inprogress", "completed"],
+          userid: savedContact.projectOwnerId,
+          createdBy: savedContact.userId ? savedContact.userId : null,
+          createdOn: new Date(),
+          modifiedOn: new Date(),
+          sendnotification: false,
+          group: savedContact.groupId || null,
+          isDeleted: false,
+          miscellaneous: false,
+          archive: false,
+          customFieldValues: {
+            address: normalizedAddress,
+            first_name: savedContact.first_name,
+            last_name: savedContact.last_name,
+            email: savedContact.email,
+            phone: savedContact.phone,
+            mobile: savedContact.mobile,
+            department: savedContact.department,
+            account_name: savedContact.account_name,
+            secondary_address: savedContact.secondary_address,
+          },
+          projectUsers,
+          notifyUsers: [savedContact.notifyUserId],
+          messages: [],
+          uploadFiles: [],
+          tasks: [],
+          customTaskFields: [],
+          projectTypeId: savedContact.projectTypeId || null,
+          creation_mode: "AUTO",
+          lead_source: "CONTACT_CONVERSION",
+          tag: ["contact-conversion"],
+        });
+
+        await existingProject.save();
+        console.log(
+          `Project created for contact ${savedContact._id}: ${projectTitle}`
+        );
+      } else {
+        console.log(
+          `Project already exists for contact ${savedContact._id} - Skipping.`
+        );
+      }
+    } catch (projectErr) {
+      console.error(
+        `Failed to create project for contact ${savedContact._id}`,
+        projectErr
+      );
+    }
 
     res.json({
       success: true,
       message: "Successfully added!",
-      result: result,
+      result: savedContact,
     });
   } catch (err) {
     console.error("Error occurred while creating contact:", err);
