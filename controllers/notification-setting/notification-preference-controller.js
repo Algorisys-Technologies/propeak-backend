@@ -45,7 +45,8 @@ exports.getPreferences = async (req, res) => {
   try {
     const { userId } = req.body;
 
-    const preferences = await NotificationPreference.find({ userId });
+    const preferences = await NotificationPreference.find({ userId })
+                        .select("_id userId email inApp muteEvents");
 
     if (!preferences || preferences.length === 0) {
       return res.status(404).json({
@@ -53,11 +54,11 @@ exports.getPreferences = async (req, res) => {
         message: "No preferences found for this user.",
       });
     }
-    console.log(preferences, "from preferences")
+    // console.log(preferences, "from preferences")
 
-    const data = await NotificationSetting.find({ notifyUserIds: { $in: [userId] } });
+    // const data = await NotificationSetting.find({ notifyUserIds: { $in: [userId] } });
     // console.log(data, "from data")
-    if(data){
+    // if(data){
       // if(!preferences[0].email){
       //   await NotificationSetting.updateMany(
       //     { notifyUserIds: { $in: [userId] } },
@@ -89,7 +90,7 @@ exports.getPreferences = async (req, res) => {
     //   );
     // }
     
-    }
+    // }
 
     res.status(200).json({
       success: true,

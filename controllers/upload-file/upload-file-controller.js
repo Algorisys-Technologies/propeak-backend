@@ -23,7 +23,6 @@ const { UploadFile } = require("../../models/upload-file/upload-file-model");
 const TaskStage = require("../../models/task-stages/task-stages-model");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
 const GroupProjectStage = require("../../models/project-stages/group-project-stages-model");
-const { dateFnsLocalizer } = require("react-big-calendar");
 const Product = require("../../models/product/product-model");
 const projectType = require("../../models/project-types/project-types-model");
 const errors = {
@@ -478,51 +477,25 @@ exports.projectFileUpload = async (req, res) => {
       .trim()
       .toLowerCase();
   }
-  // async function getProjectStageIdByTitle(statusTitle, companyId) {
-  //   try {
-  //     const projectStage = await ProjectStage.findOne({
-  //       title: statusTitle,
-  //       companyId: companyId,
-  //       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-  //     });
-  //     console.log(projectStage, "projectStage...........");
-  //     return projectStage ? projectStage._id.toString() : null;
-  //   } catch (err) {
-  //     console.error("Error fetching projectStage ID:", err);
-  //     return null;
-  //   }
-  // }
-
-  async function getProjectStageIdByTitle(
-    statusTitle,
-    companyId,
-    groupId = null
-  ) {
+  async function getProjectStageIdByTitle(statusTitle, companyId, groupId) {
+    let projectStage;
     try {
-      const projectStage = await ProjectStage.findOne({
-        title: statusTitle,
-        companyId: companyId,
-        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-      });
-
-      if (projectStage) {
-        return projectStage._id.toString();
-      }
-
       if (groupId) {
-        const groupStage = await GroupProjectStage.findOne({
+        projectStage = await GroupProjectStage.findOne({
           title: statusTitle,
           companyId: companyId,
-          groupId: groupId,
+          groupId,
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         });
-
-        if (groupStage) {
-          return groupStage._id.toString();
-        }
+      } else {
+        projectStage = await ProjectStage.findOne({
+          title: statusTitle,
+          companyId: companyId,
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+        });
       }
-
-      return null;
+      // console.log(projectStage, "projectStage...........");
+      return projectStage ? projectStage._id.toString() : null;
     } catch (err) {
       console.error("Error fetching projectStage ID:", err);
       return null;
@@ -623,6 +596,7 @@ exports.projectFileUpload = async (req, res) => {
             let customFieldValues = {};
             let hasValidFields = false;
             let missingFields = [];
+            let groupId;
 
             if (Object.values(row).every((cell) => !cell)) {
               consecutiveBlankRows++;
@@ -796,6 +770,7 @@ exports.projectFileUpload = async (req, res) => {
                 project.group,
                 companyId
               );
+              groupId = project.group;
             }
 
             if (project.userid) {
@@ -847,7 +822,7 @@ exports.projectFileUpload = async (req, res) => {
               const projectStageId = await getProjectStageIdByTitle(
                 project.status,
                 companyId,
-                project.group // <-- important for group-specific stages
+                groupId
               );
 
               if (!projectStageId) {

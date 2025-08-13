@@ -1480,7 +1480,7 @@ exports.addCustomTaskField = async (req, res) => {
         .json({ message: "Either projectId or groupId is required" });
     }
     if (!key || !label || !type || !level) {
-      return res.status(400).json({ message: "Missing required fields" });
+      return res.status(200).json({ success: false, message: "Missing required fields" });
     }
     // const existingField = await CustomTaskField.findOne({
     //   key,
@@ -1633,7 +1633,7 @@ exports.addCustomTaskField = async (req, res) => {
 
     res
       .status(201)
-      .json({ message: "Custom field created successfully", data: newField });
+      .json({ success: true, message: "Custom field created successfully", data: newField });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
@@ -1722,6 +1722,7 @@ exports.updateCustomTaskField = async (req, res) => {
   try {
     const { key, label, type, level, isMandatory, companyId } = req.body;
     const customFieldId = req.params.customFieldId;
+    console.log("test the custom field", customFieldId)
 
     // Check for required fields (excluding project ID as it shouldn't be updated)
     if (!key || !label || !type || !level) {
@@ -1741,7 +1742,7 @@ exports.updateCustomTaskField = async (req, res) => {
     if (existingField.key !== key) {
       const duplicateField = await CustomTaskField.findOne({ key });
       if (duplicateField) {
-        return res.status(409).json({ message: "Key already exists" });
+        return res.status(200).json({ success: false,  message: "Key already exists" });
       }
     }
 
@@ -1754,7 +1755,7 @@ exports.updateCustomTaskField = async (req, res) => {
     existingField.companyId = companyId;
 
     // Save the updated field
-    // await existingField.save();
+    await existingField.save();
     // try {
     //   const eventType = "CUSTOM_FIELD_CREATED";
     //   await sendNotification(existingField, eventType);
@@ -1763,6 +1764,7 @@ exports.updateCustomTaskField = async (req, res) => {
     // }
 
     res.status(200).json({
+      success: true,
       message: "Custom field updated successfully",
       data: existingField,
     });
@@ -1784,7 +1786,7 @@ exports.deleteCustomTaskField = async (req, res) => {
       return res.status(404).json({ message: "Custom field not found" });
     }
 
-    res.status(200).json({ message: "Custom field deleted successfully" });
+    res.status(200).json({ success: true, message: "Custom field deleted successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });

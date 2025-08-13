@@ -94,6 +94,22 @@ exports.get_task_stages = async (req, res) => {
     });
   }
 };
+
+exports.get_task_stages = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+    const stages = await TaskStage.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    }).select("_id displayName title");
+    return res.status(200).json({ success: true, stages });
+  }catch(error){
+    return res
+    .status(500)
+    .json({ success: false, error: "Failed to load task stages." });
+  }
+}
+
 // Get task stages by company ID
 // exports.get_task_stages_by_company = async (req, res) => {
 //   try {
@@ -141,6 +157,30 @@ exports.get_task_stages = async (req, res) => {
 //       .json({ success: false, error: "Failed to load task stages." });
 //   }
 // };
+
+exports.select_task_stages = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+
+    const stages = await TaskStage.find({
+      companyId
+    }).select("_id displayName title");
+
+    if (!stages) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Task stage not found." });
+    }
+
+    return res.status(200).json({ success: true, stages});
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: "Error selecting task stage.",
+    });
+  }
+}
+
 exports.get_task_stages_by_company = async (req, res) => {
   try {
     const { companyId, query } = req.body;
@@ -180,13 +220,17 @@ exports.get_task_stages_by_company = async (req, res) => {
                 },
               },
             },
+            { $limit: 1 }, // stop after first found
+            { $count: "count" } // will be 1 if found, 0 otherwise
           ],
-          as: "tasks",
+          as: "taskStats",
         },
       },
       {
         $addFields: {
-          taskCount: { $size: "$tasks" }, // Count only non-deleted tasks
+          taskCount: {
+            $ifNull: [{ $arrayElemAt: ["$taskStats.count", 0] }, 0],
+          },
         },
       },
       {
@@ -391,18 +435,22 @@ exports.get_task_stages_by_group = async (req, res) => {
                 $expr: {
                   $and: [
                     { $eq: ["$taskStageId", "$$stageId"] },
-                    { $ne: ["$isDeleted", true] },
+                    { $ne: ["$isDeleted", true] }, // Exclude deleted tasks
                   ],
                 },
               },
             },
+            { $limit: 1 }, // stop after first found
+            { $count: "count" } // will be 1 if found, 0 otherwise
           ],
-          as: "tasks",
+          as: "taskStats",
         },
       },
       {
         $addFields: {
-          taskCount: { $size: "$tasks" },
+          taskCount: {
+            $ifNull: [{ $arrayElemAt: ["$taskStats.count", 0] }, 0],
+          },
         },
       },
       {

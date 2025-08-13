@@ -3,6 +3,8 @@ const express = require("ultimate-express");
 const router = express.Router();
 const taskStageController = require("../../controllers/task-stages/task-stages.controller");
 router.post("/companyId", taskStageController.get_task_stages_by_company);
+router.post("/select_task_stages", taskStageController.select_task_stages);
+
 router.post("/taskStages", taskStageController.get_task_stages);
 router.post("/add", taskStageController.create_task_stage);
 router.put("/:id", taskStageController.update_task_stage);
@@ -15,5 +17,6 @@ router.post("/add/group", taskStageController.create_group_task_stage);
 router.put("/:id/group", taskStageController.update_group_task_stage);
 router.post("/:id/group", taskStageController.delete_group_task_stage);
 router.post("/reorder/group", taskStageController.reorder_group_task_stages);
+router.post("/get-taskStages", taskStageController.get_task_stages);
 
 module.exports = router;
