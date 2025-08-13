@@ -378,7 +378,7 @@ exports.createMultipleContacts = async (req, res) => {
             startdate: new Date(),
             enddate: null,
             status: "todo",
-            projectStageId,
+            projectStageId: contact.projectStageId || null,
             taskStages: ["todo", "inprogress", "completed"],
             userid: contact.projectOwnerId,
             createdBy: contact.userId ? contact.userId : null,
