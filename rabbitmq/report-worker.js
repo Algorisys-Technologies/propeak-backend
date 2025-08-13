@@ -70,6 +70,7 @@ require("../models/product/product-model");
         email,
         reportParams,
         role,
+        loginUserId,
         configHeaders,
       } = payload;
 
@@ -237,22 +238,24 @@ require("../models/product/product-model");
       // Generate the download URL
       const downloadUrl = `${process.env.DOWNLOAD_REPORT_URL}/${filename}.${type}`;
 
-      console.log(
-        "All...",
-        downloadUrl,
-        type,
-        filename,
-        userId,
-        email,
-        companyId
-      );
+      // console.log(
+      //   "All...",
+      //   downloadUrl,
+      //   type,
+      //   filename,
+      //   userId,
+      //   email,
+      //   companyId
+      // );
+
+      console.log(loginUserId, "from login user")
 
       // Send notification and email
       await sendExportNotificationAndEmail({
         downloadUrl,
         type,
         filename,
-        userId,
+        userId: loginUserId || userId,
         email,
         companyId,
       });

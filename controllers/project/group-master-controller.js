@@ -33,6 +33,22 @@ const createGroup = async (req, res) => {
   }
 };
 
+const selectGroups = async (req, res) => {
+  const { companyId } = req.params;
+  console.log("companyId, ", companyId)
+  if (!mongoose.Types.ObjectId.isValid(companyId)) {
+    return res
+      .status(200)
+      .json({ success: false, message: "Invalid companyId" });
+  }
+  const groups = await GroupMaster.find({
+    companyId,
+    isDeleted: false,
+  }).select("_id name showInMenu");
+
+  return res.status(200).json({ success: true, groups});
+}
+
 // Get Groups by Company ID
 const getGroups = async (req, res) => {
   const { companyId } = req.params;
@@ -59,11 +75,11 @@ const getGroups = async (req, res) => {
     }
 
     const [groups, totalCount] = await Promise.all([
-      GroupMaster.find(filter),
+      GroupMaster.find(filter).select("_id name description showInMenu"),
       GroupMaster.countDocuments(filter),
     ]);
 
-    const groupMasterProjectAndTaskCount = await GroupMaster.aggregate([
+    const groupMasterProjectCount = await GroupMaster.aggregate([
       {
         $match: { 
           companyId: new mongoose.Types.ObjectId(companyId), 
@@ -85,51 +101,26 @@ const getGroups = async (req, res) => {
                 }
               }
             },
-            {
-              $lookup: {
-                from: "tasks",
-                let: { projectId: "$_id" },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $and: [
-                          { $eq: ["$projectId", "$$projectId"] },
-                          { $ne: ["$isDeleted", true] }
-                        ]
-                      }
-                    }
-                  }
-                ],
-                as: "tasks"
-              }
-            }
+            { $limit: 1 },
+            { $count: "count" } // directly count matching projects
           ],
-          as: "projects"
+          as: "projectStats"
         }
       },
       {
         $addFields: {
-          projectCount: { $size: "$projects" },
-          totalTasks: {
-            $sum: {
-              $map: {
-                input: "$projects",
-                as: "proj",
-                in: { $size: "$$proj.tasks" }
-              }
-            }
+          projectCount: {
+            $ifNull: [{ $arrayElemAt: ["$projectStats.count", 0] }, 0]
           }
         }
       },
       {
         $project: {
           _id: 1,
-          projectCount: 1,
-          totalTasks: 1
+          projectCount: 1
         }
       }
-    ]);
+    ]);    
 
     if (!groups.length) {
       return res
@@ -137,7 +128,7 @@ const getGroups = async (req, res) => {
         .json({ success: false, message: "No groups found" });
     }
 
-    return res.status(200).json({ success: true, groups, totalCount, groupMasterProjectAndTaskCount });
+    return res.status(200).json({ success: true, groups, totalCount, groupMasterProjectCount  });
   } catch (error) {
     console.error("Error fetching groups:", error);
     return res.status(500).json({ success: false, message: error.message });
@@ -205,4 +196,5 @@ module.exports = {
   getGroups,
   updateGroup,
   deleteGroup,
+  selectGroups,
 };

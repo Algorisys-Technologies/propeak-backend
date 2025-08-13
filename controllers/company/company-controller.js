@@ -216,7 +216,7 @@ exports.getCompaniesByEmail = async (req, res) => {
         .status(400)
         .json({ success: false, error: "Email is required." });
     }
-    const users = await userModel.find({ email: email });
+    const users = await userModel.find({ email: email }).select("_id email companyId name ")
     // const users = await userModel.find({email: email})
     // .select('companyId')
     // .lean();
@@ -225,7 +225,8 @@ exports.getCompaniesByEmail = async (req, res) => {
     const companyIds = [...new Set(users.map((user) => user.companyId))];
 
     // Find all organization documents that match the org_ids
-    const companies = await Company.find({ _id: { $in: companyIds } });
+    const companies = await Company.find({ _id: { $in: companyIds } })
+    .select("_id companyName geoTrackingTime.startHour geoTrackingTime.endHour");
 
     // console.log(companies);
     // const companies = await Company.find({

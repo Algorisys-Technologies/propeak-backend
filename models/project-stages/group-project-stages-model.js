@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 // Define the database model for project stages
-const ProjectStageSchema = new mongoose.Schema(
+const GroupProjectStageSchema = new mongoose.Schema(
   {
     sequence: {
       type: Number,
@@ -27,16 +27,13 @@ const ProjectStageSchema = new mongoose.Schema(
     groupId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "GroupMaster",
+      required: true,
     },
   },
   { versionKey: false }
 );
 
-ProjectStageSchema.index({ companyId: 1, isDeleted: 1 });
-ProjectStageSchema.index({ companyId: 1, groupId: 1 });
-ProjectStageSchema.index({ companyId: 1, sequence: 1 });
-
-const ProjectStage = (module.exports = mongoose.model(
-  "projectStage",
-  ProjectStageSchema
+const GroupProjectStage = (module.exports = mongoose.model(
+  "groupProjectStage",
+  GroupProjectStageSchema
 ));

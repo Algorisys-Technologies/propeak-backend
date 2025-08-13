@@ -13,11 +13,12 @@ router.put(
   "/toggle/:id",
   notificationSettingController.toggleNotificationActive
 );
-router.delete("/:id", notificationSettingController.deleteNotificationSetting);
+router.post("/delete/:id", notificationSettingController.deleteNotificationSetting);
 router.put("/:id", notificationSettingController.updateNotificationSetting);
 
 //Notification Center
 router.post("/notifications", notificationController.getNotifications);
+router.post("/bellNotification", notificationController.bellNotification);
 router.post("/notificartions/:id", notificationController.deleteNotification);
 router.post(
   "/notificartions/read/:id",

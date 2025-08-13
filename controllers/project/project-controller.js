@@ -8,6 +8,7 @@ const audit = require("../audit-log/audit-log-controller");
 const AuditLogs = require("../../models/auditlog/audit-log-model");
 const ProjectStatus = require("../../models/project/project-status-model");
 const ProjectStage = require("../../models/project-stages/project-stages-model");
+const GroupProjectStage = require("../../models/project-stages/group-project-stages-model");
 const rabbitMQ = require("../../rabbitmq");
 
 const {
@@ -1479,7 +1480,7 @@ exports.addCustomTaskField = async (req, res) => {
         .json({ message: "Either projectId or groupId is required" });
     }
     if (!key || !label || !type || !level) {
-      return res.status(400).json({ message: "Missing required fields" });
+      return res.status(200).json({ success: false, message: "Missing required fields" });
     }
     // const existingField = await CustomTaskField.findOne({
     //   key,
@@ -1632,7 +1633,7 @@ exports.addCustomTaskField = async (req, res) => {
 
     res
       .status(201)
-      .json({ message: "Custom field created successfully", data: newField });
+      .json({ success: true, message: "Custom field created successfully", data: newField });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
@@ -1721,6 +1722,7 @@ exports.updateCustomTaskField = async (req, res) => {
   try {
     const { key, label, type, level, isMandatory, companyId } = req.body;
     const customFieldId = req.params.customFieldId;
+    console.log("test the custom field", customFieldId)
 
     // Check for required fields (excluding project ID as it shouldn't be updated)
     if (!key || !label || !type || !level) {
@@ -1740,7 +1742,7 @@ exports.updateCustomTaskField = async (req, res) => {
     if (existingField.key !== key) {
       const duplicateField = await CustomTaskField.findOne({ key });
       if (duplicateField) {
-        return res.status(409).json({ message: "Key already exists" });
+        return res.status(200).json({ success: false,  message: "Key already exists" });
       }
     }
 
@@ -1753,7 +1755,7 @@ exports.updateCustomTaskField = async (req, res) => {
     existingField.companyId = companyId;
 
     // Save the updated field
-    // await existingField.save();
+    await existingField.save();
     // try {
     //   const eventType = "CUSTOM_FIELD_CREATED";
     //   await sendNotification(existingField, eventType);
@@ -1762,6 +1764,7 @@ exports.updateCustomTaskField = async (req, res) => {
     // }
 
     res.status(200).json({
+      success: true,
       message: "Custom field updated successfully",
       data: existingField,
     });
@@ -1783,7 +1786,7 @@ exports.deleteCustomTaskField = async (req, res) => {
       return res.status(404).json({ message: "Custom field not found" });
     }
 
-    res.status(200).json({ message: "Custom field deleted successfully" });
+    res.status(200).json({ success: true, message: "Custom field deleted successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
@@ -3097,11 +3100,29 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
         .json({ success: false, message: "Invalid groupId" });
     }
 
-    // Fetch all project stages for the given company
-    const projectStages = await ProjectStage.find({
+    // // Fetch all project stages for the given company
+    // const projectStages = await ProjectStage.find({
+    //   companyId,
+    //   $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    // }).sort({ sequence: "asc" });
+
+    // 🔍 Step 1: Try fetching group-level project stages
+    let projectStages = await GroupProjectStage.find({
       companyId,
+      groupId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
+
+    console.log("projectStages...", projectStages);
+
+    const isUsingGlobalStages = projectStages.length === 0;
+
+    if (isUsingGlobalStages) {
+      projectStages = await ProjectStage.find({
+        companyId,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      }).sort({ sequence: "asc" });
+    }
 
     // Fetch projects filtered by groupId
     const stagesWithProjects = await Promise.all(
@@ -3152,7 +3173,7 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
         //   })
         // );
 
-        return { ...stage.toObject(), projects: iprojects };
+        return { ...stage.toObject(), projects: iprojects || [] };
       })
     );
 

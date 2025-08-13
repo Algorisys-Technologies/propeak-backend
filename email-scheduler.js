@@ -11,6 +11,8 @@ try {
       if (msg != "No messages in queue") {
         console.log(msg);
 
+        msg.brevoTag = process.env.BREVO_EMAIL_TAG || "propeak-email-default";
+
         let mailOptions = msg;
 
         let response = sendEmail(mailOptions);
