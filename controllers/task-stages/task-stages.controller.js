@@ -435,18 +435,22 @@ exports.get_task_stages_by_group = async (req, res) => {
                 $expr: {
                   $and: [
                     { $eq: ["$taskStageId", "$$stageId"] },
-                    { $ne: ["$isDeleted", true] },
+                    { $ne: ["$isDeleted", true] }, // Exclude deleted tasks
                   ],
                 },
               },
             },
+            { $limit: 1 }, // stop after first found
+            { $count: "count" } // will be 1 if found, 0 otherwise
           ],
-          as: "tasks",
+          as: "taskStats",
         },
       },
       {
         $addFields: {
-          taskCount: { $size: "$tasks" },
+          taskCount: {
+            $ifNull: [{ $arrayElemAt: ["$taskStats.count", 0] }, 0],
+          },
         },
       },
       {

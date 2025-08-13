@@ -13,7 +13,7 @@ router.put(
   "/toggle/:id",
   notificationSettingController.toggleNotificationActive
 );
-router.delete("/:id", notificationSettingController.deleteNotificationSetting);
+router.post("/delete/:id", notificationSettingController.deleteNotificationSetting);
 router.put("/:id", notificationSettingController.updateNotificationSetting);
 
 //Notification Center

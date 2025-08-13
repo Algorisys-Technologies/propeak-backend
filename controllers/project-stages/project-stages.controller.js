@@ -440,45 +440,21 @@ exports.get_project_stages_by_group = async (req, res) => {
                 $expr: {
                   $and: [
                     { $eq: ["$projectStageId", "$$stageId"] },
-                    { $ne: ["$isDeleted", true] },
+                    { $ne: ["$isDeleted", true] }, // only active projects
                   ],
                 },
               },
             },
-            {
-              $lookup: {
-                from: "tasks",
-                let: { projectId: "$_id" },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $and: [
-                          { $eq: ["$projectId", "$$projectId"] },
-                          { $ne: ["$isDeleted", true] },
-                        ],
-                      },
-                    },
-                  },
-                ],
-                as: "tasks",
-              },
-            },
+            { $limit: 1 }, // Take only the first record
+            { $count: "count" }, // directly count in the lookup stage
           ],
-          as: "projects",
+          as: "projectStats",
         },
       },
       {
         $addFields: {
-          projectCount: { $size: "$projects" },
-          totalTasks: {
-            $sum: {
-              $map: {
-                input: "$projects",
-                as: "proj",
-                in: { $size: "$$proj.tasks" },
-              },
-            },
+          projectCount: {
+            $ifNull: [{ $arrayElemAt: ["$projectStats.count", 0] }, 0],
           },
         },
       },
@@ -486,10 +462,9 @@ exports.get_project_stages_by_group = async (req, res) => {
         $project: {
           _id: 1,
           projectCount: 1,
-          totalTasks: 1,
         },
       },
-    ]);
+    ]); 
 
     if (stages.length === 0) {
       return res
