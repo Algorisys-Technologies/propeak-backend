@@ -433,6 +433,7 @@ exports.postMultipleVisitingCards = async (req, res) => {
       fs.mkdirSync(dirname);
     }
     const companyId = req.body.companyId;
+    const userId = req.body.userId;
     console.log("give me data", req.body);
     console.log(req.files.files);
     const files = req.files.files.length ? req.files.files : [req.files.files];
@@ -469,6 +470,12 @@ exports.postMultipleVisitingCards = async (req, res) => {
         name: req.body.folderName,
         isDeleted: false,
         companyId,
+        userId,
+        projectOwnerId: req.body.projectOwnerId || null,
+        notifyUserId: req.body.notifyUserId || null,
+        projectTypeId: req.body.projectTypeId || null,
+        projectStageId: req.body.projectStageId || null,
+        groupId: req.body.groupId || null,
         created_on: new Date(),
       });
     }
@@ -519,6 +526,12 @@ exports.postMultipleVisitingCards = async (req, res) => {
         files,
         filePath: companyFolderPath + pathName + "/",
         visitingCardsIds: uploadedVisitingCards.map((card) => card._id),
+        userId,
+        projectOwnerId: req.body.projectOwnerId || null,
+        notifyUserId: req.body.notifyUserId || null,
+        projectTypeId: req.body.projectTypeId || null,
+        projectStageId: req.body.projectStageId || null,
+        groupId: req.body.groupId || null,
       };
       sendMessageToQueue(
         message,

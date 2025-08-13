@@ -134,7 +134,14 @@ const ProjectSchema = new mongoose.Schema(
     },
     lead_source: {
       type: String,
-      enum: ["INDIAMART", "EMAIL", "USER", "EXCEL", "OTHERS"],
+      enum: [
+        "INDIAMART",
+        "EMAIL",
+        "USER",
+        "EXCEL",
+        "CONTACT_CONVERSION",
+        "OTHERS",
+      ],
     },
   },
   { versionKey: false }
