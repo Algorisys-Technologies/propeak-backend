@@ -989,6 +989,7 @@ exports.getUploadFileByProjectId = async (req, res) => {
       uploadFiles,
       totalPages,
       currentPage,
+      totalDocuments,
     });
   } catch (error) {
     // Handle errors
