@@ -66,6 +66,15 @@ const eventMessages = {
   EXPORT_READY: (task) => {
     return `Your export is ready for download: ${task.title} and ${task.description}`;
   },
+
+  TASK_REMINDER_DUE: (task) => {
+    const dueDate = task.reminderDate
+      ? new Date(task.reminderDate).toLocaleDateString()
+      : "unknown date";
+    return `Reminder: The task "${task.title}" in project "${
+      task.projectName || task.projectId?.title || "Unknown Project"
+    }" is due for attention. Reminder set for ${dueDate}.`;
+  },
 };
 
 module.exports = eventMessages;
