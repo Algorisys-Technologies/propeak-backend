@@ -143,6 +143,16 @@ const ProjectSchema = new mongoose.Schema(
         "OTHERS",
       ],
     },
+    accountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "account",
+      default: null,
+    },
+    contactId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "contact",
+      default: null,
+    },
   },
   { versionKey: false }
 );

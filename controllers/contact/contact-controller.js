@@ -317,6 +317,26 @@ exports.createMultipleContacts = async (req, res) => {
     // Auto-create projects for each new contact
     for (const contact of newContacts) {
       try {
+        // ✅ Check required fields for project creation
+        const projectRequiredFields = [
+          contact.userId,
+          contact.projectOwnerId,
+          contact.notifyUserId,
+          contact.projectTypeId,
+          contact.projectStageId,
+          contact.groupId,
+        ];
+        const canCreateProject = projectRequiredFields.every(
+          (field) => !!field
+        );
+
+        if (!canCreateProject) {
+          console.log(
+            `Skipping project creation for contact ${contact._id} — missing required project fields.`
+          );
+          continue; // Go to next contact without creating project
+        }
+
         // Prepare project title
         const company = contact.title?.trim();
         const name = `${contact.first_name || ""} ${
@@ -374,7 +394,8 @@ exports.createMultipleContacts = async (req, res) => {
             companyId,
             title: projectTitle,
             description: contact.description,
-            contactId: contact._id,
+            contactId: contact._id || null,
+            accountId: contact.account_id || null,
             startdate: new Date(),
             enddate: null,
             status: "todo",
@@ -514,7 +535,31 @@ exports.createContact = async (req, res) => {
 
     const savedContact = await newContact.save();
 
-    console.log("Contact created successfully:", savedContact);
+    //console.log("Contact created successfully:", savedContact);
+
+    // ✅ Check required fields for project creation
+    const projectRequiredFields = [
+      savedContact.userId,
+      savedContact.projectOwnerId,
+      savedContact.notifyUserId,
+      savedContact.projectTypeId,
+      savedContact.projectStageId,
+      savedContact.groupId,
+    ];
+
+    const canCreateProject = projectRequiredFields.every((field) => !!field);
+
+    if (!canCreateProject) {
+      console.log(
+        `Skipping project creation for contact ${savedContact._id} — missing required project fields.`
+      );
+      return res.json({
+        success: true,
+        message:
+          "Contact created successfully, but project was not created due to missing required fields.",
+        result: savedContact,
+      });
+    }
 
     // ---------- AUTO-CREATE PROJECT ----------
     try {
@@ -575,7 +620,8 @@ exports.createContact = async (req, res) => {
           companyId,
           title: projectTitle,
           description: savedContact.description,
-          contactId: savedContact._id,
+          contactId: savedContact._id || null,
+          accountId: savedContact.account_id || null,
           startdate: new Date(),
           enddate: null,
           status: "todo",
