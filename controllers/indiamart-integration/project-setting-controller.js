@@ -8,7 +8,7 @@ const Project = require("../../models/project/project-model");
 const User = require("../../models/user/user-model");
 const moment = require("moment");
 const fetchLeads = require("../../webscrape");
-const { normalizeAddress } = require("./utils/address");
+const { normalizeAddress } = require("../../utils/address");
 
 // Create a new Project Setting
 exports.createProjectSetting = async (req, res) => {
