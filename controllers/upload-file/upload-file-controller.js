@@ -375,9 +375,13 @@ exports.projectFileUpload = async (req, res) => {
     });
   }
 
-  if (!req.files.projectFile) {
-    return res.send({ error: "No files were uploaded." });
+  if (!req.files || !req.files.projectFile) {
+    return res.json({
+      title: "Please choose the file.",
+      success: false,
+    });
   }
+  
 
   const uploadedFile = req.files.projectFile;
   const fileUploaded = uploadedFile.name.split(".");
