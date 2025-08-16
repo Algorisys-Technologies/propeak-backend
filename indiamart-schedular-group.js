@@ -7,6 +7,7 @@ const User = require("./models/user/user-model");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const Project = require("./models/project/project-model");
+const { normalizeAddress } = require("./utils/address");
 
 dotenv.config();
 
@@ -137,17 +138,17 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             //   projectQuery["customFieldValues.address"] = address;
             // }
 
-            function normalizeAddress(address) {
-              return address
-                .replace(/City:\s*\w+\,?/gi, "")
-                .replace(/State:\s*\w+\,?/gi, "")
-                .replace(/Pincode:\s*\d+\,?/gi, "")
-                .replace(/Country:\s*IN\b/gi, "India")
-                .replace(/\s+/g, " ")
-                .replace(/,+/g, ",")
-                .trim()
-                .toLowerCase();
-            }
+            // function normalizeAddress(address) {
+            //   return address
+            //     .replace(/City:\s*\w+\,?/gi, "")
+            //     .replace(/State:\s*\w+\,?/gi, "")
+            //     .replace(/Pincode:\s*\d+\,?/gi, "")
+            //     .replace(/Country:\s*IN\b/gi, "India")
+            //     .replace(/\s+/g, " ")
+            //     .replace(/,+/g, ",")
+            //     .trim()
+            //     .toLowerCase();
+            // }
 
             let normalizedAddress;
             let normalizedAddress1;

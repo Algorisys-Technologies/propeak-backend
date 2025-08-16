@@ -8,6 +8,7 @@ const Project = require("../../models/project/project-model");
 const User = require("../../models/user/user-model");
 const moment = require("moment");
 const fetchLeads = require("../../webscrape");
+const { normalizeAddress } = require("./utils/address");
 
 // Create a new Project Setting
 exports.createProjectSetting = async (req, res) => {
@@ -556,17 +557,17 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           //   projectQuery["customFieldValues.address"] = address;
           // }
 
-          function normalizeAddress(address) {
-            return address
-              .replace(/City:\s*\w+\,?/gi, "")
-              .replace(/State:\s*\w+\,?/gi, "")
-              .replace(/Pincode:\s*\d+\,?/gi, "")
-              .replace(/Country:\s*IN\b/gi, "India")
-              .replace(/\s+/g, " ")
-              .replace(/,+/g, ",")
-              .trim()
-              .toLowerCase();
-          }
+          // function normalizeAddress(address) {
+          //   return address
+          //     .replace(/City:\s*\w+\,?/gi, "")
+          //     .replace(/State:\s*\w+\,?/gi, "")
+          //     .replace(/Pincode:\s*\d+\,?/gi, "")
+          //     .replace(/Country:\s*IN\b/gi, "India")
+          //     .replace(/\s+/g, " ")
+          //     .replace(/,+/g, ",")
+          //     .trim()
+          //     .toLowerCase();
+          // }
 
           let normalizedAddress;
           let normalizedAddress1;
