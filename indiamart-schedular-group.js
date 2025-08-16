@@ -98,23 +98,8 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
           console.log("leadsData final...", leadsData);
 
           for (const lead of leadsData) {
-            // Check if a project already exists for the same SENDER_NAME
-            // let existingProject = await Project.findOne({
-            //   companyId,
-            //   group: new mongoose.Types.ObjectId(groupId),
-            //   title: lead.SENDER_COMPANY,
-            //   isDeleted: false,
-            // });
-
-            // const projectTitle =
-            //   lead.SENDER_COMPANY ||
-            //   lead.SENDER_NAME ||
-            //   `Lead-${lead.SENDER_MOBILE || Date.now()}`;
-
             const company = lead.SENDER_COMPANY?.trim();
             const name = lead.SENDER_NAME?.trim();
-
-            //console.log("company name:", { company, name });
 
             let projectTitle =
               company && company.length > 0
@@ -123,7 +108,9 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
                 ? name
                 : `Lead-${lead.SENDER_MOBILE || Date.now()}`;
 
-            //console.log("Computed title:", projectTitle);
+            let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
+
+            const normalizedAddress = normalizeAddress(address);
 
             let projectQuery = {
               companyId,
@@ -132,37 +119,8 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
               isDeleted: false,
             };
 
-            let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
-
-            // if (address) {
-            //   projectQuery["customFieldValues.address"] = address;
-            // }
-
-            // function normalizeAddress(address) {
-            //   return address
-            //     .replace(/City:\s*\w+\,?/gi, "")
-            //     .replace(/State:\s*\w+\,?/gi, "")
-            //     .replace(/Pincode:\s*\d+\,?/gi, "")
-            //     .replace(/Country:\s*IN\b/gi, "India")
-            //     .replace(/\s+/g, " ")
-            //     .replace(/,+/g, ",")
-            //     .trim()
-            //     .toLowerCase();
-            // }
-
-            let normalizedAddress;
-            let normalizedAddress1;
-            if (address) {
-              normalizedAddress = normalizeAddress(address);
-              if (projectQuery["customFieldValues.address"]) {
-                normalizedAddress1 = normalizeAddress(
-                  projectQuery["customFieldValues.address"]
-                );
-              }
-              if (normalizedAddress1 === normalizedAddress) {
-                console.log("Address is same");
-              }
-              //projectQuery["customFieldValues.address"] = normalizedAddress;
+            if (normalizedAddress) {
+              projectQuery["customFieldValues.address"] = normalizedAddress;
             }
 
             let existingProject = await Project.findOne(projectQuery);

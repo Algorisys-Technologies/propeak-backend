@@ -520,11 +520,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
       if (enabled) {
         for (const lead of leadsData) {
-          // const projectTitle =
-          //   lead.SENDER_COMPANY ||
-          //   lead.SENDER_NAME ||
-          //   `Lead-${lead.SENDER_MOBILE || Date.now()}`;
-
           const company = lead.SENDER_COMPANY?.trim();
           const name = lead.SENDER_NAME?.trim();
 
@@ -535,14 +530,9 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               ? name
               : `Lead-${lead.SENDER_MOBILE || Date.now()}`;
 
-          // Check if a project already exists for the same SENDER_NAME
-          // let existingProject = await Project.findOne({
-          //   companyId,
-          //   group: new mongoose.Types.ObjectId(groupId),
-          //   // title: lead.SENDER_COMPANY,
-          //   title: projectTitle,
-          //   isDeleted: false,
-          // });
+          let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
+
+          const normalizedAddress = normalizeAddress(address);
 
           let projectQuery = {
             companyId,
@@ -551,37 +541,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
           };
 
-          let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
-
-          // if (address) {
-          //   projectQuery["customFieldValues.address"] = address;
-          // }
-
-          // function normalizeAddress(address) {
-          //   return address
-          //     .replace(/City:\s*\w+\,?/gi, "")
-          //     .replace(/State:\s*\w+\,?/gi, "")
-          //     .replace(/Pincode:\s*\d+\,?/gi, "")
-          //     .replace(/Country:\s*IN\b/gi, "India")
-          //     .replace(/\s+/g, " ")
-          //     .replace(/,+/g, ",")
-          //     .trim()
-          //     .toLowerCase();
-          // }
-
-          let normalizedAddress;
-          let normalizedAddress1;
-          if (address) {
-            normalizedAddress = normalizeAddress(address);
-            if (projectQuery["customFieldValues.address"]) {
-              normalizedAddress1 = normalizeAddress(
-                projectQuery["customFieldValues.address"]
-              );
-            }
-            if (normalizedAddress1 === normalizedAddress) {
-              console.log("Address is same");
-            }
-            //projectQuery["customFieldValues.address"] = normalizedAddress;
+          if (normalizedAddress) {
+            projectQuery["customFieldValues.address"] = normalizedAddress;
           }
 
           let existingProject = await Project.findOne(projectQuery);
