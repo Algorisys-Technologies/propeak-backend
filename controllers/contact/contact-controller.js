@@ -320,11 +320,11 @@ exports.createMultipleContacts = async (req, res) => {
         // ✅ Check required fields for project creation
         const projectRequiredFields = [
           contact.userId,
-          contact.projectOwnerId,
-          contact.notifyUserId,
+          // contact.projectOwnerId,
+          // contact.notifyUserId,
           contact.projectTypeId,
           contact.projectStageId,
-          contact.groupId,
+          // contact.groupId,
         ];
         const canCreateProject = projectRequiredFields.every(
           (field) => !!field
