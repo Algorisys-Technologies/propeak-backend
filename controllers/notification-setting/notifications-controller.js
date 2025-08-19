@@ -23,10 +23,11 @@ exports.bellNotification = async (req, res) => {
       });
     }
 
-    const notifications = await UserNotification.find({isDeleted: false,
+    const notifications = await UserNotification.find({
+      isDeleted: false,
       companyId,
       userId,
-      read: false
+      read: false,
     })
       .select("_id userId subject message url read category createdOn")
       .sort({ createdOn: -1 })
@@ -34,10 +35,11 @@ exports.bellNotification = async (req, res) => {
       .skip(limit * npage);
 
     const totalPages = Math.ceil(
-      (await UserNotification.countDocuments({ isDeleted: false,
+      (await UserNotification.countDocuments({
+        isDeleted: false,
         companyId,
         userId,
-        read: false
+        read: false,
       })) / limit
     );
 
@@ -61,7 +63,7 @@ exports.bellNotification = async (req, res) => {
       message: "Internal server error",
     });
   }
-}
+};
 
 exports.getNotifications = async (req, res) => {
   try {
@@ -93,7 +95,9 @@ exports.getNotifications = async (req, res) => {
 
     // Paged notifications
     const notificationCenter = await UserNotification.find(filterQuery)
-      .select("_id userId subject message url read category eventType projectId createdOn")
+      .select(
+        "_id userId subject message url read category eventType projectId createdOn taskId"
+      )
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * page)
@@ -144,7 +148,7 @@ exports.getNotifications = async (req, res) => {
 //       companyId,
 //       $or: [{ userId }, { notifyRoleNames: role }],
 //     };
-    
+
 //     if (filter === "unread") {
 //       filterQuery.read = false;
 //     }
@@ -178,7 +182,6 @@ exports.getNotifications = async (req, res) => {
 
 //     const totalDocuments = await UserNotification.countDocuments(filterQuery);
 //     const centerTotalPages = Math.ceil(totalDocuments / limit);
-    
 
 //     const totalPages = Math.ceil(
 //       (await UserNotification.find({
@@ -296,7 +299,6 @@ exports.markNotificationAsRead = async (req, res) => {
 
 exports.markNotificationAsAllRead = async (req, res) => {
   try {
-
     const notReadPresent = await UserNotification.find({ read: false });
 
     if (notReadPresent.length === 0) {
@@ -307,7 +309,7 @@ exports.markNotificationAsAllRead = async (req, res) => {
     }
 
     const updated = await UserNotification.updateMany(
-      { read: false }, 
+      { read: false },
       { $set: { read: true } }
     );
     if (!updated) {
@@ -330,4 +332,3 @@ exports.markNotificationAsAllRead = async (req, res) => {
     });
   }
 };
-

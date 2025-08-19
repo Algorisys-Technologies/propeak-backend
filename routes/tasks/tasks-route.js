@@ -103,4 +103,6 @@ router.post("/moveTasksToProject", taskController.moveTasksToProject);
 
 router.post("/selectedDelete", taskController.deleteSelectedTasks);
 
+router.post("/:taskId/acknowledge", taskController.acknowledgeTaskNotification);
+
 module.exports = router;

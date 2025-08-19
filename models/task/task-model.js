@@ -139,6 +139,10 @@ const TaskSchema = new mongoose.Schema(
       enum: ["draft", "published"],
       default: "draft",
     },
+    notificationAcknowledged: {
+      type: Boolean,
+      default: false,
+    },
   },
 
   { versionKey: false }

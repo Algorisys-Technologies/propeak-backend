@@ -3736,3 +3736,16 @@ exports.deleteFiltered = async (req, res) => {
     res.json({ success: false, message: "Failed Deleting Filtered Tasks" });
   }
 };
+
+exports.acknowledgeTaskNotification = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    await Task.findByIdAndUpdate(taskId, { notificationAcknowledged: true });
+    res.json({ success: true, message: "Reminder acknowledged" });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ success: false, message: "Error acknowledging reminder" });
+  }
+};

@@ -132,6 +132,41 @@ async function sendTaskReminderNotifications() {
   }
 }
 
+async function sendRepeatedNotifications() {
+  try {
+    const tasks = await Task.find({
+      isDeleted: false,
+      status: { $ne: "completed" },
+      notificationAcknowledged: false,
+    })
+      .populate({ path: "projectId", select: "title", model: "project" })
+      .populate({ path: "createdBy", select: "name", model: "user" });
+
+    for (const task of tasks) {
+      const notifications = await handleNotifications(
+        task,
+        "TASK_REMINDER_DUE"
+      );
+      // for (const channel of notifications) {
+      //   for (const email of channel.emails) {
+      //     await auditTaskAndSendMail(task, [], email);
+      //   }
+      // }
+    }
+  } catch (err) {
+    console.error("Error in repeated notifications:", err);
+  }
+}
+
+async function resetAcknowledgements() {
+  try {
+    await Task.updateMany({}, { notificationAcknowledged: false });
+    console.log("♻️ Reset notificationAcknowledged for all tasks");
+  } catch (err) {
+    console.error("Reset error:", err);
+  }
+}
+
 // Connect mongoose and schedule job only after DB connection:
 mongoose
   .connect(process.env.DB, {
@@ -142,6 +177,17 @@ mongoose
     schedule.scheduleJob("0 9 * * *", () => {
       console.log("Running task reminder notification job daily at 9 AM...");
       sendTaskReminderNotifications();
+    });
+
+    schedule.scheduleJob("0 9-18 * * *", () => {
+      console.log("🔁 Running repeated task notifications (9 AM - 6 PM)...");
+      sendRepeatedNotifications();
+    });
+
+    // Reset at midnight
+    schedule.scheduleJob("0 0 * * *", () => {
+      console.log("Resetting acknowledgements...");
+      resetAcknowledgements();
     });
   })
   .catch((err) => {
