@@ -320,8 +320,8 @@ exports.createMultipleContacts = async (req, res) => {
         // ✅ Check required fields for project creation
         const projectRequiredFields = [
           contact.userId,
-          // contact.projectOwnerId,
-          // contact.notifyUserId,
+          contact.projectOwnerId,
+          contact.notifyUserId,
           contact.projectTypeId,
           contact.projectStageId,
           // contact.groupId,
@@ -528,6 +528,14 @@ exports.createContact = async (req, res) => {
         .send("All fields marked with an asterisk (*) are mandatory.");
     }
 
+    // if(contactData.createProject === "true"){
+    //   if(!contactData.projectTypeId || !contactData.projectStageId){
+    //     return res
+    //     .status(400)
+    //     .send("All fields marked with an asterisk (*) are mandatory.");
+    //   }
+    // }
+
     const newContact = new Contact({
       ...contactData,
       companyId: companyId,
@@ -556,7 +564,7 @@ exports.createContact = async (req, res) => {
       return res.json({
         success: true,
         message:
-          "Contact created successfully, but project was not created due to missing required fields.",
+          "Contact created successfully. Due to missing project field project not created",
         result: savedContact,
       });
     }
