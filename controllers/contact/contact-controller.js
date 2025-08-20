@@ -7,6 +7,7 @@ const cacheManager = require("../../redis");
 const { activeClients } = require("../..");
 const { getQueueMessageCount } = require("../../rabbitmq/index");
 const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
+const { normalizeAddress } = require("../../utils/address");
 const Account = require("../../models/account/account-model");
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
@@ -357,17 +358,17 @@ exports.createMultipleContacts = async (req, res) => {
           contact.address?.postal_code || ""
         }, Country: ${contact.address?.country || ""}`;
 
-        function normalizeAddress(addr) {
-          return addr
-            .replace(/City:\s*\w+\,?/gi, "")
-            .replace(/State:\s*\w+\,?/gi, "")
-            .replace(/Pincode:\s*\d+\,?/gi, "")
-            .replace(/Country:\s*IN\b/gi, "India")
-            .replace(/\s+/g, " ")
-            .replace(/,+/g, ",")
-            .trim()
-            .toLowerCase();
-        }
+        // function normalizeAddress(addr) {
+        //   return addr
+        //     .replace(/City:\s*\w+\,?/gi, "")
+        //     .replace(/State:\s*\w+\,?/gi, "")
+        //     .replace(/Pincode:\s*\d+\,?/gi, "")
+        //     .replace(/Country:\s*IN\b/gi, "India")
+        //     .replace(/\s+/g, " ")
+        //     .replace(/,+/g, ",")
+        //     .trim()
+        //     .toLowerCase();
+        // }
 
         const normalizedAddress = normalizeAddress(address);
 
@@ -455,7 +456,7 @@ exports.createMultipleContacts = async (req, res) => {
       fileName: { $in: contacts.map((contact) => contact.file_name) },
     });
 
-    console.log(checkUploadFiles, "checkUploadFiles");
+    //console.log(checkUploadFiles, "checkUploadFiles");
 
     if (checkUploadFiles.length > 0) {
       for (const uploadFile of checkUploadFiles) {
@@ -464,7 +465,7 @@ exports.createMultipleContacts = async (req, res) => {
           file_name: uploadFile.fileName, // Match the file_name
         });
 
-        console.log(checkContact, "checkContact");
+        //console.log(checkContact, "checkContact");
 
         if (checkContact) {
           // Update UploadRepositoryFile title with the found contact's ID
@@ -473,15 +474,15 @@ exports.createMultipleContacts = async (req, res) => {
             { title: checkContact.title }
           );
 
-          console.log("Updated UploadRepositoryFile:", data);
+          // console.log("Updated UploadRepositoryFile:", data);
         }
       }
     }
 
-    console.log("contact created successfully:", newContacts);
-    console.log(companyId, activeClients);
+    //console.log("contact created successfully:", newContacts);
+    //console.log(companyId, activeClients);
     const users = activeClients.get(companyId);
-    console.log("live users", users);
+    //console.log("live users", users);
     users?.forEach((user) => {
       user.send(
         JSON.stringify({
@@ -581,17 +582,17 @@ exports.createContact = async (req, res) => {
         savedContact.address?.postal_code || ""
       }, Country: ${savedContact.address?.country || ""}`;
 
-      function normalizeAddress(addr) {
-        return addr
-          .replace(/City:\s*\w+\,?/gi, "")
-          .replace(/State:\s*\w+\,?/gi, "")
-          .replace(/Pincode:\s*\d+\,?/gi, "")
-          .replace(/Country:\s*IN\b/gi, "India")
-          .replace(/\s+/g, " ")
-          .replace(/,+/g, ",")
-          .trim()
-          .toLowerCase();
-      }
+      // function normalizeAddress(addr) {
+      //   return addr
+      //     .replace(/City:\s*\w+\,?/gi, "")
+      //     .replace(/State:\s*\w+\,?/gi, "")
+      //     .replace(/Pincode:\s*\d+\,?/gi, "")
+      //     .replace(/Country:\s*IN\b/gi, "India")
+      //     .replace(/\s+/g, " ")
+      //     .replace(/,+/g, ",")
+      //     .trim()
+      //     .toLowerCase();
+      // }
 
       const normalizedAddress = normalizeAddress(address);
 
