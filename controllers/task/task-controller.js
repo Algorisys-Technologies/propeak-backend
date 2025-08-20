@@ -789,6 +789,20 @@ exports.updateTask = (req, res) => {
 
           console.log("enrichedProducts", enrichedProducts);
 
+          const taskTitle = `Product ${enrichedProduct.product_name}`;
+
+          // Skip if same title product task already exists for this parent task
+          const existing = await Task.findOne({
+            projectId: projectId,
+            title: taskTitle,
+            isDeleted: false,
+          });
+
+          if (existing) {
+            console.log(`Skipping duplicate product task: ${taskTitle}`);
+            continue;
+          }
+
           const productTask = new Task({
             title: `Product ${enrichedProduct.product_name}`,
             description: `${enrichedProduct.product_description} Category: ${enrichedProduct.product_description}`,
