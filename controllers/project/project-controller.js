@@ -174,6 +174,14 @@ exports.getProjectByProjectId = (req, res) => {
       path: "projectTypeId",
       select: "projectType",
     })
+    .populate({
+      path: "accountId",
+      select: "account_name",
+    })
+    .populate({
+      path: "contactId",
+      select: "title",
+    })
     .then(
       (result) => {
         let messages = result.messages.filter((r) => {
@@ -209,6 +217,8 @@ exports.getProjectByProjectId = (req, res) => {
           projectTypeId: result.projectTypeId,
           tag: result.tag,
           projectType: result.projectType,
+          accountId: result.accountId,
+          contactId: result.contactId,
         };
         // logInfo("getProjectByProjectId before return response");
         res.json({
@@ -852,7 +862,11 @@ exports.updateProjectField = async (req, res) => {
     projectTypeId: req.body.projectTypeId,
     customFieldValues: req.body.customFieldValues,
     tag: req.body.tag,
+    contactId: req.body.contactId,
+    accountId: req.body.accountId,
   });
+
+  console.log(updatedProject, "from update Project")
   Project.findOneAndUpdate(
     {
       _id: req.body._id,
