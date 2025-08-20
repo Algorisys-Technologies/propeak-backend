@@ -34,6 +34,7 @@ const NotificationSettingSchema = new mongoose.Schema(
         "PROJECT_CREATED",
         "PROJECT_STAGE_CHANGED",
         "EXPORT_READY",
+        "TASK_REMINDER_DUE",
       ],
       // required: true,
     },

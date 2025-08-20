@@ -13,6 +13,7 @@ const config = require("../../config/config");
 const jwt = require("jsonwebtoken");
 const secret = require("../../config/secret");
 const Project = require("../../models/project/project-model");
+const Product = require("../../models/product/product-model");
 const TaskPriority = require("../../models/task/task-priority-model");
 const { logError, logInfo } = require("../../common/logger");
 const { sendEmail } = require("../../common/mailer");
@@ -453,6 +454,73 @@ exports.createTask = (req, res) => {
         }
       }
 
+      // ✅ Auto-create product tasks
+      if (
+        Array.isArray(interested_products) &&
+        interested_products.length > 0
+      ) {
+        console.log("Creating product tasks for:", interested_products);
+        const enrichedProducts = [];
+        for (const product of interested_products) {
+          const productDoc = await Product.findById(product.product_id).select(
+            "name category description"
+          );
+
+          const enrichedProduct = {
+            ...product,
+            product_name: productDoc?.name || "Unnamed Product",
+            product_category: productDoc?.category || "Uncategorized",
+            product_description: productDoc?.description || "No description",
+          };
+
+          enrichedProducts.push(enrichedProduct);
+
+          console.log("enrichedProducts", enrichedProducts);
+
+          const productTask = new Task({
+            title: `Product ${enrichedProduct.product_name}`,
+            description: `${enrichedProduct.product_description} Category: ${enrichedProduct.product_description}`,
+            startDate,
+            endDate,
+            taskStageId: taskStageId || null,
+            projectId,
+            status,
+            assignedUser,
+            taskType,
+            depId,
+            category,
+            tag,
+            storyPoint,
+            priority,
+            creation_mode: "AUTO",
+            lead_source: "PRODUCT_TASK",
+            multiUsers: multiUsers?.map((user) => user.id),
+            notifyUsers: notifyUsers?.map((id) => id),
+            customFieldValues,
+            companyId,
+            interested_products: [
+              {
+                product_id: enrichedProduct.product_id,
+                quantity: parseFloat(enrichedProduct.quantity || "0"),
+                priority: "",
+                unit: enrichedProduct.unit,
+                negotiated_price: parseFloat(enrichedProduct.price || "0"),
+                total_value: parseFloat(enrichedProduct.total || "0"),
+              },
+            ],
+            createdBy,
+            createdOn: new Date(),
+            modifiedBy,
+            modifiedOn: new Date(),
+            isDeleted: false,
+            publish_status: publishStatus,
+            parentTaskId: taskId,
+          });
+
+          await productTask.save();
+        }
+      }
+
       res.json({
         success: true,
         msg: "Task created successfully!",
@@ -694,6 +762,74 @@ exports.updateTask = (req, res) => {
         }
       }
       // }
+
+      // ✅ Auto-create product tasks
+      if (
+        Array.isArray(interested_products) &&
+        interested_products.length > 0
+      ) {
+        console.log(
+          "Creating product tasks for in update:",
+          interested_products
+        );
+        const enrichedProducts = [];
+        for (const product of interested_products) {
+          const productDoc = await Product.findById(product.product_id).select(
+            "name category description"
+          );
+
+          const enrichedProduct = {
+            ...product,
+            product_name: productDoc?.name || "Unnamed Product",
+            product_category: productDoc?.category || "Uncategorized",
+            product_description: productDoc?.description || "No description",
+          };
+
+          enrichedProducts.push(enrichedProduct);
+
+          console.log("enrichedProducts", enrichedProducts);
+
+          const productTask = new Task({
+            title: `Product ${enrichedProduct.product_name}`,
+            description: `${enrichedProduct.product_description} Category: ${enrichedProduct.product_description}`,
+            startDate,
+            endDate,
+            taskStageId: taskStageId || null,
+            projectId,
+            status,
+            assignedUser,
+            taskType,
+            depId,
+            category,
+            tag,
+            storyPoint,
+            priority,
+            creation_mode: "AUTO",
+            lead_source: "PRODUCT_TASK",
+            multiUsers: multiUsers?.map((user) => user.id),
+            notifyUsers: notifyUsers?.map((id) => id),
+            customFieldValues,
+            companyId,
+            interested_products: [
+              {
+                product_id: enrichedProduct.product_id,
+                quantity: parseFloat(enrichedProduct.quantity || "0"),
+                priority: "",
+                unit: enrichedProduct.unit,
+                negotiated_price: parseFloat(enrichedProduct.price || "0"),
+                total_value: parseFloat(enrichedProduct.total || "0"),
+              },
+            ],
+            modifiedBy,
+            modifiedOn: new Date(),
+            isDeleted: false,
+            publish_status: publishStatus,
+            parentTaskId: taskId,
+          });
+
+          await productTask.save();
+        }
+      }
 
       res.json({
         success: true,
@@ -2968,7 +3104,7 @@ exports.getKanbanTasks = async (req, res) => {
           break;
       }
     });
-    const tasks = await Task.find({
+    let tasks = await Task.find({
       ...whereCondition,
     })
       .sort({ modifiedOn: -1, createdOn: -1 })
@@ -2976,16 +3112,102 @@ exports.getKanbanTasks = async (req, res) => {
       .limit(limit)
       .populate("userId")
       .populate("createdBy")
-      .populate("subtasks");
+      .populate("subtasks")
+      .lean();
+
     const totalPages = Math.ceil(
       (await Task.countDocuments({
         ...whereCondition,
       })) / limit
     );
 
+    // --- Reminder calculation without schema change ---
+    const reminderOffset = 10 * 24 * 60 * 60 * 1000; // 10 days in ms
+    const now = new Date();
+
+    // tasks = tasks.map((task) => {
+    //   if (task.startDate) {
+    //     const reminderDate = new Date(
+    //       new Date(task.startDate).getTime() + reminderOffset
+    //     );
+    //     task.reminderDate = reminderDate;
+
+    //     // Reminder is due if today's date >= reminder date and task not completed
+    //     task.showReminder = now >= reminderDate && !task.completed;
+    //   } else {
+    //     task.reminderDate = null;
+    //     task.showReminder = false;
+    //   }
+    //   return task;
+    // });
+
+    tasks = tasks.map((task) => {
+      if (!task.startDate) {
+        task.reminderDate = null;
+        task.showReminder = false;
+        return task;
+      }
+
+      const reminderDate = new Date(
+        new Date(task.startDate).getTime() + reminderOffset
+      );
+      task.reminderDate = reminderDate;
+
+      const isCompleted = task.status === "completed";
+
+      // Condition 1: Reminder due 10 days after startDate (and not completed)
+      const isReminderDue = now >= reminderDate && !isCompleted;
+
+      // Condition 2: If endDate exists and is before now, and task not completed, reminder always shows
+      const isEndDatePast =
+        task.endDate && new Date(task.endDate) < now && !isCompleted;
+
+      // Show reminder if either condition is true
+      task.showReminder = isReminderDue || isEndDatePast;
+
+      return task;
+    });
+
+    // // After tasks.map() where you set task.showReminder
+    // const reminderDueTasks = tasks.filter((t) => t.showReminder);
+
+    // // Send notifications for reminder due tasks
+    // if (reminderDueTasks.length > 0) {
+    //   for (const reminderTask of reminderDueTasks) {
+    //     try {
+    //       // Populate project & creator info like in createTask
+    //       const populatedTask = await Task.findById(reminderTask._id)
+    //         .populate({ path: "projectId", select: "title", model: "project" })
+    //         .populate({ path: "createdBy", select: "name", model: "user" });
+
+    //       const eventType = "TASK_REMINDER_DUE"; // new event type
+    //       const notification = await handleNotifications(
+    //         populatedTask,
+    //         eventType
+    //       );
+
+    //       if (notification.length > 0) {
+    //         for (const channel of notification) {
+    //           const { emails } = channel;
+    //           for (const email of emails) {
+    //             await auditTaskAndSendMail(populatedTask, [], email); // reuse helper
+    //           }
+    //         }
+    //       }
+    //     } catch (err) {
+    //       console.error(
+    //         `Failed to send reminder notification for task ${reminderTask._id}`,
+    //         err
+    //       );
+    //     }
+    //   }
+    // }
+
     const totalCount = await Task.countDocuments({
       ...whereCondition,
     });
+
+    console.log("taskss...", tasks);
 
     return res.json({ success: true, tasks: tasks, totalPages, totalCount });
   } catch (error) {

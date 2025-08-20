@@ -57,7 +57,7 @@ const ContactSchema = new mongoose.Schema({
       // required: true,
     },
   },
-  secondary_address:{
+  secondary_address: {
     type: String,
   },
   lead_source: {
@@ -74,25 +74,51 @@ const ContactSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  tag: [{
-    type: String
-  }],
+  tag: [
+    {
+      type: String,
+    },
+  ],
 
   isDeleted: { type: Boolean, default: false },
   creationMode: {
-    type: String
+    type: String,
   },
-   vfolderId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "vfolder"
-        },
-    isConverted: {
-      type: Boolean,
-      default: false
-    }
+  vfolderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "vfolder",
+  },
+  isConverted: {
+    type: Boolean,
+    default: false,
+  },
+  projectOwnerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
+  },
+  notifyUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
+  },
+  projectTypeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "projectType",
+  },
+  projectStageId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "projectStage",
+  },
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "group",
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
+  },
 });
 
 ContactSchema.index({ companyId: 1 });
 ContactSchema.index({ isDeleted: 1 });
-ContactSchema.index({ created_on: -1 })
+ContactSchema.index({ created_on: -1 });
 module.exports = mongoose.model("contact", ContactSchema);
