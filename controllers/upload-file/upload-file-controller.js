@@ -492,6 +492,14 @@ exports.projectFileUpload = async (req, res) => {
           groupId,
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         });
+
+        if(!projectStage){
+          projectStage = await ProjectStage.findOne({
+            title: statusTitle,
+            companyId: companyId,
+            $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+          });
+        }
       } else {
         projectStage = await ProjectStage.findOne({
           title: statusTitle,
@@ -839,6 +847,8 @@ exports.projectFileUpload = async (req, res) => {
                 project.projectStageId = projectStageId;
               }
             }
+
+            console.log(project.projectStageId, "from project.projectStageId ")
 
             project.projectType = project.projectType || "Issue Tracker";
 
