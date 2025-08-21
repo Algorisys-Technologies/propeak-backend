@@ -25,14 +25,19 @@ exports.createNotificationSetting = async (req, res) => {
       channel,
       mandatory,
       active,
+      userId,
+      type,
+      reminderTime,
+      intervalStart,
+      intervalEnd,
+      intervalMinutes,
     } = req.body;
 
     // Check if a setting already exists for the given projectId and eventType
-    if(!eventType){
+    if (!eventType) {
       return res.status(200).json({
         success: false,
-        message:
-          "Please select eventType",
+        message: "Please select eventType",
       });
     }
     const existingSetting = await NotificationSetting.findOne({
@@ -49,7 +54,7 @@ exports.createNotificationSetting = async (req, res) => {
       });
     }
 
-    const setting = new NotificationSetting({
+    const settingData = {
       companyId,
       projectId,
       taskStageId,
@@ -59,9 +64,26 @@ exports.createNotificationSetting = async (req, res) => {
       channel,
       mandatory,
       active,
-      createdBy: req.body.userId,
-    });
+      createdBy: userId,
+    };
 
+    if (eventType === "TASK_REMINDER_DUE") {
+      settingData.type = type || "fixed";
+
+      if (settingData.type === "fixed") {
+        settingData.reminderTime = reminderTime || null;
+        settingData.intervalStart = null;
+        settingData.intervalEnd = null;
+        settingData.intervalMinutes = null;
+      } else if (settingData.type === "interval") {
+        settingData.intervalStart = intervalStart || null;
+        settingData.intervalEnd = intervalEnd || null;
+        settingData.intervalMinutes = Number(intervalMinutes) || null;
+        settingData.reminderTime = null;
+      }
+    }
+
+    const setting = new NotificationSetting(settingData);
     const savedSetting = await setting.save();
 
     res.status(201).json({
@@ -80,10 +102,10 @@ exports.createNotificationSetting = async (req, res) => {
 };
 
 exports.updateNotificationSetting = async (req, res) => {
-  // console.log("is this coming here ???", req.body);
   try {
     const { id } = req.params;
-    console.log("what id is coming here ???", id);
+    console.log("Updating notification setting for ID:", id);
+
     const {
       companyId,
       projectId,
@@ -94,6 +116,12 @@ exports.updateNotificationSetting = async (req, res) => {
       channel,
       mandatory,
       active,
+      userId,
+      type,
+      reminderTime,
+      intervalStart,
+      intervalEnd,
+      intervalMinutes,
     } = req.body;
 
     if (!id) {
@@ -103,34 +131,40 @@ exports.updateNotificationSetting = async (req, res) => {
       });
     }
 
-    // const existingSetting = await NotificationSetting.findOne({
-    //   projectId,
-    //   isDeleted: false,
-    // });
+    const updateData = {
+      companyId,
+      projectId,
+      taskStageId,
+      eventType,
+      notifyRoles,
+      notifyUserIds,
+      channel,
+      mandatory,
+      active,
+      modifiedBy: userId,
+      modifiedOn: new Date(),
+    };
 
-    // if (existingSetting) {
-    //   return res.status(200).json({
-    //     success: false,
-    //     message:
-    //       "Notification setting for this project and event already exists",
-    //   });
-    // }
+    // Handle TASK_REMINDER_DUE extra fields
+    if (eventType === "TASK_REMINDER_DUE") {
+      updateData.type = type || "fixed";
+
+      if (updateData.type === "fixed") {
+        updateData.reminderTime = reminderTime || null;
+        updateData.intervalStart = null;
+        updateData.intervalEnd = null;
+        updateData.intervalMinutes = null;
+      } else if (updateData.type === "interval") {
+        updateData.intervalStart = intervalStart || null;
+        updateData.intervalEnd = intervalEnd || null;
+        updateData.intervalMinutes = Number(intervalMinutes) || null;
+        updateData.reminderTime = null;
+      }
+    }
 
     const updatedSetting = await NotificationSetting.findByIdAndUpdate(
       id,
-      {
-        companyId,
-        projectId,
-        taskStageId,
-        eventType,
-        notifyRoles,
-        notifyUserIds,
-        channel,
-        mandatory,
-        active,
-        modifiedBy: req.body.userId,
-        modifiedOn: new Date(),
-      },
+      updateData,
       { new: true }
     );
 
@@ -155,6 +189,84 @@ exports.updateNotificationSetting = async (req, res) => {
     });
   }
 };
+
+// exports.updateNotificationSetting = async (req, res) => {
+//   // console.log("is this coming here ???", req.body);
+//   try {
+//     const { id } = req.params;
+//     console.log("what id is coming here ???", id);
+//     const {
+//       companyId,
+//       projectId,
+//       taskStageId,
+//       eventType,
+//       notifyRoles,
+//       notifyUserIds,
+//       channel,
+//       mandatory,
+//       active,
+
+//     } = req.body;
+
+//     if (!id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Notification setting ID is required",
+//       });
+//     }
+
+//     // const existingSetting = await NotificationSetting.findOne({
+//     //   projectId,
+//     //   isDeleted: false,
+//     // });
+
+//     // if (existingSetting) {
+//     //   return res.status(200).json({
+//     //     success: false,
+//     //     message:
+//     //       "Notification setting for this project and event already exists",
+//     //   });
+//     // }
+
+//     const updatedSetting = await NotificationSetting.findByIdAndUpdate(
+//       id,
+//       {
+//         companyId,
+//         projectId,
+//         taskStageId,
+//         eventType,
+//         notifyRoles,
+//         notifyUserIds,
+//         channel,
+//         mandatory,
+//         active,
+//         modifiedBy: req.body.userId,
+//         modifiedOn: new Date(),
+//       },
+//       { new: true }
+//     );
+
+//     if (!updatedSetting) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Notification setting not found",
+//       });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Notification setting updated successfully",
+//       data: updatedSetting,
+//     });
+//   } catch (error) {
+//     console.error("Error updating notification setting:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to update notification setting",
+//       error: error.message,
+//     });
+//   }
+// };
 
 exports.toggleNotificationActive = async (req, res) => {
   try {
