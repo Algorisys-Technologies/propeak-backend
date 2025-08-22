@@ -542,6 +542,7 @@ exports.postMultipleVisitingCards = async (req, res) => {
 
     return res.json({
       success: true,
+      type: "create-repo",
       message:
         "Visiting Cards Uploaded Successfully, Contacts will be created soon!",
     });
