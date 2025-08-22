@@ -64,13 +64,19 @@ async function sendTaskReminderNotifications(setting) {
     console.log("setting", setting);
     const now = new Date();
 
-    // let tasks = await Task.find({
-    //   isDeleted: false,
-    //   projectId: setting.projectId,
-    //   ...(setting.taskStageId ? { taskStageId: setting.taskStageId } : {}),
-    // }).lean();
+    let tasks = await Task.find({
+      isDeleted: false,
+      projectId: setting.projectId,
+      ...(setting.taskStageId ? { taskStageId: setting.taskStageId } : {}),
+    }).lean();
 
-    let tasks = await Task.find({ isDeleted: false }).lean();
+    // If no tasks found, skip
+    if (!tasks || tasks.length === 0) {
+      console.log(`No tasks found for project ${setting.projectId}`);
+      return;
+    }
+
+    //let tasks = await Task.find({ isDeleted: false }).lean();
 
     tasks = tasks.map((task) => {
       if (!task.startDate)
@@ -96,8 +102,15 @@ async function sendTaskReminderNotifications(setting) {
 
     for (const reminderTask of reminderDueTasks) {
       const populatedTask = await Task.findById(reminderTask._id)
-        .populate({ path: "_id", select: "title", model: "project" })
+        .populate({ path: "projectId", select: "title", model: "project" })
         .populate({ path: "createdBy", select: "name", model: "user" });
+
+      if (!populatedTask?.projectId || !populatedTask.projectId._id) {
+        console.warn(
+          `Skipping reminder for task ${populatedTask?._id} - projectId not found`
+        );
+        continue;
+      }
 
       const notification = await handleNotifications(
         populatedTask,

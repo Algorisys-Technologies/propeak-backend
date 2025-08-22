@@ -41,6 +41,7 @@ exports.createNotificationSetting = async (req, res) => {
       });
     }
     const existingSetting = await NotificationSetting.findOne({
+      companyId,
       projectId,
       eventType,
       isDeleted: false,
@@ -51,6 +52,13 @@ exports.createNotificationSetting = async (req, res) => {
         success: false,
         message:
           "Notification setting for this project and event already exists",
+      });
+    }
+
+    if (eventType === "TASK_REMINDER_DUE" && !projectId) {
+      return res.status(200).json({
+        success: false,
+        message: "Skipping creation, no valid projectId provided",
       });
     }
 
@@ -128,6 +136,13 @@ exports.updateNotificationSetting = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Notification setting ID is required",
+      });
+    }
+
+    if (eventType === "TASK_REMINDER_DUE" && !projectId) {
+      return res.status(200).json({
+        success: false,
+        message: "Skipping update, no valid projectId provided",
       });
     }
 
