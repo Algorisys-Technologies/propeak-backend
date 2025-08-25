@@ -58,8 +58,9 @@ const notificationSettingModel = require("../../models/notification-setting/noti
 exports.createTask = (req, res) => {
   // console.log("create task wala ");
   // console.log(req.body, "request body in create tasks ");
-  const { taskData, fileName, projectId } = req.body;
+  const { taskData, fileName, projectId, payload } = req.body;
   const { task, multiUsers } = JSON.parse(taskData);
+  console.log(payload, "from payload")
   const {
     _id,
     userId,
@@ -87,7 +88,7 @@ exports.createTask = (req, res) => {
     createdByEmail,
     ownerEmail,
     publishStatus,
-  } = task;
+  } = task || payload;
 
   console.log(taskStageId, "from taskStageId");
 
@@ -538,10 +539,12 @@ exports.createTask = (req, res) => {
 };
 
 exports.updateTask = (req, res) => {
-  // console.log("is it coming th task update");
-  // console.log(req.body, "request body of update task ");
+  console.log("is it coming th task update");
+  console.log(req.body, "request body of update task ");
   const { taskId } = req.body;
-  const { projectId, task, companyId } = req.body;
+  const { projectId, task, companyId, updates } = req.body;
+
+  // console.log(updates, "from updateDate")
 
   const {
     title,
@@ -566,7 +569,7 @@ exports.updateTask = (req, res) => {
     createdByEmail,
     ownerEmail,
     publishStatus,
-  } = task;
+  } = task || updates;
 
   Task.findByIdAndUpdate(
     taskId,
@@ -621,8 +624,10 @@ exports.updateTask = (req, res) => {
           path: "createdBy",
           select: "name",
           model: "user",
-        });
+        }).populate({ path: "interested_products.product_id" })
+        .populate("userId", "name");
 
+        console.log(task, "from task")
       // if(task.userId){
       //   const eventType = "TASK_ASSIGNED"
       //   await sendNotification(task, eventType);
@@ -847,6 +852,7 @@ exports.updateTask = (req, res) => {
 
       res.json({
         success: true,
+        task,
         msg: "Task updated successfully!",
       });
     })
