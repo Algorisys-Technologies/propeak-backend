@@ -24,7 +24,7 @@ const ProjectFieldConfigSchema = new mongoose.Schema({
   },
   dataType: {
     type: String,
-    enum: ["string", "boolean", "number", "date", "component"],
+    enum: ["string", "boolean", "number", "date", "component", "multilineText"],
     required: true,
   },
   componentType: {
