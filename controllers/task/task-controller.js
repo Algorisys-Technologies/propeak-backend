@@ -838,6 +838,7 @@ exports.updateTask = (req, res) => {
                 total_value: parseFloat(enrichedProduct.total || "0"),
               },
             ],
+            createdBy,
             modifiedBy,
             createdOn: new Date(),
             modifiedOn: new Date(),
