@@ -30,7 +30,7 @@ require("../models/product/product-model");
   try {
     const connection = await amqp.connect(rabbitMQ_connectionKey, {
       heartbeat: 60,
-      frameMax: 131072,
+      frameMax: 0,
     });
     console.log("Connected to RabbitMQ");
 
