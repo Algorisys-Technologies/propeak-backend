@@ -626,7 +626,7 @@ exports.updateTask = (req, res) => {
         }).populate({ path: "interested_products.product_id" })
         .populate("userId", "name");
 
-        console.log(task, "from task")
+        // console.log(task, "from task")
       // if(task.userId){
       //   const eventType = "TASK_ASSIGNED"
       //   await sendNotification(task, eventType);
@@ -839,6 +839,7 @@ exports.updateTask = (req, res) => {
               },
             ],
             modifiedBy,
+            createdOn: new Date(),
             modifiedOn: new Date(),
             isDeleted: false,
             publish_status: publishStatus,
