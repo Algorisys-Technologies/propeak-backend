@@ -563,6 +563,7 @@ exports.updateTask = (req, res) => {
     multiUsers = [],
     notifyUsers = [],
     customFieldValues = {},
+    createdBy,
     modifiedBy,
     userId,
     createdByEmail,
@@ -602,6 +603,7 @@ exports.updateTask = (req, res) => {
       modifiedBy,
       modifiedOn: new Date(),
       userId,
+      createdBy,
       publish_status: publishStatus,
     },
     { new: true }
