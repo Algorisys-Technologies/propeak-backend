@@ -1039,6 +1039,7 @@ exports.getTasks = (req, res) => {
   Task.find({ projectId, companyId, isDeleted: false })
     .populate("userId", "name")
     .populate({ path: "interested_products.product_id" })
+    .sort({ createdOn: -1 })
     .then((tasks) => {
       if (!tasks || tasks.length === 0) {
         return res.status(404).json({
@@ -1194,6 +1195,7 @@ exports.getTasksTable = async (req, res) => {
       .limit(limit)
       .populate("userId", "name")
       .populate({ path: "interested_products.product_id" })
+      .sort({ createdOn: -1 })
       .lean();
 
     res.json({
