@@ -30,10 +30,11 @@ async function connect() {
   const retries = 5;
   for (let i = 0; i < retries; i++) {
     try {
-      const connection = await amqp.connect(rabbitMQ_connectionKey, {
-        heartbeat: 120,
-        frameMax: 131072,
-      });
+      // const connection = await amqp.connect(rabbitMQ_connectionKey, {
+      //   heartbeat: 120,
+      //   frameMax: 131072,
+      // });
+      const connection = await amqp.connect(rabbitMQ_connectionKey);
       console.log("✅ Connected to RabbitMQ");
       return connection;
     } catch (err) {

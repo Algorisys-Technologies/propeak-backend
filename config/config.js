@@ -64,7 +64,11 @@ module.exports = Object.freeze({
   redisClientHost: "127.0.0.1",
   accessRightsExpiry: 2592000,
   rabbitMQ_exchangeName: "ALGO_message_exch",
-  rabbitMQ_connectionKey: "amqp://localhost",
+  // rabbitMQ_connectionKey: "amqp://localhost",
+  //rabbitMQ_connectionKey: "amqp://127.0.0.1",
+  // instead of just amqp://127.0.0.1
+  rabbitMQ_connectionKey:
+    "amqp://guest:guest@127.0.0.1:5672/?heartbeat=120&frameMax=131072",
   taskStatusEmailContent: `Hi, <br/> <br/> Task assigned to user is completed. task: <br/><br/> <b> Project </b> : #projectName# <br/> <b> Task </b> : #title#" +
     '<br/> <b> Priority </b> : #priority# <br/> <b> Description </b> : #description# <br/> <br/> To view task details, click <a href="${process.env.URL}project/task/edit/#projectId#/#newTaskId#" alt="task">' +
     "here</a> or copy this URL on the browser ${process.env.URL}tasks/edit/#projectId#/#newTaskId#"
