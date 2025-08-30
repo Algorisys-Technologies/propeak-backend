@@ -68,6 +68,10 @@ const ProjectSchema = new mongoose.Schema(
       ref: "groupMaster",
       default: null,
     },
+    referenceGroupIds: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "groupMaster" }],
+      default: [],
+    },
     projectType: {
       type: String,
     },

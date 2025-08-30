@@ -239,4 +239,7 @@ router.post(
   "/getProjectTableForGroup",
   projectController.getProjectTableForGroup
 );
+
+router.post("/moveOrReference", projectController.moveOrReference);
+
 module.exports = router;
