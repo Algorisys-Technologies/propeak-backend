@@ -30,6 +30,9 @@ router.post(
   notificationController.markNotificationAsAllRead
 );
 
+
+router.post("/reminder-action", notificationSettingController.ReminderAction)
+
 //Preference os users
 router.post("/addPreference", notificationPreferenceController.addPreferences);
 router.post("/getPreferences", notificationPreferenceController.getPreferences);

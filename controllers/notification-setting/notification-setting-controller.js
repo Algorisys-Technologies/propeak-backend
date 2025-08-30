@@ -517,3 +517,34 @@ exports.updatePreferences = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+exports.ReminderAction = async (req, res) => {
+  const { action, _id, eventType } = req.body;
+
+  console.log(_id, "from taskID")
+
+  try {
+    if (action === "skip") {
+      // Update the notification for this task
+      const skipNotification = await UserNotification.findOneAndUpdate(
+        { _id, eventType },                          // find by taskId
+        { $set: { isDeleted: true, active: true } },    // update field
+        { new: true }                        // return updated doc
+      );
+
+      if (!skipNotification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      return res.status(200).json({
+        message: "Reminder skipped for today",
+        data: skipNotification,
+      });
+    }
+
+    res.status(400).json({ message: "Invalid action" });
+  } catch (error) {
+    console.error("Error in ReminderAction:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

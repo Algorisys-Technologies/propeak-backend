@@ -64,6 +64,19 @@ async function sendTaskReminderNotifications(setting) {
     console.log("setting", setting);
     const now = new Date();
 
+    if (setting.pausedUntil && setting.pausedUntil > now) {
+      console.log(
+        `Skipping reminders for ${setting._id}, paused until ${setting.pausedUntil}`
+      );
+      return;
+    }
+
+    // ⛔ Skip if disabled permanently
+    if (!setting.active) {
+      console.log(`Skipping reminders for ${setting._id}, inactive setting`);
+      return;
+    }
+
     let tasks = await Task.find({
       isDeleted: false,
       projectId: setting.projectId,

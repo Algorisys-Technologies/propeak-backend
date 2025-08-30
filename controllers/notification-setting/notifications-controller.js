@@ -24,6 +24,7 @@ exports.bellNotification = async (req, res) => {
     }
 
     const notifications = await UserNotification.find({isDeleted: false,
+      active: true,
       companyId,
       userId,
       read: false
@@ -47,12 +48,22 @@ exports.bellNotification = async (req, res) => {
       userId,
     }).select("read");
 
+    const TaskReminderData = await UserNotification.find({
+      isDeleted: false,
+      active: true,
+      eventType: "TASK_REMINDER_DUE",
+    }).select("_id userId subject message url taskId eventType createdOn");
+
+
+    console.log(TaskReminderData, "TaskReminderData")
+
     return res.status(200).json({
       success: true,
       message: "Notifications fetched successfully",
       settings: notifications,
       totalPages,
       unReadNotification,
+      TaskReminderData,
     });
   } catch (error) {
     console.error("Error fetching notifications:", error);
