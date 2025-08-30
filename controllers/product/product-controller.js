@@ -158,7 +158,7 @@ exports.uploadProductFile = async function (req, res) {
   try {
     if (!req.files || !req.files.productFile) {
       return res
-        .status(400)
+        .status(200)
         .json({ success: false, message: "Product file is required." });
     }
 

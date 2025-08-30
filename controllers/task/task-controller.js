@@ -789,6 +789,20 @@ exports.updateTask = (req, res) => {
 
           console.log("enrichedProducts", enrichedProducts);
 
+          const taskTitle = `Product ${enrichedProduct.product_name}`;
+
+          // Skip if same title product task already exists for this parent task
+          const existing = await Task.findOne({
+            projectId: projectId,
+            title: taskTitle,
+            isDeleted: false,
+          });
+
+          if (existing) {
+            console.log(`Skipping duplicate product task: ${taskTitle}`);
+            continue;
+          }
+
           const productTask = new Task({
             title: `Product ${enrichedProduct.product_name}`,
             description: `${enrichedProduct.product_description} Category: ${enrichedProduct.product_description}`,
@@ -3168,46 +3182,9 @@ exports.getKanbanTasks = async (req, res) => {
       return task;
     });
 
-    // // After tasks.map() where you set task.showReminder
-    // const reminderDueTasks = tasks.filter((t) => t.showReminder);
-
-    // // Send notifications for reminder due tasks
-    // if (reminderDueTasks.length > 0) {
-    //   for (const reminderTask of reminderDueTasks) {
-    //     try {
-    //       // Populate project & creator info like in createTask
-    //       const populatedTask = await Task.findById(reminderTask._id)
-    //         .populate({ path: "projectId", select: "title", model: "project" })
-    //         .populate({ path: "createdBy", select: "name", model: "user" });
-
-    //       const eventType = "TASK_REMINDER_DUE"; // new event type
-    //       const notification = await handleNotifications(
-    //         populatedTask,
-    //         eventType
-    //       );
-
-    //       if (notification.length > 0) {
-    //         for (const channel of notification) {
-    //           const { emails } = channel;
-    //           for (const email of emails) {
-    //             await auditTaskAndSendMail(populatedTask, [], email); // reuse helper
-    //           }
-    //         }
-    //       }
-    //     } catch (err) {
-    //       console.error(
-    //         `Failed to send reminder notification for task ${reminderTask._id}`,
-    //         err
-    //       );
-    //     }
-    //   }
-    // }
-
     const totalCount = await Task.countDocuments({
       ...whereCondition,
     });
-
-    console.log("taskss...", tasks);
 
     return res.json({ success: true, tasks: tasks, totalPages, totalCount });
   } catch (error) {

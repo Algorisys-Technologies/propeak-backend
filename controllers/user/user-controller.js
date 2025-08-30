@@ -135,7 +135,7 @@ exports.selectUsers = async(req, res) => {
     const users = await User.find({
       isDeleted: false,
       companyId,
-    }).select("_id name")
+    }).select("_id name email");
     return res.status(200).json(users);
   }catch(err){
     return res.status(500).json({
