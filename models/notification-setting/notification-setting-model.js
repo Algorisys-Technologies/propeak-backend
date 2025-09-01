@@ -68,10 +68,6 @@ const NotificationSettingSchema = new mongoose.Schema(
     intervalStart: { type: String },
     intervalEnd: { type: String },
     intervalMinutes: { type: Number },
-    pausedUntil: {
-      type: Date, // if set, reminders are skipped until this datetime
-      default: null,
-    },
     createdOn: {
       type: Date,
       default: Date.now,
