@@ -4820,7 +4820,10 @@ exports.getProjectsExhibitionCalendar = async (req, res) => {
 };
 
 exports.moveOrReference = async (req, res) => {
-  const { projectIds, targetGroupId, action, modifiedBy } = req.body;
+  const { projectIds, targetGroupId, targetStageId, action, modifiedBy } =
+    req.body;
+
+  console.log("targetStageId...", targetStageId);
 
   if (!Array.isArray(projectIds) || projectIds.length === 0) {
     return res
@@ -4844,6 +4847,7 @@ exports.moveOrReference = async (req, res) => {
         {
           $set: {
             group: targetGroupId,
+            ...(targetStageId ? { projectStageId: targetStageId } : {}),
             modifiedBy,
             modifiedOn: new Date(),
           },
@@ -4855,7 +4859,11 @@ exports.moveOrReference = async (req, res) => {
         { _id: { $in: projectIds } },
         {
           $addToSet: { referenceGroupIds: targetGroupId },
-          $set: { modifiedBy, modifiedOn: new Date() },
+          $set: {
+            ...(targetStageId ? { projectStageId: targetStageId } : {}),
+            modifiedBy,
+            modifiedOn: new Date(),
+          },
         }
       );
     }
