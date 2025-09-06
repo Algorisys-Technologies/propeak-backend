@@ -29,7 +29,7 @@ const CustomTaskFieldSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ["text", "number"], // Allowed field types
+    enum: ["text", "number", "boolean", "date", "multilineText"],
   },
   level: {
     type: String,

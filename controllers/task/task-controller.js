@@ -56,28 +56,43 @@ const { handleNotifications } = require("../../utils/notification-service");
 const notificationSettingModel = require("../../models/notification-setting/notification-setting-model");
 
 exports.createTask = (req, res) => {
-  // console.log("create task wala ");
-  // console.log(req.body, "request body in create tasks ");
-  const { taskData, fileName, projectId } = req.body;
-  const { task, multiUsers } = JSON.parse(taskData);
+  console.log(req.body, "request body in create tasks ");
+  const { taskData, fileName, projectId, newTaskData } = req.body;
+  console.log(projectId, "from projectId", newTaskData);
+  
+  // Check if taskData is empty or not provided, use newTaskData instead
+  let task, multiUsers;
+  let useNewTaskData = false;
+  
+  if (!taskData || taskData.trim() === '') {
+    useNewTaskData = true;
+    task = newTaskData;
+    multiUsers = task.multiUsers || [];
+  } else {
+    const parsedData = JSON.parse(taskData);
+    task = parsedData.task;
+    multiUsers = parsedData.multiUsers || [];
+  }
+
+  
+  // Extract fields from the appropriate source
   const {
     _id,
-    userId,
     title,
     description,
     startDate,
     endDate,
-    taskStageId,
     status,
-    assignedUser,
     depId,
-    category,
+    userId,
+    taskType,
+    taskStageId,
     tag,
     interested_products,
+    assignedUser,
+    category,
     storyPoint,
     priority,
-    taskType,
-    // multiUsers = [],
     companyId,
     notifyUsers = [],
     customFieldValues = {},
@@ -118,6 +133,11 @@ exports.createTask = (req, res) => {
     }
     assignedUsers = filterUserIds(multiUsers, assignedUsers);
   }
+  
+  // For newTaskData, we might need to handle some default values
+  const creationMode = useNewTaskData ? "MANUAL" : task.creation_mode || "MANUAL";
+  const leadSource = useNewTaskData ? "USER" : task.lead_source || "USER";
+  
   const newTask = new Task({
     _id,
     userId,
@@ -135,8 +155,8 @@ exports.createTask = (req, res) => {
     tag,
     storyPoint,
     priority,
-    creation_mode: "MANUAL",
-    lead_source: "USER",
+    creation_mode: creationMode,
+    lead_source: leadSource,
     multiUsers: assignedUsers?.map((user) => user.id),
     notifyUsers: notifyUsers?.map((id) => id),
     customFieldValues,
@@ -160,6 +180,7 @@ exports.createTask = (req, res) => {
   newTask
     .save()
     .then(async (result) => {
+      // ... rest of the code remains the same
       const taskId = result._id;
       // Send notification here
 
@@ -302,7 +323,6 @@ exports.createTask = (req, res) => {
       const eventType = "TASK_CREATED";
       const notification = await handleNotifications(task, eventType);
 
-      // if (emailOwner.length > 0 || email.length > 0) {
       const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
         try {
           let updatedDescription = newTask.description
@@ -320,18 +340,13 @@ exports.createTask = (req, res) => {
             .replace("#projectId#", newTask.projectId._id)
             .replace("#newTaskId#", newTask._id);
 
-          // console.log(emailText, "from mailOptions")
-
           if (email !== "XX") {
             var mailOptions = {
               from: config.from,
               to: email,
-              // cc: emailOwner,
               subject: ` TASK_CREATED - ${newTask.title}`,
               html: emailText,
             };
-
-            // console.log(mailOptions, "from mailOptions")
 
             let taskArr = {
               subject: mailOptions.subject,
@@ -356,9 +371,6 @@ exports.createTask = (req, res) => {
         }
       };
 
-      // auditTaskAndSendMail(task, emailOwner, email);
-      // }
-
       if (notification.length > 0) {
         for (const channel of notification) {
           const { emails } = channel;
@@ -375,16 +387,6 @@ exports.createTask = (req, res) => {
             let updatedDescription = updatedTask.description
               .split("\n")
               .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
-
-            // let emailText = config.taskEmailAssignContent
-            //   .replace("#title#", updatedTask.title)
-            //   .replace("#description#", updatedDescription)
-            //   .replace("#projectName#", updatedTask.projectId.title)
-            //   .replace("#projectId#", updatedTask.projectId._id)
-            //   .replace("#priority#", updatedTask.priority.toUpperCase())
-            //   .replace("#newTaskId#", updatedTask._id);
-
-            //   console.log(emailText, "from emailText")
 
             let emailText = `
           Hi, <br/><br/>
@@ -410,7 +412,6 @@ exports.createTask = (req, res) => {
               var mailOptions = {
                 from: config.from,
                 to: email,
-                // cc: emailOwner,
                 subject: `${updatedTask.projectId.title} - Task Assigned - ${updatedTask.title}`,
                 html: emailText,
               };
@@ -536,12 +537,13 @@ exports.createTask = (req, res) => {
       });
     });
 };
-
 exports.updateTask = (req, res) => {
-  // console.log("is it coming th task update");
-  // console.log(req.body, "request body of update task ");
+  console.log("is it coming th task update");
+  console.log(req.body, "request body of update task ");
   const { taskId } = req.body;
-  const { projectId, task, companyId } = req.body;
+  const { projectId, task, companyId, updates } = req.body;
+
+  // console.log(updates, "from updateDate")
 
   const {
     title,
@@ -561,12 +563,13 @@ exports.updateTask = (req, res) => {
     multiUsers = [],
     notifyUsers = [],
     customFieldValues = {},
+    createdBy,
     modifiedBy,
     userId,
     createdByEmail,
     ownerEmail,
     publishStatus,
-  } = task;
+  } = task || updates;
 
   Task.findByIdAndUpdate(
     taskId,
@@ -600,6 +603,7 @@ exports.updateTask = (req, res) => {
       modifiedBy,
       modifiedOn: new Date(),
       userId,
+      createdBy,
       publish_status: publishStatus,
     },
     { new: true }
@@ -621,8 +625,10 @@ exports.updateTask = (req, res) => {
           path: "createdBy",
           select: "name",
           model: "user",
-        });
+        }).populate({ path: "interested_products.product_id" })
+        .populate("userId", "name");
 
+        // console.log(task, "from task")
       // if(task.userId){
       //   const eventType = "TASK_ASSIGNED"
       //   await sendNotification(task, eventType);
@@ -834,7 +840,9 @@ exports.updateTask = (req, res) => {
                 total_value: parseFloat(enrichedProduct.total || "0"),
               },
             ],
+            createdBy,
             modifiedBy,
+            createdOn: new Date(),
             modifiedOn: new Date(),
             isDeleted: false,
             publish_status: publishStatus,
@@ -847,6 +855,7 @@ exports.updateTask = (req, res) => {
 
       res.json({
         success: true,
+        task,
         msg: "Task updated successfully!",
       });
     })
@@ -1030,6 +1039,7 @@ exports.getTasks = (req, res) => {
   Task.find({ projectId, companyId, isDeleted: false })
     .populate("userId", "name")
     .populate({ path: "interested_products.product_id" })
+    .sort({ createdOn: -1 })
     .then((tasks) => {
       if (!tasks || tasks.length === 0) {
         return res.status(404).json({
@@ -1185,6 +1195,7 @@ exports.getTasksTable = async (req, res) => {
       .limit(limit)
       .populate("userId", "name")
       .populate({ path: "interested_products.product_id" })
+      .sort({ createdOn: -1 })
       .lean();
 
     res.json({
