@@ -134,6 +134,7 @@ async function sendTaskReminderNotifications(setting) {
     const reminderDueTasks = tasks.filter((t) => t.showReminder && t.projectId);
 
     for (const reminderTask of reminderDueTasks) {
+      console.log(reminderTask, "from reminder task")
       const populatedTask = await Task.findById(reminderTask._id)
         .populate({ path: "projectId", select: "title", model: "project" })
         .populate({ path: "createdBy", select: "name", model: "user" });
@@ -144,6 +145,7 @@ async function sendTaskReminderNotifications(setting) {
         );
         continue;
       }
+      console.log(populatedTask, "frm populdated task")
 
       const notification = await handleNotifications(
         populatedTask,

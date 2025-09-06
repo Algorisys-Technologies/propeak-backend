@@ -24,43 +24,49 @@ exports.bellNotification = async (req, res) => {
       });
     }
 
-    const notifications = await UserNotification.find({isDeleted: false,
-      active: true,
+    const notifications = await UserNotification.find({
+      isDeleted: false,
       companyId,
       userId,
-      read: false,
-      eventType: { $ne: "TASK_REMINDER_DUE" }
+      $or: [
+        { read: false },
+        { permanentlySkipped: true } // include skipped
+      ],
     })
-      .select("_id userId subject message url read category createdOn")
+      .select("_id userId subject message url read category createdOn permanentlySkipped")
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * npage);
-
+    
+    // total count with skipped also
     const totalPages = Math.ceil(
-      (await UserNotification.countDocuments({ isDeleted: false,
+      (await UserNotification.countDocuments({
+        isDeleted: false,
         companyId,
         userId,
-        read: false,
-        eventType: { $ne: "TASK_REMINDER_DUE" }
+        $or: [
+          { read: false },
+          { permanentlySkipped: true }
+        ],
       })) / limit
     );
-
+    
     const unReadNotification = await UserNotification.countDocuments({
-      read: false,
       companyId,
       userId,
-      eventType: { $ne: "TASK_REMINDER_DUE" }
-    }).select("read");
-
+      $or: [
+        { read: false },
+        { permanentlySkipped: true } // include skipped
+      ],
+    }).select('read');
+    
     const TaskReminderData = await UserNotification.find({
       isDeleted: false,
       active: true,
       companyId,
       userId,
       eventType: "TASK_REMINDER_DUE",
-      // Exclude permanently skipped notifications
       permanentlySkipped: { $ne: true },
-      // Exclude notifications skipped for today
       $or: [
         { skipUntil: { $exists: false } },
         { skipUntil: null },
@@ -70,8 +76,6 @@ exports.bellNotification = async (req, res) => {
     .select("_id userId subject message url taskId eventType createdOn skipUntil permanentlySkipped")
     .sort({ createdOn: -1 });
 
-
-    // console.log(TaskReminderData, "TaskReminderData")
 
     return res.status(200).json({
       success: true,
@@ -109,7 +113,6 @@ exports.getNotifications = async (req, res) => {
       isDeleted: false,
       companyId,
       userId, // ← show only for this user
-      eventType: { $ne: "TASK_REMINDER_DUE" }
     };
 
     // Optional filters
@@ -121,7 +124,7 @@ exports.getNotifications = async (req, res) => {
 
     // Paged notifications
     const notificationCenter = await UserNotification.find(filterQuery)
-      .select("_id userId subject message url read category eventType projectId createdOn")
+      .select("_id userId subject message url read category eventType projectId createdOn permanentlySkipped")
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * page)
@@ -131,10 +134,12 @@ exports.getNotifications = async (req, res) => {
     const centerTotalPages = Math.ceil(totalDocuments / limit);
 
     const unReadNotification = await UserNotification.countDocuments({
-      read: false,
       companyId,
       userId,
-      eventType: { $ne: "TASK_REMINDER_DUE" }
+      $or: [
+        { read: false },
+        { permanentlySkipped: true } // include skipped
+      ],
     }).select("read");
 
     return res.status(200).json({
