@@ -3,6 +3,7 @@ const NotificationPreference = require("../models/notification-setting/notificat
 const Role = require("../models/role/role-model");
 const User = require("../models/user/user-model");
 const sendNotification = require("./send-notification"); // adjust import path accordingly
+const userNotificationModel = require("../models/notification-setting/user-notification-model");
 
 /**
  * Handle in-app and email notifications for a given task and event type.
@@ -139,7 +140,23 @@ async function handleNotifications(task, eventType) {
         pref.some((p) => p.muteEvents?.includes(eventType))
       )
         continue;
-      finalUsers.push(user);
+        // Check if user has skipped notifications for this task
+        const userNotification = await userNotificationModel.findOne({
+          userId: user._id,
+          taskId: task._id,
+          eventType: "TASK_REMINDER_DUE"
+        });
+        
+        const isSkippedToday = userNotification && 
+                              userNotification.skipUntil && 
+                              new Date(userNotification.skipUntil) > new Date();
+        
+        const isPermanentlySkipped = userNotification && 
+                                    userNotification.permanentlySkipped;
+        
+        if (!isSkippedToday && !isPermanentlySkipped) {
+          finalUsers.push(user);
+        }
     }
 
     // 6. Extract and deduplicate emails

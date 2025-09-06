@@ -15,6 +15,7 @@ exports.bellNotification = async (req, res) => {
     const { companyId, userId } = req.body;
     const npage = req.query.npage ? req.query.npage : 0;
     const limit = 5;
+    const now = new Date();
 
     if (!companyId || !userId) {
       return res.status(200).json({
@@ -24,9 +25,11 @@ exports.bellNotification = async (req, res) => {
     }
 
     const notifications = await UserNotification.find({isDeleted: false,
+      active: true,
       companyId,
       userId,
-      read: false
+      read: false,
+      eventType: { $ne: "TASK_REMINDER_DUE" }
     })
       .select("_id userId subject message url read category createdOn")
       .sort({ createdOn: -1 })
@@ -37,7 +40,8 @@ exports.bellNotification = async (req, res) => {
       (await UserNotification.countDocuments({ isDeleted: false,
         companyId,
         userId,
-        read: false
+        read: false,
+        eventType: { $ne: "TASK_REMINDER_DUE" }
       })) / limit
     );
 
@@ -45,7 +49,29 @@ exports.bellNotification = async (req, res) => {
       read: false,
       companyId,
       userId,
+      eventType: { $ne: "TASK_REMINDER_DUE" }
     }).select("read");
+
+    const TaskReminderData = await UserNotification.find({
+      isDeleted: false,
+      active: true,
+      companyId,
+      userId,
+      eventType: "TASK_REMINDER_DUE",
+      // Exclude permanently skipped notifications
+      permanentlySkipped: { $ne: true },
+      // Exclude notifications skipped for today
+      $or: [
+        { skipUntil: { $exists: false } },
+        { skipUntil: null },
+        { skipUntil: { $lt: now } }
+      ]
+    })
+    .select("_id userId subject message url taskId eventType createdOn skipUntil permanentlySkipped")
+    .sort({ createdOn: -1 });
+
+
+    // console.log(TaskReminderData, "TaskReminderData")
 
     return res.status(200).json({
       success: true,
@@ -53,6 +79,7 @@ exports.bellNotification = async (req, res) => {
       settings: notifications,
       totalPages,
       unReadNotification,
+      TaskReminderData,
     });
   } catch (error) {
     console.error("Error fetching notifications:", error);
@@ -82,6 +109,7 @@ exports.getNotifications = async (req, res) => {
       isDeleted: false,
       companyId,
       userId, // ← show only for this user
+      eventType: { $ne: "TASK_REMINDER_DUE" }
     };
 
     // Optional filters
@@ -106,6 +134,7 @@ exports.getNotifications = async (req, res) => {
       read: false,
       companyId,
       userId,
+      eventType: { $ne: "TASK_REMINDER_DUE" }
     }).select("read");
 
     return res.status(200).json({
@@ -116,7 +145,7 @@ exports.getNotifications = async (req, res) => {
       unReadNotification,
     });
   } catch (error) {
-    console.error("Error fetching notifications:", error);
+    // console.error("Error fetching notifications:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -331,3 +360,52 @@ exports.markNotificationAsAllRead = async (req, res) => {
   }
 };
 
+exports.reminderAction = async (req, res) => {
+  const { action, _id, eventType, taskId } = req.body;
+
+  try {
+    // Find notification by ID + eventType + taskId
+    const notification = await UserNotification.findOne({ 
+      _id, 
+      eventType,
+      ...(taskId && { taskId }) // Include taskId if provided
+    });
+
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+
+    if (eventType !== "TASK_REMINDER_DUE") {
+      return res.status(400).json({ message: "Action only allowed for TASK_REMINDER_DUE" });
+    }
+
+    if (action === "skipToday") {
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      notification.skipUntil = endOfToday;
+      await notification.save();
+
+      return res.status(200).json({
+        message: "Reminder skipped for today",
+        data: notification,
+      });
+    }
+
+    if (action === "skipPermanently") {
+      notification.permanentlySkipped = true;
+      notification.active = false; // hide permanently
+      await notification.save();
+
+      return res.status(200).json({
+        message: "Reminder skipped permanently",
+        data: notification,
+      });
+    }
+
+    return res.status(400).json({ message: "Invalid action" });
+  } catch (error) {
+    console.error("Error in ReminderAction:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

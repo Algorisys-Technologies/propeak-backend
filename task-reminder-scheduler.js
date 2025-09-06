@@ -8,6 +8,7 @@ const { handleNotifications } = require("./utils/notification-service");
 const { addMyNotification } = require("./common/add-my-notifications");
 const rabbitMQ = require("./rabbitmq");
 const config = require("./config/config");
+const userNotificationModel = require("./models/notification-setting/user-notification-model");
 require("dotenv").config();
 
 const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
@@ -64,6 +65,19 @@ async function sendTaskReminderNotifications(setting) {
     console.log("setting", setting);
     const now = new Date();
 
+    if (setting.pausedUntil && setting.pausedUntil > now) {
+      console.log(
+        `Skipping reminders for ${setting._id}, paused until ${setting.pausedUntil}`
+      );
+      return;
+    }
+
+    // ⛔ Skip if disabled permanently
+    if (!setting.active) {
+      console.log(`Skipping reminders for ${setting._id}, inactive setting`);
+      return;
+    }
+
     let tasks = await Task.find({
       isDeleted: false,
       projectId: setting.projectId,
@@ -77,6 +91,11 @@ async function sendTaskReminderNotifications(setting) {
     }
 
     //let tasks = await Task.find({ isDeleted: false }).lean();
+    // Check for user notification preferences
+    const userNotifications = await userNotificationModel.find({
+      eventType: "TASK_REMINDER_DUE",
+      projectId: setting.projectId,
+    });
 
     tasks = tasks.map((task) => {
       if (!task.startDate)
@@ -92,7 +111,21 @@ async function sendTaskReminderNotifications(setting) {
       const isEndDatePast =
         task.endDate && new Date(task.endDate) < now && !isCompleted;
 
-      task.showReminder = isReminderDue || isEndDatePast;
+       // Check if user has skipped notifications for this task
+       const userNotification = userNotifications.find(
+        (un) => un.taskId && un.taskId.toString() === task._id.toString()
+      );
+      
+      const isSkippedToday = userNotification && 
+                            userNotification.skipUntil && 
+                            new Date(userNotification.skipUntil) > now;
+      
+      const isPermanentlySkipped = userNotification && 
+                                  userNotification.permanentlySkipped;
+
+      task.showReminder = (isReminderDue || isEndDatePast) && 
+                         !isSkippedToday && 
+                         !isPermanentlySkipped;
       return task;
     });
 
