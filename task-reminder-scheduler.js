@@ -136,27 +136,31 @@ async function initReminderJobs() {
   });
 
   settings.forEach((setting) => {
+    const plainSetting = setting.toObject ? setting.toObject() : { ...setting };
+
     // Fixed time reminders
-    if (setting.type === "fixed" && setting.reminderTime) {
-      const [hour, minute] = setting.reminderTime.split(":").map(Number);
+    if (plainSetting.type === "fixed" && plainSetting.reminderTime) {
+      const [hour, minute] = plainSetting.reminderTime.split(":").map(Number);
       schedule.scheduleJob(
-        `${setting._id}-fixed`,
+        `${plainSetting._id}-fixed`,
         { hour, minute, tz: "Asia/Kolkata" },
-        () => sendTaskReminderNotifications(setting)
+        () => sendTaskReminderNotifications(plainSetting)
       );
     }
 
     // Interval reminders
     if (
-      setting.type === "interval" &&
-      setting.intervalStart &&
-      setting.intervalEnd &&
-      setting.intervalMinutes
+      plainSetting.type === "interval" &&
+      plainSetting.intervalStart &&
+      plainSetting.intervalEnd &&
+      plainSetting.intervalMinutes
     ) {
-      const [startHour, startMinute] = setting.intervalStart
+      const [startHour, startMinute] = plainSetting.intervalStart
         .split(":")
         .map(Number);
-      const [endHour, endMinute] = setting.intervalEnd.split(":").map(Number);
+      const [endHour, endMinute] = plainSetting.intervalEnd
+        .split(":")
+        .map(Number);
 
       let current = new Date();
       current.setHours(startHour, startMinute, 0, 0);
@@ -168,16 +172,18 @@ async function initReminderJobs() {
         const jobTime = new Date(current);
 
         schedule.scheduleJob(
-          `${setting._id}-${jobTime.getHours()}-${jobTime.getMinutes()}`,
+          `${plainSetting._id}-${jobTime.getHours()}-${jobTime.getMinutes()}`,
           {
             hour: jobTime.getHours(),
             minute: jobTime.getMinutes(),
             tz: "Asia/Kolkata",
           },
-          () => sendTaskReminderNotifications(setting)
+          () => sendTaskReminderNotifications(plainSetting)
         );
 
-        current = new Date(current.getTime() + setting.intervalMinutes * 60000);
+        current = new Date(
+          current.getTime() + plainSetting.intervalMinutes * 60000
+        );
       }
     }
   });

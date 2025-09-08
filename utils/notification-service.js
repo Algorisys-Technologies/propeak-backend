@@ -34,13 +34,33 @@ async function handleNotifications(task, eventType) {
     );
   }
 
+  // if (eventType === "TASK_REMINDER_DUE") {
+  //   await NotificationSetting.findOneAndUpdate(
+  //     { projectId: normalizedProjectId, eventType },
+  //     { $set: { notifyUserIds: [task.userId] } },
+  //     { new: true, upsert: true }
+  //   );
+  // }
+
   if (eventType === "TASK_REMINDER_DUE") {
-    // notified — example: assigned user
-    await NotificationSetting.findOneAndUpdate(
-      { projectId: normalizedProjectId, eventType },
-      { $set: { notifyUserIds: [task.userId] } },
-      { new: true, upsert: true }
-    );
+    const setting = await NotificationSetting.findOne({
+      projectId: normalizedProjectId,
+      eventType,
+      active: true,
+      isDeleted: false,
+    }).lean();
+
+    let notifyUserIds = [];
+
+    if (task?.userId) {
+      notifyUserIds.push(task.userId);
+    }
+
+    if (setting?.notifyUserIds?.length) {
+      notifyUserIds = [
+        ...new Set([...notifyUserIds, ...setting.notifyUserIds]),
+      ];
+    }
   }
 
   try {
