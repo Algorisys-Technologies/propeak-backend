@@ -65,19 +65,6 @@ async function sendTaskReminderNotifications(setting) {
     console.log("setting", setting);
     const now = new Date();
 
-    if (setting.pausedUntil && setting.pausedUntil > now) {
-      console.log(
-        `Skipping reminders for ${setting._id}, paused until ${setting.pausedUntil}`
-      );
-      return;
-    }
-
-    // ⛔ Skip if disabled permanently
-    if (!setting.active) {
-      console.log(`Skipping reminders for ${setting._id}, inactive setting`);
-      return;
-    }
-
     let tasks = await Task.find({
       isDeleted: false,
       projectId: setting.projectId,
@@ -91,11 +78,6 @@ async function sendTaskReminderNotifications(setting) {
     }
 
     //let tasks = await Task.find({ isDeleted: false }).lean();
-    // Check for user notification preferences
-    const userNotifications = await userNotificationModel.find({
-      eventType: "TASK_REMINDER_DUE",
-      projectId: setting.projectId,
-    });
 
     tasks = tasks.map((task) => {
       if (!task.startDate)
@@ -111,21 +93,7 @@ async function sendTaskReminderNotifications(setting) {
       const isEndDatePast =
         task.endDate && new Date(task.endDate) < now && !isCompleted;
 
-       // Check if user has skipped notifications for this task
-       const userNotification = userNotifications.find(
-        (un) => un.taskId && un.taskId.toString() === task._id.toString()
-      );
-      
-      const isSkippedToday = userNotification && 
-                            userNotification.skipUntil && 
-                            new Date(userNotification.skipUntil) > now;
-      
-      const isPermanentlySkipped = userNotification && 
-                                  userNotification.permanentlySkipped;
-
-      task.showReminder = (isReminderDue || isEndDatePast) && 
-                         !isSkippedToday && 
-                         !isPermanentlySkipped;
+      task.showReminder = isReminderDue || isEndDatePast;
       return task;
     });
 
@@ -134,7 +102,6 @@ async function sendTaskReminderNotifications(setting) {
     const reminderDueTasks = tasks.filter((t) => t.showReminder && t.projectId);
 
     for (const reminderTask of reminderDueTasks) {
-      console.log(reminderTask, "from reminder task")
       const populatedTask = await Task.findById(reminderTask._id)
         .populate({ path: "projectId", select: "title", model: "project" })
         .populate({ path: "createdBy", select: "name", model: "user" });
@@ -145,7 +112,15 @@ async function sendTaskReminderNotifications(setting) {
         );
         continue;
       }
-      console.log(populatedTask, "frm populdated task")
+
+      // // Convert Mongoose doc to plain JS object
+      // const plainTask = populatedTask.toObject();
+
+      // // Merge reminderTask fields
+      // const updatedTask = {
+      //   ...plainTask,
+      //   reminderDate: reminderTask.reminderDate, // keep reminderDate
+      // };
 
       const notification = await handleNotifications(
         populatedTask,

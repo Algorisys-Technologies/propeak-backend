@@ -30,7 +30,7 @@ exports.bellNotification = async (req, res) => {
       userId,
       $or: [
         { read: false },
-        { permanentlySkipped: true } // include skipped
+        { permanentlySkipped: true, read: false } // only skipped if still unread
       ],
     })
       .select("_id userId subject message url read category createdOn permanentlySkipped")
@@ -46,7 +46,7 @@ exports.bellNotification = async (req, res) => {
         userId,
         $or: [
           { read: false },
-          { permanentlySkipped: true }
+          { permanentlySkipped: true, read: false }
         ],
       })) / limit
     );
@@ -56,7 +56,7 @@ exports.bellNotification = async (req, res) => {
       userId,
       $or: [
         { read: false },
-        { permanentlySkipped: true } // include skipped
+        { permanentlySkipped: true, read: false }
       ],
     }).select('read');
     
@@ -138,7 +138,7 @@ exports.getNotifications = async (req, res) => {
       userId,
       $or: [
         { read: false },
-        { permanentlySkipped: true } // include skipped
+        { permanentlySkipped: true, read: false }
       ],
     }).select("read");
 

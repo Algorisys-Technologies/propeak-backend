@@ -68,8 +68,8 @@ const eventMessages = {
   },
 
   TASK_REMINDER_DUE: (task) => {
-    const dueDate = task.reminderDate
-      ? new Date(task.reminderDate).toLocaleDateString()
+    const dueDate = task.endDate
+      ? new Date(task.endDate).toLocaleDateString()
       : "unknown date";
     return `Reminder: The task "${task.title}" in project "${
       task.projectName || task.projectId?.title || "Unknown Project"
