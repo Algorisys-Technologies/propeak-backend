@@ -33,7 +33,7 @@ exports.bellNotification = async (req, res) => {
         { permanentlySkipped: true, read: false } // only skipped if still unread
       ],
     })
-      .select("_id userId subject message url read category createdOn permanentlySkipped")
+      .select("_id userId subject message url read category createdOn permanentlySkipped skipUntil")
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * npage);
@@ -124,7 +124,7 @@ exports.getNotifications = async (req, res) => {
 
     // Paged notifications
     const notificationCenter = await UserNotification.find(filterQuery)
-      .select("_id userId subject message url read category eventType projectId createdOn permanentlySkipped")
+      .select("_id userId subject message url read category eventType projectId createdOn permanentlySkipped skipUntil")
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * page)

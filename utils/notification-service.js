@@ -37,11 +37,13 @@ async function handleNotifications(task, eventType) {
 
   if (eventType === "TASK_REMINDER_DUE") {
     // notified — example: assigned user
-    await NotificationSetting.findOneAndUpdate(
+    const data = await NotificationSetting.findOneAndUpdate(
       { projectId: normalizedProjectId, eventType },
       { $set: { notifyUserIds: [task.userId] } },
       { new: true, upsert: true }
     );
+    console.log(task, "from task data")
+    console.log(data, "from task reminder due")
   }
 
   try {
