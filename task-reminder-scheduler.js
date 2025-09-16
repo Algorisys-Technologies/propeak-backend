@@ -101,7 +101,7 @@ async function sendTaskReminderNotifications(setting) {
       const userNotifications = await userNotificationModel.find({
         eventType: "TASK_REMINDER_DUE",
         projectId: setting.projectId,
-        userId: { $in: setting.notifyUserIds },
+        userId: setting.userId, // 👈 filter by userId if available
       });
       
       tasks = tasks.map((task) => {
@@ -122,9 +122,7 @@ async function sendTaskReminderNotifications(setting) {
         const userNotification = userNotifications.find(
           (un) =>
             un.taskId?.toString() === task._id.toString() &&
-            setting.notifyUserIds.some(
-              (uid) => uid.toString() === un.userId?.toString()
-            )
+            un.userId?.toString() === setting.userId.toString()
         );
       
         const isSkippedToday =
