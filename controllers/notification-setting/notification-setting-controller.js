@@ -333,6 +333,8 @@ exports.getNotificationSettings = async (req, res) => {
   try {
     const { companyId } = req.body;
     const query = req.query.query;
+    const page = req.query.page ? req.query.page : 0;
+    const limit = 5;
     if (!companyId) {
       return res.status(400).json({
         success: false,
@@ -367,12 +369,17 @@ exports.getNotificationSettings = async (req, res) => {
       .populate({
         path: "notifyUserIds",
         select: "name email",
-      });
+      })
+      .limit(limit)
+      .skip(limit * page)
 
+    const totalDocuments = await NotificationSetting.countDocuments(filter);
+    const totalPages = Math.ceil(totalDocuments / limit);
     res.status(200).json({
       success: true,
       message: "Notification settings fetched successfully",
       data: settings,
+      totalPages,
     });
   } catch (error) {
     console.error("Error fetching notification settings:", error);

@@ -35,16 +35,14 @@ async function handleNotifications(task, eventType) {
     );
   }
 
-  if (eventType === "TASK_REMINDER_DUE") {
-    // notified — example: assigned user
-    const data = await NotificationSetting.findOneAndUpdate(
-      { projectId: normalizedProjectId, eventType },
-      { $set: { notifyUserIds: [task.userId] } },
-      { new: true, upsert: true }
-    );
-    console.log(task, "from task data")
-    console.log(data, "from task reminder due")
-  }
+  // if (eventType === "TASK_REMINDER_DUE") {
+  //   // notified — example: assigned user
+  //   await NotificationSetting.findOne(
+  //     { projectId: normalizedProjectId, eventType },
+  //     { notifyUserIds: { $in: [task.userId] } },
+  //     { new: true, upsert: true }
+  //   );
+  // }
 
   try {
     // In-app notifications
