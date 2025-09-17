@@ -385,10 +385,10 @@ exports.reminderAction = async (req, res) => {
     }
 
     if (action === "skipToday") {
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
+      const skipUntil = new Date(notification.createdOn || new Date());
+      skipUntil.setDate(skipUntil.getDate() + 1);
 
-      notification.skipUntil = endOfToday;
+      notification.skipUntil = skipUntil;
       await notification.save();
 
       return res.status(200).json({
