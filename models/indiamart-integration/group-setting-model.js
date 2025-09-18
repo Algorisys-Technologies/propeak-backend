@@ -22,6 +22,15 @@ const groupSettingSchema = new mongoose.Schema(
       ref: "TaskStage",
       required: true,
     },
+    taskStagesArr: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "TaskStage",
+        },
+      ],
+      default: [],
+    },
     projectTypeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "projecttype",

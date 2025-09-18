@@ -121,7 +121,9 @@ exports.updateProjectSetting = async (req, res) => {
 // Create a new Group Setting
 exports.createGroupSetting = async (req, res) => {
   try {
-    const { groupId } = req.body;
+    const { groupId, taskStagesArr, ...rest } = req.body;
+
+    console.log("Group settings", req.body);
 
     if (!groupId) {
       return res
@@ -137,8 +139,15 @@ exports.createGroupSetting = async (req, res) => {
       });
     }
 
+    const normalizedData = {
+      ...rest,
+      groupId,
+      taskStagesArr: Array.isArray(taskStagesArr) ? taskStagesArr : [],
+    };
+
     // Create a new GroupSetting
-    const groupSetting = new GroupSetting(req.body);
+    //const groupSetting = new GroupSetting(req.body);
+    const groupSetting = new GroupSetting(normalizedData);
     await groupSetting.save();
 
     res.status(201).json({ success: true, data: groupSetting });
