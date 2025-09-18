@@ -11,8 +11,9 @@ const errors = {
 
 exports.getAllGroups = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    const { companyId, page } = req.body;
     const { q } = req.query;
+    const limit = 5;
 
     const searchFilter = q
     ? { groupName: { $regex: new RegExp(q, "i") } }
@@ -25,12 +26,25 @@ exports.getAllGroups = async (req, res) => {
       companyId,
       $or: [{ isDeleted: null }, { isDeleted: false }],
       ...searchFilter
-    });
+    }).skip(limit * page).limit(limit);
+    const totalCount = await Group.countDocuments(
+      {
+        companyId,
+        $or: [{ isDeleted: null }, { isDeleted: false }],
+        ...searchFilter
+      }
+    );
+    const totalPages = Math.ceil(totalCount / limit);
 
     // console.log(groups, "groups");
 
 
-    return res.status(200).json(groups);
+    return res.json({
+      success: true,
+      data: groups,
+      totalCount,
+      totalPages,
+    })
   } catch (error) {
     logError("Error fetching groups:", error);
     return res

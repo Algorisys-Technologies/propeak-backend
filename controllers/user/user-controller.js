@@ -147,8 +147,9 @@ exports.selectUsers = async(req, res) => {
 
 exports.getUsers = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    const { companyId, page } = req.body;
     const { q } = req.query;
+    const limit = 5;
 
     const searchFilter = q
     ? {  $or: [
@@ -169,8 +170,16 @@ exports.getUsers = async (req, res) => {
     else{
        query = { isDeleted: false, companyId, ...searchFilter };
     }
-    const result = await User.find(query)
-    return res.status(200).json(result);
+    const result = await User.find(query).skip(limit * page).limit(limit);
+    const totalCount = await User.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return res.json({
+      success: true,
+      data: result,
+      totalCount,
+      totalPages,
+    });
   } catch (err) {
     console.error("Error fetching users:", err);
     return res.status(500).json({

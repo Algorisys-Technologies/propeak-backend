@@ -96,8 +96,9 @@ exports.select_project_types = async (req, res) => {
 // Get project types by company
 exports.get_project_types_by_company = async (req, res) => {
   try {
-    const { companyId, query } = req.body;
+    const { companyId, query, page } = req.body;
     const regex = new RegExp(query, "i");
+    const limit = 5;
 
     // Validate companyId
     if (!companyId) {
@@ -111,9 +112,19 @@ exports.get_project_types_by_company = async (req, res) => {
       ],
       companyId,
       isDeleted: { $ne: true },
+    }).skip(page * limit).limit(limit);
+
+    const totalCount = await ProjectType.countDocuments({
+      $or: [
+        { projectType: { $regex: regex} },
+      ],
+      companyId,
+      isDeleted: { $ne: true },
     });
 
-    return res.status(200).json({ success: true, projectTypes });
+    const totalPages = Math.ceil(totalCount/limit);
+
+    return res.json({ success: true, data: projectTypes, totalCount, totalPages });
   } catch (error) {
     console.error(
       "Error fetching project types for companyId:",
