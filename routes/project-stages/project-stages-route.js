@@ -19,6 +19,10 @@ router.post(
   "/group/:groupId",
   projectStageController.get_project_stages_by_group
 );
+router.post(
+  "/selectGroup/:groupId",
+  projectStageController.select_group_project_stages
+);
 router.post("/add/group", projectStageController.create_group_project_stage);
 router.put("/:id/group", projectStageController.update_group_project_stage);
 router.post(

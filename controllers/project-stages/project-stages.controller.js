@@ -411,10 +411,35 @@ exports.create_group_project_stage = async (req, res) => {
   }
 };
 
+exports.select_group_project_stages = async (req, res) => {
+  try {
+    const { groupId, companyId } = req.body;
+
+    if (!companyId) {
+      return res.status(400).json({ error: "Company ID is required." });
+    }
+
+    const stages = await GroupProjectStage.find({
+      companyId: new mongoose.Types.ObjectId(companyId),
+      groupId: new mongoose.Types.ObjectId(groupId),
+      isDeleted: { $ne: true },
+    }).select("_id displayName title");
+
+    return res
+      .status(200)
+      .json({ success: true, stages });
+  } catch (error) {
+    console.error("Error fetching project stages:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to load project stages." });
+  }
+}
+
 exports.get_project_stages_by_group = async (req, res) => {
   try {
     const { groupId, companyId, query, page } = req.body;
-    const limit = 5;
+    const limit = 2;
 
     if (!groupId || !companyId) {
       return res
