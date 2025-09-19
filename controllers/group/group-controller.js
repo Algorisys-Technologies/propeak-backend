@@ -11,6 +11,26 @@ const errors = {
 
 exports.getAllGroups = async (req, res) => {
   try {
+    const { companyId } = req.body;
+    if (!companyId) {
+      return res.status(400).json({ error: "Company ID is required." });
+    }
+    const groups = await Group.find({
+      companyId,
+      $or: [{ isDeleted: null }, { isDeleted: false }],
+    });
+
+    return res.status(200).json(groups);
+  } catch (error) {
+    logError("Error fetching groups:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to load groups." });
+  }
+};
+
+exports.getAllMemberGroups = async (req, res) => {
+  try {
     const { companyId, page } = req.body;
     const { q } = req.query;
     const limit = 5;

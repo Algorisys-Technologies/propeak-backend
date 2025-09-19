@@ -68,7 +68,7 @@ exports.create_project_type = async (req, res) => {
 
 exports.select_project_types = async (req, res) => {
   try {
-    const { companyId, query } = req.body;
+    const { companyId } = req.body;
 
     // Validate companyId
     if (!companyId) {
@@ -131,6 +131,29 @@ exports.get_project_types_by_company = async (req, res) => {
       companyId,
       error
     );
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to load project types." });
+  }
+};
+
+exports.select_project_types_by_company = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+
+    // Validate companyId
+    if (!companyId) {
+      return res.status(400).json({ error: "Company ID is required." });
+    }
+
+    // Fetch project types where isDeleted is not true
+    const projectTypes = await ProjectType.find({
+      companyId,
+      isDeleted: { $ne: true },
+    });
+
+    return res.json({ success: true, projectTypes});
+  } catch (error) {
     return res
       .status(500)
       .json({ success: false, error: "Failed to load project types." });

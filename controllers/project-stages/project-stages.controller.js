@@ -93,8 +93,9 @@ exports.select_project_stages = async (req, res) => {
 
 exports.get_project_stages_by_company = async (req, res) => {
   try {
-    const { companyId, query } = req.body;
+    const { companyId, query, page } = req.body;
     const regex = new RegExp(query, "i");
+    const limit = 5;
 
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required." });
@@ -104,7 +105,15 @@ exports.get_project_stages_by_company = async (req, res) => {
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
-    })
+    }).skip(page * limit).limit(limit);
+
+    const totalCount = await ProjectStage.countDocuments({
+      $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    });
+
+    const totalPages = Math.ceil(totalCount/limit); 
 
     const stagesWithProjectCount = await ProjectStage.aggregate([
       {
@@ -156,8 +165,7 @@ exports.get_project_stages_by_company = async (req, res) => {
     }
 
     return res
-      .status(200)
-      .json({ success: true, stages, stagesWithProjectCount });
+      .json({ success: true, stages, stagesWithProjectCount, totalCount, totalPages });
   } catch (error) {
     console.error("Error fetching project stages:", error);
     return res
