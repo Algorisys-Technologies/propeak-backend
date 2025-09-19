@@ -7,6 +7,8 @@ const User = require("./models/user/user-model");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const Project = require("./models/project/project-model");
+const TaskStage = require("./models/task-stages/task-stages-model");
+const GroupTaskStage = require("./models/task-stages/group-task-stages-model");
 const { normalizeAddress } = require("./utils/address");
 
 dotenv.config();
@@ -49,6 +51,7 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
           userId,
           groupId,
           taskStageId,
+          taskStagesArr,
           projectStageId,
           projectTypeId,
           projectOwnerId,
@@ -60,6 +63,8 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
           lastFetched,
         } = setting;
         console.log(authKey);
+
+        console.log("taskStagesArr", taskStagesArr);
 
         let newStartDate;
         let newEndDate;
@@ -149,6 +154,36 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             );
 
             if (!existingProject) {
+              let taskStagesTitleArr = [];
+
+              if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+                // Find in TaskStage by IDs
+                let taskStageDocs = [];
+                if (taskStagesArr && taskStagesArr.length > 0) {
+                  taskStageDocs = await TaskStage.find({
+                    _id: { $in: taskStagesArr },
+                  }).select("title");
+                }
+
+                // Find in GroupTaskStage by groupId
+                let groupTaskStageDocs = [];
+                if (groupId) {
+                  groupTaskStageDocs = await GroupTaskStage.find({
+                    groupId: groupId,
+                  }).select("title");
+                }
+
+                // Merge and remove duplicates
+                taskStagesTitleArr = [
+                  ...new Set([
+                    ...taskStageDocs.map((stage) => stage.title),
+                    ...groupTaskStageDocs.map((stage) => stage.title),
+                  ]),
+                ];
+              }
+
+              console.log("taskStagesTitleArr", taskStagesTitleArr);
+
               existingProject = new Project({
                 companyId,
                 title: projectTitle,
@@ -157,24 +192,21 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
-                taskStages: ["todo", "inprogress", "completed"],
+                //taskStages: ["todo", "inprogress", "completed"],
+                taskStages:
+                  taskStagesTitleArr.length > 0
+                    ? taskStagesTitleArr
+                    : ["todo", "inprogress", "completed"],
                 userid: new mongoose.Types.ObjectId(projectOwnerId),
                 createdBy: new mongoose.Types.ObjectId(userId),
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 sendnotification: false,
-                //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
                 group: new mongoose.Types.ObjectId(groupId),
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
                 customFieldValues: { address: normalizedAddress },
-                // projectUsers: [
-                //   new mongoose.Types.ObjectId(userId),
-                //   new mongoose.Types.ObjectId(projectOwnerId),
-                //   new mongoose.Types.ObjectId(notifyUserId),
-                //   users[0]?._id || null,
-                // ],
                 projectUsers: projectUsers,
                 notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
                 messages: [],
@@ -215,11 +247,8 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             const newTask = new Task({
               projectId: existingProject._id,
               taskStageId,
-              // taskStageId: new mongoose.Types.ObjectId(
-              //   "6732031b15c8e180c21e9aee"
-              // ),
               companyId,
-              title: lead.SUBJECT, // Use lead subject as task title
+              title: lead.SUBJECT,
               description: lead.SUBJECT,
               startDate: lead.QUERY_TIME,
               createdOn: new Date(),
@@ -267,6 +296,7 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
           userId,
           groupId,
           taskStageId,
+          taskStagesArr,
           projectStageId,
           projectTypeId,
           projectOwnerId,
@@ -367,6 +397,36 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             );
 
             if (!existingProject) {
+              let taskStagesTitleArr = [];
+
+              if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+                // Find in TaskStage by IDs
+                let taskStageDocs = [];
+                if (taskStagesArr && taskStagesArr.length > 0) {
+                  taskStageDocs = await TaskStage.find({
+                    _id: { $in: taskStagesArr },
+                  }).select("title");
+                }
+
+                // Find in GroupTaskStage by groupId
+                let groupTaskStageDocs = [];
+                if (groupId) {
+                  groupTaskStageDocs = await GroupTaskStage.find({
+                    groupId: groupId,
+                  }).select("title");
+                }
+
+                // Merge and remove duplicates
+                taskStagesTitleArr = [
+                  ...new Set([
+                    ...taskStageDocs.map((stage) => stage.title),
+                    ...groupTaskStageDocs.map((stage) => stage.title),
+                  ]),
+                ];
+              }
+
+              console.log("taskStagesTitleArr", taskStagesTitleArr);
+
               existingProject = new Project({
                 companyId,
                 title: lead.name,
@@ -375,27 +435,21 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
-                // projectStageId: new mongoose.Types.ObjectId(
-                //   "673202d015c8e180c21e9acf"
-                // ),
-                taskStages: ["todo", "inprogress", "completed"],
+                //taskStages: ["todo", "inprogress", "completed"],
+                taskStages:
+                  taskStagesTitleArr.length > 0
+                    ? taskStagesTitleArr
+                    : ["todo", "inprogress", "completed"],
                 userid: new mongoose.Types.ObjectId(projectOwnerId),
                 createdBy: new mongoose.Types.ObjectId(userId),
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 sendnotification: false,
-                //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
                 group: new mongoose.Types.ObjectId(groupId),
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
                 customFieldValues: { address: lead.address },
-                // projectUsers: [
-                //   new mongoose.Types.ObjectId(userId),
-                //   new mongoose.Types.ObjectId(projectOwnerId),
-                //   new mongoose.Types.ObjectId(notifyUserId),
-                //   users[0]?._id || null,
-                // ],
                 projectUsers: projectUsers,
                 notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
                 messages: [],

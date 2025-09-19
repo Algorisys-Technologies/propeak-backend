@@ -6,6 +6,8 @@ const Lead = require("../../models/indiamart-integration/indiamart-lead-model");
 const Task = require("../../models/task/task-model");
 const Project = require("../../models/project/project-model");
 const User = require("../../models/user/user-model");
+const TaskStage = require("../../models/task-stages/task-stages-model");
+const GroupTaskStage = require("../../models/task-stages/group-task-stages-model");
 const moment = require("moment");
 const fetchLeads = require("../../webscrape");
 const { normalizeAddress } = require("../../utils/address");
@@ -469,6 +471,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     enabled,
     groupId,
     taskStageId,
+    taskStagesArr,
     projectStageId,
     projectTypeId,
     projectOwnerId,
@@ -478,6 +481,8 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     integrationProvider,
     method,
   } = req.body;
+
+  console.log("taskStagesArr...", taskStagesArr);
 
   if (!authKey) {
     return res.status(400).json({
@@ -580,34 +585,59 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           );
 
           if (!existingProject) {
+            let taskStagesTitleArr = [];
+
+            if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+              // Find in TaskStage by IDs
+              let taskStageDocs = [];
+              if (taskStagesArr && taskStagesArr.length > 0) {
+                taskStageDocs = await TaskStage.find({
+                  _id: { $in: taskStagesArr },
+                }).select("title");
+              }
+
+              // Find in GroupTaskStage by groupId
+              let groupTaskStageDocs = [];
+              if (groupId) {
+                groupTaskStageDocs = await GroupTaskStage.find({
+                  groupId: groupId,
+                }).select("title");
+              }
+
+              // Merge and remove duplicates
+              taskStagesTitleArr = [
+                ...new Set([
+                  ...taskStageDocs.map((stage) => stage.title),
+                  ...groupTaskStageDocs.map((stage) => stage.title),
+                ]),
+              ];
+            }
+
+            console.log("taskStagesTitleArr", taskStagesTitleArr);
+
             existingProject = new Project({
               companyId,
-              // title: lead.SENDER_COMPANY,
               title: projectTitle,
               description: projectTitle,
               startdate: lead.QUERY_TIME,
               enddate: new Date(),
               status: "todo",
               projectStageId,
-              taskStages: ["todo", "inprogress", "completed"],
-              //userid: new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+              //taskStages: ["todo", "inprogress", "completed"],
+              taskStages:
+                taskStagesTitleArr.length > 0
+                  ? taskStagesTitleArr
+                  : ["todo", "inprogress", "completed"],
               userid: new mongoose.Types.ObjectId(projectOwnerId),
               createdBy: new mongoose.Types.ObjectId(userId),
               createdOn: new Date(),
               modifiedOn: new Date(),
               sendnotification: false,
-              //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
               group: new mongoose.Types.ObjectId(groupId),
               isDeleted: false,
               miscellaneous: false,
               archive: false,
               customFieldValues: { address: normalizedAddress },
-              // projectUsers: [
-              //   new mongoose.Types.ObjectId(userId),
-              //   new mongoose.Types.ObjectId(projectOwnerId),
-              //   new mongoose.Types.ObjectId(notifyUserId),
-              //   users[0]?._id || null,
-              // ],
               projectUsers: projectUsers,
               notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
               messages: [],
@@ -615,9 +645,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               tasks: [],
               customTaskFields: [],
               projectTypeId: new mongoose.Types.ObjectId(projectTypeId),
-              // projectTypeId: new mongoose.Types.ObjectId(
-              //   "673202c115c8e180c21e9ac7"
-              // ),
               creation_mode: "AUTO",
               lead_source: "INDIAMART",
               tag: [lead.label],
@@ -651,9 +678,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           const newTask = new Task({
             projectId: existingProject._id,
             taskStageId,
-            // taskStageId: new mongoose.Types.ObjectId(
-            //   "6732031b15c8e180c21e9aee"
-            // ),
             companyId,
             title: lead.SUBJECT,
             description: lead.SUBJECT,
@@ -703,6 +727,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       userId,
       projectStageId,
       taskStageId,
+      taskStagesArr,
       projectTypeId,
       projectOwnerId,
       notifyUserId,
@@ -749,22 +774,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       );
 
       for (const lead of leadsData) {
-        // Check if a project already exists for the same SENDER_NAME
-        // let existingProject = await Project.findOne({
-        //   companyId,
-        //   group: new mongoose.Types.ObjectId(groupId),
-        //   title: lead.name,
-        //   isDeleted: false,
-        // });
-
-        // let existingProject = await Project.findOne({
-        //   companyId,
-        //   group: new mongoose.Types.ObjectId(groupId),
-        //   title: lead.name,
-        //   isDeleted: false,
-        //   "customFieldValues.address": lead.address,
-        // });
-
         let projectQuery = {
           companyId,
           group: new mongoose.Types.ObjectId(groupId),
@@ -777,25 +786,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         }
 
         let existingProject = await Project.findOne(projectQuery);
-        // let existingProject = null;
-        // let existingTitleProject = await Project.findOne({
-        //   companyId,
-        //   group: new mongoose.Types.ObjectId(groupId),
-        //   title: lead.name,
-        //   isDeleted: false,
-        // });
-
-        // // If address is present, check for matching project with same address
-        // if (lead.address && existingTitleProject) {
-        //   if (
-        //     existingTitleProject.customFieldValues?.address &&
-        //     existingTitleProject.customFieldValues.address
-        //       .trim()
-        //       .toLowerCase() === lead.address.trim().toLowerCase()
-        //   ) {
-        //     existingProject = existingTitleProject;
-        //   }
-        // }
 
         const regex = new RegExp(lead.label, "i");
 
@@ -819,6 +809,34 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         );
 
         if (!existingProject) {
+          let taskStagesTitleArr = [];
+
+          if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+            // Find in TaskStage by IDs
+            let taskStageDocs = [];
+            if (taskStagesArr && taskStagesArr.length > 0) {
+              taskStageDocs = await TaskStage.find({
+                _id: { $in: taskStagesArr },
+              }).select("title");
+            }
+
+            // Find in GroupTaskStage by groupId
+            let groupTaskStageDocs = [];
+            if (groupId) {
+              groupTaskStageDocs = await GroupTaskStage.find({
+                groupId: groupId,
+              }).select("title");
+            }
+
+            // Merge and remove duplicates
+            taskStagesTitleArr = [
+              ...new Set([
+                ...taskStageDocs.map((stage) => stage.title),
+                ...groupTaskStageDocs.map((stage) => stage.title),
+              ]),
+            ];
+          }
+
           existingProject = new Project({
             companyId,
             title: lead.name,
@@ -827,10 +845,11 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             enddate: new Date(),
             status: "todo",
             projectStageId,
-            // projectStageId: new mongoose.Types.ObjectId(
-            //   "673202d015c8e180c21e9acf"
-            // ),
-            taskStages: ["todo", "inprogress", "completed"],
+            //taskStages: ["todo", "inprogress", "completed"],
+            taskStages:
+              taskStagesTitleArr.length > 0
+                ? taskStagesTitleArr
+                : ["todo", "inprogress", "completed"],
             userid: new mongoose.Types.ObjectId(projectOwnerId),
             createdBy: new mongoose.Types.ObjectId(userId),
             createdOn: new Date(),
@@ -844,12 +863,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             customFieldValues: {
               address: lead.address,
             },
-            // projectUsers: [
-            //   new mongoose.Types.ObjectId(userId),
-            //   new mongoose.Types.ObjectId(projectOwnerId),
-            //   new mongoose.Types.ObjectId(notifyUserId),
-            //   users[0]?._id || null,
-            // ],
             projectUsers: projectUsers,
             notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
             messages: [],
@@ -892,7 +905,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           const newTask = new Task({
             projectId: existingProject._id,
             taskStageId,
-            //taskStageId: new mongoose.Types.ObjectId("6732031b15c8e180c21e9aee"),
             companyId,
             title: lead.productName,
             description: lead.productName,
