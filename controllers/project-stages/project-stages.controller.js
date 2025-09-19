@@ -413,7 +413,8 @@ exports.create_group_project_stage = async (req, res) => {
 
 exports.get_project_stages_by_group = async (req, res) => {
   try {
-    const { groupId, companyId, query } = req.body;
+    const { groupId, companyId, query, page } = req.body;
+    const limit = 5;
 
     if (!groupId || !companyId) {
       return res
@@ -428,7 +429,16 @@ exports.get_project_stages_by_group = async (req, res) => {
       groupId: new mongoose.Types.ObjectId(groupId),
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
-    });
+    }).skip(page * limit).limit(limit);
+
+    const totalCount = await GroupProjectStage.countDocuments({
+      $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
+      groupId: new mongoose.Types.ObjectId(groupId),
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
+    })
+
+    const totalPages = Math.ceil(totalCount/limit);
 
     const stagesWithProjectAndTaskCount = await GroupProjectStage.aggregate([
       {
@@ -482,7 +492,7 @@ exports.get_project_stages_by_group = async (req, res) => {
 
     return res
       .status(200)
-      .json({ success: true, stages, stagesWithProjectAndTaskCount });
+      .json({ success: true, stages, stagesWithProjectAndTaskCount, totalCount, totalPages });
   } catch (error) {
     console.error("Error fetching group project stages:", error);
     return res

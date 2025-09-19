@@ -183,7 +183,8 @@ exports.select_task_stages = async (req, res) => {
 
 exports.get_task_stages_by_company = async (req, res) => {
   try {
-    const { companyId, query } = req.body;
+    const { companyId, query, page } = req.body;
+    const limit = 5;
     const regex = new RegExp(query, "i");
 
     // Validate companyId
@@ -196,7 +197,15 @@ exports.get_task_stages_by_company = async (req, res) => {
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
+    }).skip(page * limit).limit(limit);
+
+    const totalCount = await TaskStage.countDocuments({
+      $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
     });
+
+    const totalPages = Math.ceil(totalCount/limit);
 
     const stagesWithTaskCount = await TaskStage.aggregate([
       {
@@ -241,7 +250,7 @@ exports.get_task_stages_by_company = async (req, res) => {
       },
     ]);
 
-    return res.status(200).json({ success: true, stages, stagesWithTaskCount });
+    return res.status(200).json({ success: true, stages, stagesWithTaskCount, totalCount, totalPages });
   } catch (error) {
     console.error("Error fetching task stages:", error);
     return res
@@ -400,7 +409,8 @@ exports.delete_task_stage = async (req, res) => {
 exports.get_task_stages_by_group = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { companyId, query } = req.body;
+    const { companyId, query, page } = req.body;
+    const limit = 5;
 
     if (!companyId || !groupId) {
       return res
@@ -415,7 +425,16 @@ exports.get_task_stages_by_group = async (req, res) => {
       groupId: new mongoose.Types.ObjectId(groupId),
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
+    }).skip(page*limit).limit(limit);
+
+    const totalCount = await GroupTaskStage.countDocuments({
+      $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
+      groupId: new mongoose.Types.ObjectId(groupId),
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: { $ne: true },
     });
+
+    const totalPages = Math.ceil(totalCount/limit);
 
     const stagesWithTaskCount = await GroupTaskStage.aggregate([
       {
@@ -461,7 +480,7 @@ exports.get_task_stages_by_group = async (req, res) => {
       },
     ]);
 
-    return res.status(200).json({ success: true, stages, stagesWithTaskCount });
+    return res.status(200).json({ success: true, stages, stagesWithTaskCount, totalCount, totalPages });
   } catch (error) {
     console.error("Error fetching group-level task stages:", error);
     return res.status(500).json({
