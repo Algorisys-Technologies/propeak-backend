@@ -10,7 +10,9 @@ const TaskStage = require("../../models/task-stages/task-stages-model");
 const GroupTaskStage = require("../../models/task-stages/group-task-stages-model");
 const moment = require("moment");
 const fetchLeads = require("../../webscrape");
-const { normalizeAddress } = require("../../utils/address");
+//const { normalizeAddress } = require("../../utils/address");
+const { parseAddressWithGroq } = require("../../utils/address-groq");
+const levenshtein = require("fast-levenshtein");
 
 // Create a new Project Setting
 exports.createProjectSetting = async (req, res) => {
@@ -546,20 +548,67 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
           let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
 
-          const normalizedAddress = normalizeAddress(address);
+          //const normalizedAddress = normalizeAddress(address);
+          let structuredAddress = await parseAddressWithGroq(address);
+          const normalizedAddress = structuredAddress?.normalized || "";
 
-          let projectQuery = {
+          // let projectQuery = {
+          //   companyId,
+          //   group: new mongoose.Types.ObjectId(groupId),
+          //   title: projectTitle,
+          //   isDeleted: false,
+          // };
+
+          // if (normalizedAddress) {
+          //   projectQuery["customFieldValues.address"] = normalizedAddress;
+          // }
+
+          // let existingProject = await Project.findOne(projectQuery);
+
+          // Step 1: Find all projects with same company/group/title
+          let projects = await Project.find({
             companyId,
             group: new mongoose.Types.ObjectId(groupId),
             title: projectTitle,
             isDeleted: false,
-          };
+          });
 
-          if (normalizedAddress) {
-            projectQuery["customFieldValues.address"] = normalizedAddress;
+          let existingProject = null;
+          if (projects.length > 0 && normalizedAddress) {
+            for (const proj of projects) {
+              const existingAddress =
+                proj.customFieldValues?.get("address") || "";
+
+              console.log(
+                "Comparing:",
+                "new:",
+                normalizedAddress,
+                "old:",
+                existingAddress
+              );
+
+              const distance = levenshtein.get(
+                normalizedAddress,
+                existingAddress
+              );
+              const maxLength = Math.max(
+                normalizedAddress.length,
+                existingAddress.length
+              );
+              const similarity = 1 - distance / maxLength;
+
+              if (similarity >= 0.8) {
+                // 80% threshold
+                existingProject = proj;
+                console.log(
+                  `Duplicate project detected: ${projectTitle} (${Math.round(
+                    similarity * 100
+                  )}% match)`
+                );
+                break;
+              }
+            }
           }
-
-          let existingProject = await Project.findOne(projectQuery);
 
           const regex = new RegExp(lead.label, "i");
 
