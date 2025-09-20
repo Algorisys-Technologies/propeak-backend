@@ -331,9 +331,10 @@ exports.toggleNotificationActive = async (req, res) => {
 
 exports.getNotificationSettings = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    const { companyId, userId } = req.body;
     const query = req.query.query;
-    const page = req.query.page ? req.query.page : 0;
+    const page = parseInt(req.query.page) || 0;
+    // const page = req.query.page ? req.query.page : 0;
     const limit = 5;
     if (!companyId) {
       return res.status(400).json({
@@ -345,6 +346,7 @@ exports.getNotificationSettings = async (req, res) => {
     const filter = {
       companyId,
       isDeleted: false,
+      // notifyUserIds: { $in: [userId] },
     };
     if (query) {
       filter.projectId = query;
@@ -370,8 +372,8 @@ exports.getNotificationSettings = async (req, res) => {
         path: "notifyUserIds",
         select: "name email",
       })
+      .skip(page * limit)
       .limit(limit)
-      .skip(limit * page)
 
     const totalDocuments = await NotificationSetting.countDocuments(filter);
     const totalPages = Math.ceil(totalDocuments / limit);
