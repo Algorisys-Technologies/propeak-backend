@@ -83,10 +83,10 @@ exports.addGroup = async (req, res) => {
         .status(400)
         .json({ success: false, error: "Company ID is required." });
     }
-    if (!groupName || !groupMembers || groupMembers.length === 0) {
-      return res.status(400).json({
+    if (!groupName || !groupMembers || groupMembers.filter((m) => m && m.trim() !== "").length === 0) {
+      return res.json({
         success: false,
-        error: "Group name and at least one group member are required.",
+        message: "All fields marked with an asterisk (*) are mandatory",
       });
     }
 
@@ -99,7 +99,7 @@ exports.addGroup = async (req, res) => {
     await newGroup.save();
     cacheManager.clearCachedData("groupsData");
 
-    return res.status(201).json({ success: true, group: newGroup });
+    return res.status(200).json({ success: true, group: newGroup, message: "Group created successfully!" });
   } catch (error) {
     logError("Error adding group:", error);
     return res
@@ -184,13 +184,25 @@ exports.deleteGroup = async (req, res) => {
 //   }
 // };
 exports.editGroup = async (req, res) => {
-  console.log("Edit group request received.");
+  // console.log("Edit group request received.");
   const { id } = req.body; 
-  console.log("Attempting to update group with ID:", id);
+  const { groupName, groupMembers, companyId } = req.body;
+  // console.log("Attempting to update group with ID:", id);
+  if (!companyId) {
+    return res
+      .status(400)
+      .json({ success: false, error: "Company ID is required." });
+  }
+  if (!groupName || !groupMembers || groupMembers.filter((m) => m && m.trim() !== "").length === 0) {
+    return res.json({
+      success: false,
+      message: "All fields marked with an asterisk (*) are mandatory",
+    });
+  }
 
   try {
     const updatedGroup = await Group.findOneAndUpdate(
-      { _id: id, isDeleted: false }, 
+      { _id: id, isDeleted: false, companyId }, 
       req.body,
       { new: true } 
     );
@@ -201,7 +213,7 @@ exports.editGroup = async (req, res) => {
         .json({ success: false, error: "Group not found." });
     }
 
-    return res.status(200).json({ success: true, group: updatedGroup });
+    return res.status(200).json({ success: true, group: updatedGroup, message: "Group updated successfully!" });
   } catch (error) {
     console.error("Error updating group:", error);
     return res.status(500).json({ success: false, error: error.message });

@@ -15,9 +15,21 @@ exports.create_project_type = async (req, res) => {
     }
 
     if (!projectType) {
-      return res.status(400).json({
+      return res.json({
         success: false,
-        error: "Project type is required.",
+        message: "Project type is required.",
+      });
+    }
+
+    const existingType = await ProjectType.findOne({
+      projectType,
+      isDeleted: false,
+    });
+
+    if(existingType){
+      return res.json({
+        success: false,
+        message: "Project type is already exits.",
       });
     }
 
@@ -53,9 +65,9 @@ exports.create_project_type = async (req, res) => {
       }
     });
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: "Project type created successfully!",
+      message: `The project type "${result.projectType}" was successfully added`,
       projectType: result,
     });
   } catch (error) {
@@ -124,7 +136,47 @@ exports.get_project_types_by_company = async (req, res) => {
 
     const totalPages = Math.ceil(totalCount/limit);
 
-    return res.json({ success: true, data: projectTypes, totalCount, totalPages });
+    const projectTypeUsage = await ProjectType.aggregate([
+      {
+        $match: {
+          companyId: new mongoose.Types.ObjectId(companyId),
+          isDeleted: { $ne: true }, // only active project types
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          let: { typeId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$projectTypeId", "$$typeId"] },
+                    { $ne: ["$isDeleted", true] }, // only active projects
+                  ],
+                },
+              },
+            },
+            { $limit: 1 }, // only need to know if at least one exists
+            { $count: "count" }, // count projects in the lookup
+          ],
+          as: "projectStats",
+        },
+      },
+      {
+        $addFields: {
+          projectCount: { $ifNull: [{ $arrayElemAt: ["$projectStats.count", 0] }, 0] },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          projectCount: 1,
+        },
+      },
+    ]);
+    return res.json({ success: true, data: projectTypes, projectTypeUsage, totalCount, totalPages });
   } catch (error) {
     console.error(
       "Error fetching project types for companyId:",
@@ -206,6 +258,25 @@ exports.update_project_type = async (req, res) => {
     const { id } = req.params;
     const { modifiedBy, ...updateData } = req.body;
 
+    const projectType = updateData.projectType;
+    if (!projectType) {
+      return res.json({
+        success: false,
+        message: "Project type is required.",
+      });
+    }
+    // const existingType = await ProjectType.findOne({
+    //   projectType,
+    //   isDeleted: false,
+    // });
+
+    // if(existingType){
+    //   return res.json({
+    //     success: false,
+    //     message: "Project type is already exits.",
+    //   });
+    // }
+
     const updatedProjectType = await ProjectType.findByIdAndUpdate(
       id,
       { ...updateData, modifiedOn: new Date(), modifiedBy },
@@ -232,7 +303,7 @@ exports.update_project_type = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Project type updated successfully.",
+      message: `The project type "${updatedProjectType.projectType}" was successfully updated.`,
       data: updatedProjectType,
     });
   } catch (error) {

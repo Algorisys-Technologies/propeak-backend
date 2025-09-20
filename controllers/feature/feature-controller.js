@@ -17,9 +17,24 @@ exports.getFeatureById = async (req, res) => {
 
 // Get All Features
 exports.getAllFeatures = async (req, res) => {
+  const { page, q } = req.query;
+  const regex = new RegExp(q, "i");
+  const limit = 5;
   try {
-    const features = await Feature.find({isSystem: false});
-    res.json(features);
+    const features = await Feature.find({
+      $or: [
+        { name: { $regex: regex} },
+      ],
+      isSystem: false}
+    ).skip(page*limit).limit(limit);
+    const totalCount = await Feature.countDocuments( 
+      {$or: [
+      { name: { $regex: regex} },
+      ],
+      isSystem: false
+    });
+    const totalPages = Math.ceil(totalCount/limit);
+    res.json({features, totalCount, totalPages});
   } catch (error) {
     console.error("Error getting features:", error);
     res.status(500).json({ message: "Error retrieving features" });

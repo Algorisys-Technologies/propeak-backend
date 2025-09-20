@@ -107,6 +107,7 @@ exports.getAllCompanies = async (req, res) => {
           companyName: 1,
           companyCode: 1,
           userCount: 1,
+          numberOfUsers: 1,
           createdAt: 1,
         },
       },
