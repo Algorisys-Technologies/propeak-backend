@@ -16,6 +16,19 @@ exports.getAllPermissions = async (req, res) => {
 exports.createPermission = async (req, res) => {
   try {
     const { name, featureId } = req.body;
+    if(name == ""){
+      return res.json({
+        success: false, message: "Please enter Permission name."
+      })
+    }
+    const existingPermission = await Permission.findOne({
+      name
+    });
+    if(existingPermission){
+      return res.json({
+        success: false, message: "Permission name already exist."
+      })
+    }
     const permission = new Permission({
       name,
       featureId: (featureId),
@@ -36,6 +49,12 @@ exports.updatePermission = async (req, res) => {
     const { id } = req.params;
     const { name, featureId } = req.body;
 
+    if(name == ""){
+      return res.json({
+        success: false, message: "Please enter Permission name."
+      })
+    }
+    
     const permission = await Permission.findByIdAndUpdate(
       id,
       { name, featureId: (featureId) },

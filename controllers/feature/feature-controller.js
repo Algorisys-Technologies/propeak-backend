@@ -55,6 +55,11 @@ exports.GetSystemFeatures = async (req, res) => {
 exports.createFeature = async (req, res) => {
   try {
     const { name, desc, route, isSystem } = req.body;
+    if(name == "" || route == ""){
+      return res.json({
+        success: false, message: "All fields marked with an asterisk (*) are required."
+      })
+    }
     const newFeature = new Feature({ name, description: desc, route, isSystem });
     await newFeature.save();
     res.json({
@@ -73,6 +78,11 @@ exports.updateFeature = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, desc, route, isSystem } = req.body;
+    if(name == "" || route == ""){
+      return res.json({
+        success: false, message: "All fields marked with an asterisk (*) are required."
+      })
+    }
 
     // Update the feature
     const updatedFeature = await Feature.findByIdAndUpdate(
