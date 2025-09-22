@@ -31,7 +31,7 @@ exports.getSystemRoles = async (req, res) => {
                 },
               },
             },
-            // { $limit: 1 },  // only need to know if at least one user exists
+            { $limit: 1 },  // only need to know if at least one user exists
             { $count: "count" }, // count users for that role
           ],
           as: "userStats",
@@ -46,6 +46,7 @@ exports.getSystemRoles = async (req, res) => {
         $project: {
           _id: 1,
           userCount: 1,
+          companyId: 1,
         },
       },
     ]);
@@ -83,7 +84,7 @@ exports.getRolesByCompanyId = async (req, res) => {
                 },
               },
             },
-            // { $limit: 1 },  // only need to know if at least one user exists
+            { $limit: 1 },  // only need to know if at least one user exists
             { $count: "count" }, // count users for that role
           ],
           as: "userStats",
