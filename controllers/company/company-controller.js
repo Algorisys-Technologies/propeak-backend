@@ -62,9 +62,13 @@ exports.createCompany = async (req, res) => {
 
 // Get all Companies
 exports.getAllCompanies = async (req, res) => {
-  const query = req.query.q;
   try {
-    const result = await Company.aggregate([
+    const query = req.query.q || "";
+    const page = parseInt(req.query.page, 10) || 0;
+    const limit = 5;
+    const skip = page * limit;
+
+    const pipeline = [
       {
         $match: {
           isDeleted: false,
@@ -103,23 +107,40 @@ exports.getAllCompanies = async (req, res) => {
           companyName: 1,
           companyCode: 1,
           userCount: 1,
+          numberOfUsers: 1,
           createdAt: 1,
         },
       },
-    ]);
+      { $skip: skip },
+      { $limit: limit },
+    ];
 
-    if (result.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "No companies found." });
+    const result = await Company.aggregate(pipeline);
+
+    // Count total documents with same filter (without skip/limit)
+    const totalCount = await Company.countDocuments({
+      isDeleted: false,
+      ...(query && { companyName: { $regex: query, $options: "i" } }),
+    });
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    if (!result.length) {
+      return res.status(404).json({ success: false, error: "No companies found." });
     }
 
-    return res.status(200).json({ success: true, companies: result });
+    return res.json({
+      success: true,
+      companies: result,
+      totalCount,
+      totalPages,
+    });
   } catch (error) {
     console.error("Error fetching companies:", error);
-    return res
-      .status(500)
-      .json({ success: false, error: "Failed to load companies." });
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load companies.",
+    });
   }
 };
 

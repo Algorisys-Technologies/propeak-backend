@@ -17,8 +17,33 @@ exports.getFeatureById = async (req, res) => {
 
 // Get All Features
 exports.getAllFeatures = async (req, res) => {
+  const { page, q } = req.query;
+  const regex = new RegExp(q, "i");
+  const limit = 5;
   try {
-    const features = await Feature.find({isSystem: false});
+    const features = await Feature.find({
+      $or: [
+        { name: { $regex: regex} },
+      ],
+      isSystem: false}
+    ).skip(page*limit).limit(limit);
+    const totalCount = await Feature.countDocuments( 
+      {$or: [
+      { name: { $regex: regex} },
+      ],
+      isSystem: false
+    });
+    const totalPages = Math.ceil(totalCount/limit);
+    res.json({features, totalCount, totalPages});
+  } catch (error) {
+    console.error("Error getting features:", error);
+    res.status(500).json({ message: "Error retrieving features" });
+  }
+};
+
+exports.GetAllFeatures = async (req, res) => {
+  try {
+    const features = await Feature.find();
     res.json(features);
   } catch (error) {
     console.error("Error getting features:", error);
@@ -40,6 +65,11 @@ exports.GetSystemFeatures = async (req, res) => {
 exports.createFeature = async (req, res) => {
   try {
     const { name, desc, route, isSystem } = req.body;
+    if(name == "" || route == ""){
+      return res.json({
+        success: false, message: "All fields marked with an asterisk (*) are required."
+      })
+    }
     const newFeature = new Feature({ name, description: desc, route, isSystem });
     await newFeature.save();
     res.json({
@@ -58,6 +88,11 @@ exports.updateFeature = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, desc, route, isSystem } = req.body;
+    if(name == "" || route == ""){
+      return res.json({
+        success: false, message: "All fields marked with an asterisk (*) are required."
+      })
+    }
 
     // Update the feature
     const updatedFeature = await Feature.findByIdAndUpdate(
