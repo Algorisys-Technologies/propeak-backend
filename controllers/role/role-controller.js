@@ -121,7 +121,10 @@ exports.createRole = async (req, res) => {
       return res.json({ success: false, message: "Please enter the Role" });
     }
 
-    const existingRole = await Role.findOne({ name, companyId });
+    const existingRole = await Role.findOne({ name: req.body.name, $or: [
+      { companyId: companyId },
+      { companyId: null }
+    ] });
 
     if (existingRole) {
       return res.json({ success: false, message: "Role with the same name already exists." });
@@ -155,6 +158,16 @@ exports.updateRole = async (req, res) => {
   if(req.body.name === ""){
     return res.json({ success: false, message: "Please enter the Role" });
   }
+
+  const existingRole = await Role.findOne({ name: req.body.name, $or: [
+    { companyId: req.body.companyId },
+    { companyId: null }
+  ] });
+
+  if (existingRole) {
+   return res.json({ success: false, message: "Role with the same name already exists." });
+  }
+
   try {
     const role = await Role.findByIdAndUpdate(req.params.id, req.body, {
       new: true,

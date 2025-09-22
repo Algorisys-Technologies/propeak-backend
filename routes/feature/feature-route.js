@@ -4,6 +4,7 @@ const router = express.Router();
 const featureController = require("../../controllers/feature/feature-controller");
 
 router.get("/GetFeatures", featureController.getAllFeatures);
+router.get("/GetAllFeatures", featureController.GetAllFeatures);
 router.get("/GetSystemFeatures", featureController.GetSystemFeatures);
 
 router.post("/GetFeatureById", featureController.getFeatureById);
