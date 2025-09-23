@@ -9,6 +9,7 @@ const { getQueueMessageCount } = require("../../rabbitmq/index");
 const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
 const { normalizeAddress } = require("../../utils/address");
 const Account = require("../../models/account/account-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
   ADDCONTACTERROR: "Error occurred while adding the contact",
@@ -20,7 +21,7 @@ const errors = {
 exports.getContacts = async (req, res) => {
   try {
     const { companyId, accountId } = req.body;
-    console.log(companyId, accountId, "is it coming ??????");
+    // console.log(companyId, accountId, "is it coming ??????");
     if (!companyId) {
       return res
         .status(400)
@@ -47,8 +48,8 @@ exports.getContacts = async (req, res) => {
 
 exports.getAllContact = async (req, res) => {
   try {
-    const { companyId, currentPage = 0, accountId } = req.body;
-    const { q, folderId } = req.query;
+    const { companyId, currentPage = DEFAULT_PAGE, accountId } = req.body;
+    const { q = DEFAULT_QUERY, folderId = DEFAULT_QUERY } = req.query;
 
     if (!companyId) {
       return res.status(400).json({
@@ -60,7 +61,7 @@ exports.getAllContact = async (req, res) => {
       });
     }
 
-    const limit = 5;
+    const limit = DEFAULT_LIMIT;
 
     // Determine folderId if valid
     let vfolderId = null;
@@ -72,19 +73,25 @@ exports.getAllContact = async (req, res) => {
     const orConditions = [];
     if (q) {
       const regex = new RegExp(q, "i");
-      orConditions.push(
-        { first_name: { $regex: regex } },
-        { last_name: { $regex: regex } },
-        { phone: { $regex: regex } },
-        { email: { $regex: regex } },
-        { title: { $regex: regex } }
-      );
+      if (/^\d+$/.test(q)) {
+        // Input is only numbers → search phone
+        orConditions.push({ phone: { $regex: regex } });
+      } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q)) {
+        // Input looks like an email → search email
+        orConditions.push({ email: { $regex: regex } });
+      } else {
+        // Otherwise → search name fields
+        orConditions.push(
+          { first_name: { $regex: regex } },
+          { last_name: { $regex: regex } }
+        );
+      }
     }
 
-    // Add folder filter if selected
-    if (vfolderId) {
-      orConditions.push({ vfolderId });
-    }
+    // // Add folder filter if selected
+    // if (vfolderId) {
+    //   orConditions.push({ vfolderId });
+    // }
 
     // Build the final query
     const queryConditions = {
@@ -93,6 +100,7 @@ exports.getAllContact = async (req, res) => {
         { companyId },
         { account_id: accountId },
         { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
+        ...(vfolderId ? [{ vfolderId }] : [])
       ],
     };
 

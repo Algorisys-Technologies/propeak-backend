@@ -8,6 +8,7 @@ const errors = {
   EDITGROUPERROR: "Error occurred while updating the group",
   DELETEGROUPERROR: "Error occurred while deleting the group",
 };
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 exports.getAllGroups = async (req, res) => {
   try {
@@ -31,9 +32,9 @@ exports.getAllGroups = async (req, res) => {
 
 exports.getAllMemberGroups = async (req, res) => {
   try {
-    const { companyId, page } = req.body;
-    const { q } = req.query;
-    const limit = 5;
+    const { companyId, page = DEFAULT_PAGE } = req.body;
+    const { q = DEFAULT_QUERY } = req.query;
+    const limit = DEFAULT_LIMIT;
 
     const searchFilter = q
     ? { groupName: { $regex: new RegExp(q, "i") } }
@@ -78,15 +79,23 @@ exports.addGroup = async (req, res) => {
   try {
     const { groupName, groupMembers, companyId } = req.body;
 
-    if (!companyId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Company ID is required." });
-    }
-    if (!groupName || !groupMembers || groupMembers.filter((m) => m && m.trim() !== "").length === 0) {
-      return res.json({
+    // if (!companyId) {
+    //   return res
+    //     .status(400)
+    //     .json({ success: false, error: "Company ID is required." });
+    // }
+    // if (!groupName || !groupMembers || groupMembers.filter((m) => m && m.trim() !== "").length === 0) {
+    //   return res.json({
+    //     success: false,
+    //     message: "All fields marked with an asterisk (*) are mandatory",
+    //   });
+    // }
+
+    const validation = validateGroup({ companyId, groupName, groupMembers });
+    if (!validation.valid) {
+        return res.json({
         success: false,
-        message: "All fields marked with an asterisk (*) are mandatory",
+        message: validation.error
       });
     }
 
@@ -188,17 +197,13 @@ exports.editGroup = async (req, res) => {
   const { id } = req.body; 
   const { groupName, groupMembers, companyId } = req.body;
   // console.log("Attempting to update group with ID:", id);
-  if (!companyId) {
-    return res
-      .status(400)
-      .json({ success: false, error: "Company ID is required." });
-  }
-  if (!groupName || !groupMembers || groupMembers.filter((m) => m && m.trim() !== "").length === 0) {
-    return res.json({
-      success: false,
-      message: "All fields marked with an asterisk (*) are mandatory",
-    });
-  }
+  const validation = validateGroup({ companyId, groupName, groupMembers });
+    if (!validation.valid) {
+        return res.json({
+        success: false,
+        message: validation.error
+      });
+    }
 
   try {
     const updatedGroup = await Group.findOneAndUpdate(
@@ -215,9 +220,24 @@ exports.editGroup = async (req, res) => {
 
     return res.status(200).json({ success: true, group: updatedGroup, message: "Group updated successfully!" });
   } catch (error) {
-    console.error("Error updating group:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
+};
+
+const validateGroup = ({ companyId, groupName, groupMembers }) => {
+  if (!companyId) {
+    return { valid: false, error: "Company ID is required." };
+  }
+
+  if (
+    !groupName ||
+    !groupMembers ||
+    groupMembers.filter((m) => m && m.trim() !== "").length === 0
+  ) {
+    return { valid: false, error: "All fields marked with an asterisk (*) are mandatory." };
+  }
+
+  return { valid: true };
 };
 
 // const mongoose = require("mongoose");

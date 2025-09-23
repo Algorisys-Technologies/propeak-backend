@@ -13,6 +13,7 @@ const { sendEmail } = require("../../common/mailer");
 const config = require("../../config/config");
 const { addMyNotification } = require("../../common/add-my-notifications");
 const rabbitMQ = require("../../rabbitmq");
+const { DEFAULT_PAGE, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 const errors = {
   MESSAGE_DOESNT_EXIST: "Messages do not exist",
@@ -23,8 +24,6 @@ const errors = {
 };
 
 exports.addMessage = async (req, res) => {
-  // console.log("it's coming now .................")
-  console.log("In addMessage", req.body);
 
   // Create new message document
   const newMessage = new Message({
@@ -90,9 +89,8 @@ exports.deleteMessage = async (req, res) => {
 
 exports.getMessages = async (req, res) => {
   try {
-    console.log("req.body", req.body);
-    const { projectId, taskId, currentPage = 1 } = req.body;
-    const limit = 5;
+    const { projectId, taskId, currentPage = DEFAULT_PAGE } = req.body;
+    const limit = DEFAULT_LIMIT;
 
     // Validate inputs
     if (!projectId && !taskId) {
@@ -105,7 +103,6 @@ exports.getMessages = async (req, res) => {
       });
     }
 
-    console.log("Fetching messages for:", { projectId, taskId });
 
     // Determine the query based on taskId or projectId
     const query = taskId ? { taskId } : { projectId, taskId: null };

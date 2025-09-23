@@ -3,6 +3,8 @@ const TaskStage = require("../../models/task-stages/task-stages-model");
 const GroupTaskStage = require("../../models/task-stages/group-task-stages-model");
 const audit = require("../audit-log/audit-log-controller");
 const Task = require("../../models/task/task-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, toObjectId } = require("../../utils/defaultValues");
+
 
 // Create a new task stage
 exports.create_task_stage = async (req, res) => {
@@ -183,8 +185,8 @@ exports.select_task_stages = async (req, res) => {
 
 exports.get_task_stages_by_company = async (req, res) => {
   try {
-    const { companyId, query, page } = req.body;
-    const limit = 5;
+    const { companyId, query = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.body;
+    const limit = DEFAULT_LIMIT;
     const regex = new RegExp(query, "i");
 
     // Validate companyId
@@ -195,13 +197,13 @@ exports.get_task_stages_by_company = async (req, res) => {
     // Find task stages where isDeleted is false
     const stages = await TaskStage.find({
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
-      companyId: new mongoose.Types.ObjectId(companyId),
+      companyId: toObjectId(companyId),
       isDeleted: { $ne: true },
     }).skip(page * limit).limit(limit);
 
     const totalCount = await TaskStage.countDocuments({
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
-      companyId: new mongoose.Types.ObjectId(companyId),
+      companyId: toObjectId(companyId),
       isDeleted: { $ne: true },
     });
 
@@ -210,7 +212,7 @@ exports.get_task_stages_by_company = async (req, res) => {
     const stagesWithTaskCount = await TaskStage.aggregate([
       {
         $match: {
-          companyId: new mongoose.Types.ObjectId(companyId),
+          companyId: toObjectId(companyId),
           isDeleted: { $ne: true }, // Exclude deleted task stages
         },
       },
@@ -434,8 +436,8 @@ exports.select_group_task_stages = async (req, res) => {
 exports.get_task_stages_by_group = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { companyId, query, page } = req.body;
-    const limit = 5;
+    const { companyId, query = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.body;
+    const limit = DEFAULT_LIMIT;
 
     if (!companyId || !groupId) {
       return res

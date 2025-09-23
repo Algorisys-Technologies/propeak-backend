@@ -12,6 +12,8 @@ const errors = {
   NOT_AUTHORIZED: "You're not authorized",
 };
 const { isValidObjectId } = require("mongoose");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+
 
 exports.createNotificationSetting = async (req, res) => {
   try {
@@ -332,10 +334,10 @@ exports.toggleNotificationActive = async (req, res) => {
 exports.getNotificationSettings = async (req, res) => {
   try {
     const { companyId, userId } = req.body;
-    const query = req.query.query;
-    const page = parseInt(req.query.page) || 0;
+    const query = req.query.query || DEFAULT_QUERY;
+    const page = parseInt(req.query.page) || DEFAULT_PAGE;
     // const page = req.query.page ? req.query.page : 0;
-    const limit = 5;
+    const limit = DEFAULT_LIMIT;
     if (!companyId) {
       return res.status(400).json({
         success: false,

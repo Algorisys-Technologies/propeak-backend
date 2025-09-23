@@ -63,9 +63,9 @@ exports.createCompany = async (req, res) => {
 // Get all Companies
 exports.getAllCompanies = async (req, res) => {
   try {
-    const query = req.query.q || "";
-    const page = parseInt(req.query.page, 10) || 0;
-    const limit = 5;
+    const query = req.query.q || DEFAULT_QUERY;
+    const page = parseInt(req.query.page, 10) || DEFAULT_PAGE;
+    const limit = DEFAULT_LIMIT;
     const skip = page * limit;
 
     const pipeline = [
@@ -147,8 +147,6 @@ exports.getAllCompanies = async (req, res) => {
 exports.getCompanyById = async (req, res) => {
   try {
     const { id: companyId } = req.params;
-    console.log(req.params, "Request Params"); // Log incoming params
-    console.log(companyId, "companyId");
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(companyId)) {
@@ -158,7 +156,6 @@ exports.getCompanyById = async (req, res) => {
     }
 
     const company = await Company.findOne({ _id: companyId, isDeleted: false });
-    console.log(company, "company....");
 
     if (!company) {
       return res
@@ -168,7 +165,6 @@ exports.getCompanyById = async (req, res) => {
 
     return res.status(200).json({ success: true, companies: [company] });
   } catch (error) {
-    console.error("Error fetching company:", error);
     return res
       .status(500)
       .json({ success: false, error: "Failed to load company." });
@@ -177,9 +173,7 @@ exports.getCompanyById = async (req, res) => {
 
 // Update a Company
 exports.updateCompany = async (req, res) => {
-  console.log("is companies UPDATE coming");
   const { id } = req.body;
-  console.log("Attempting to delete company with ID:", id);
   try {
     // const { id } = req.params;
     const updatedCompany = await Company.findOneAndUpdate(
@@ -196,15 +190,12 @@ exports.updateCompany = async (req, res) => {
 
     return res.status(200).json({ success: true, company: updatedCompany });
   } catch (error) {
-    console.error("Error updating company:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 exports.deleteCompany = async (req, res) => {
-  console.log("is companies delete coming");
   const { id } = req.body;
-  console.log("Attempting to delete company with ID:", id);
 
   try {
     const deletedCompany = await Company.findOneAndUpdate(
@@ -213,7 +204,6 @@ exports.deleteCompany = async (req, res) => {
       { new: true }
     );
 
-    console.log(deletedCompany, "deletedCompany............");
 
     if (!deletedCompany) {
       return res
@@ -222,7 +212,6 @@ exports.deleteCompany = async (req, res) => {
     }
     return res.status(204).send();
   } catch (error) {
-    console.error("Error deleting company:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };

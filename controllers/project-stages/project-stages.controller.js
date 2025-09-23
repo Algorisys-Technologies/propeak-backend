@@ -4,6 +4,7 @@ const GroupProjectStage = require("../../models/project-stages/group-project-sta
 const Project = require("../../models/project/project-model");
 const Task = require("../../models/task/task-model");
 const audit = require("../audit-log/audit-log-controller");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 exports.create_project_stage = async (req, res) => {
   try {
@@ -93,9 +94,9 @@ exports.select_project_stages = async (req, res) => {
 
 exports.get_project_stages_by_company = async (req, res) => {
   try {
-    const { companyId, query, page } = req.body;
+    const { companyId, query = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.body;
     const regex = new RegExp(query, "i");
-    const limit = 5;
+    const limit = DEFAULT_LIMIT;
 
     if (!companyId) {
       return res.status(400).json({ error: "Company ID is required." });
@@ -438,8 +439,8 @@ exports.select_group_project_stages = async (req, res) => {
 
 exports.get_project_stages_by_group = async (req, res) => {
   try {
-    const { groupId, companyId, query, page } = req.body;
-    const limit = 2;
+    const { groupId, companyId, query = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.body;
+    const limit = DEFAULT_LIMIT;
 
     if (!groupId || !companyId) {
       return res

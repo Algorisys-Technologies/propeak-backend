@@ -9,13 +9,14 @@ const errors = {
   ADDHIDENOTIFICATIONERROR: "Error occurred while adding the hide notification",
   NOT_AUTHORIZED: "You're not authorized",
 };
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, NOW } = require("../../utils/defaultValues");
+
 
 exports.bellNotification = async (req, res) => {
   try {
     const { companyId, userId } = req.body;
-    const npage = req.query.npage ? req.query.npage : 0;
-    const limit = 5;
-    const now = new Date();
+    const npage = req.query.npage ? req.query.npage : DEFAULT_PAGE;
+    const limit = DEFAULT_LIMIT;
 
     if (!companyId || !userId) {
       return res.status(200).json({
@@ -70,7 +71,7 @@ exports.bellNotification = async (req, res) => {
       $or: [
         { skipUntil: { $exists: false } },
         { skipUntil: null },
-        { skipUntil: { $lt: now } }
+        { skipUntil: { $lt: NOW } }
       ]
     })
     .select("_id userId subject message url taskId eventType createdOn skipUntil permanentlySkipped")
@@ -97,9 +98,9 @@ exports.bellNotification = async (req, res) => {
 exports.getNotifications = async (req, res) => {
   try {
     const { companyId, userId } = req.body;
-    const page = req.query.page ? req.query.page : 0;
-    const filter = req.query.filter;
-    const limit = 5;
+    const page = req.query.page ? req.query.page : DEFAULT_PAGE;
+    const filter = req.query.filter || DEFAULT_QUERY;
+    const limit = DEFAULT_LIMIT;
 
     if (!companyId || !userId) {
       return res.status(200).json({

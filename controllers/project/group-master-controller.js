@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const GroupMaster = require("../../models/project/group-master-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 // Create Group
 const createGroup = async (req, res) => {
@@ -35,7 +36,6 @@ const createGroup = async (req, res) => {
 
 const selectGroups = async (req, res) => {
   const { companyId } = req.params;
-  console.log("companyId, ", companyId)
   if (!mongoose.Types.ObjectId.isValid(companyId)) {
     return res
       .status(200)
@@ -52,8 +52,8 @@ const selectGroups = async (req, res) => {
 // Get Groups by Company ID
 const getGroups = async (req, res) => {
   const { companyId } = req.params;
-  const { q, page } = req.query;
-  const limit = 5;
+  const { q = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.query;
+  const limit = DEFAULT_LIMIT;
   if (!mongoose.Types.ObjectId.isValid(companyId)) {
     return res
       .status(200)
@@ -132,7 +132,6 @@ const getGroups = async (req, res) => {
 
     return res.json({ success: true, groups, totalCount, groupMasterProjectCount, totalPages  });
   } catch (error) {
-    console.error("Error fetching groups:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

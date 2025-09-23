@@ -1,4 +1,5 @@
 const Feature = require("../../models/feature/feature-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 // Get Feature by ID
 exports.getFeatureById = async (req, res) => {
@@ -17,9 +18,9 @@ exports.getFeatureById = async (req, res) => {
 
 // Get All Features
 exports.getAllFeatures = async (req, res) => {
-  const { page, q } = req.query;
+  const { page = DEFAULT_PAGE, q = DEFAULT_QUERY } = req.query;
   const regex = new RegExp(q, "i");
-  const limit = 5;
+  const limit = DEFAULT_LIMIT;
   try {
     const features = await Feature.find({
       $or: [
@@ -65,10 +66,12 @@ exports.GetSystemFeatures = async (req, res) => {
 exports.createFeature = async (req, res) => {
   try {
     const { name, desc, route, isSystem } = req.body;
-    if(name == "" || route == ""){
-      return res.json({
-        success: false, message: "All fields marked with an asterisk (*) are required."
-      })
+    const validation = validateFeature({ name, route });
+    if (!validation.valid) {
+        return res.json({
+        success: false,
+        message: validation.error
+      });
     }
     const newFeature = new Feature({ name, description: desc, route, isSystem });
     await newFeature.save();
@@ -88,10 +91,12 @@ exports.updateFeature = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, desc, route, isSystem } = req.body;
-    if(name == "" || route == ""){
-      return res.json({
-        success: false, message: "All fields marked with an asterisk (*) are required."
-      })
+    const validation = validateFeature({ name, route });
+    if (!validation.valid) {
+        return res.json({
+        success: false,
+        message: validation.error
+      });
     }
 
     // Update the feature
@@ -129,4 +134,12 @@ exports.deleteFeature = async (req, res) => {
     console.error("Error deleting feature:", error);
     res.status(500).json({ message: "Error deleting feature" });
   }
+};
+
+const validateFeature = ({ name, route }) => {
+  if (name == "" || route == "") {
+    return { valid: false, error: "All fields marked with an asterisk (*) are mandatory." };
+  }
+
+  return { valid: true };
 };

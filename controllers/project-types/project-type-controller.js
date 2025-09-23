@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const ProjectType = require("../../models/project-types/project-types-model");
 const audit = require("../audit-log/audit-log-controller");
 const AuditLogs = require("../../models/auditlog/audit-log-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, toObjectId } = require("../../utils/defaultValues");
 
 exports.create_project_type = async (req, res) => {
   console.log("create_project_type request received");
@@ -108,9 +109,9 @@ exports.select_project_types = async (req, res) => {
 // Get project types by company
 exports.get_project_types_by_company = async (req, res) => {
   try {
-    const { companyId, query, page } = req.body;
+    const { companyId, query = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.body;
     const regex = new RegExp(query, "i");
-    const limit = 5;
+    const limit = DEFAULT_LIMIT;
 
     // Validate companyId
     if (!companyId) {
@@ -139,7 +140,7 @@ exports.get_project_types_by_company = async (req, res) => {
     const projectTypeUsage = await ProjectType.aggregate([
       {
         $match: {
-          companyId: new mongoose.Types.ObjectId(companyId),
+          companyId: toObjectId(companyId),
           isDeleted: { $ne: true }, // only active project types
         },
       },

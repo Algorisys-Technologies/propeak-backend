@@ -3,14 +3,15 @@ const ProductCategory = require("../../models/product/product-category-model");
 const Product = require("../../models/product/product-model");
 const xlsx = require("xlsx");
 const Task = require("../../models/task/task-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 exports.list = async function (req, res) {
   try {
-    const page = req.query.page ? req.query.page : 0;
-    const q = req.query.q || "";
+    const page = req.query.page ? req.query.page : DEFAULT_PAGE;
+    const q = req.query.q || DEFAULT_QUERY;
     const regex = new RegExp(q, "i");
 
-    const limit = 6;
+    const limit = DEFAULT_LIMIT;
     const products = await Product.find({
       name: { $regex: regex },
       companyId: req.params.companyId,

@@ -36,13 +36,33 @@ async function handleNotifications(task, eventType) {
   }
 
   // if (eventType === "TASK_REMINDER_DUE") {
-  //   // notified — example: assigned user
-  //   await NotificationSetting.findOne(
+  //   await NotificationSetting.findOneAndUpdate(
   //     { projectId: normalizedProjectId, eventType },
-  //     { notifyUserIds: { $in: [task.userId] } },
+  //     { $set: { notifyUserIds: [task.userId] } },
   //     { new: true, upsert: true }
   //   );
   // }
+
+  if (eventType === "TASK_REMINDER_DUE") {
+    const setting = await NotificationSetting.findOne({
+      projectId: normalizedProjectId,
+      eventType,
+      active: true,
+      isDeleted: false,
+    }).lean();
+
+    let notifyUserIds = [];
+
+    if (task?.userId) {
+      notifyUserIds.push(task.userId);
+    }
+
+    if (setting?.notifyUserIds?.length) {
+      notifyUserIds = [
+        ...new Set([...notifyUserIds, ...setting.notifyUserIds]),
+      ];
+    }
+  }
 
   try {
     // In-app notifications
@@ -166,7 +186,7 @@ async function handleNotifications(task, eventType) {
     result.push({ emails });
   }
 
-  console.log(result, "from result");
+  // console.log(result, "from result");
 
   return result;
 }
