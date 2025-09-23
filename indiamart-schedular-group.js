@@ -10,6 +10,7 @@ const Project = require("./models/project/project-model");
 const TaskStage = require("./models/task-stages/task-stages-model");
 const GroupTaskStage = require("./models/task-stages/group-task-stages-model");
 const { normalizeAddress } = require("./utils/address");
+const { getTaskStagesTitles } = require("./utils/task-stage-helper");
 
 dotenv.config();
 
@@ -156,33 +157,38 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             if (!existingProject) {
               let taskStagesTitleArr = [];
 
+              // if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+              //   // Find in TaskStage by IDs
+              //   let taskStageDocs = [];
+              //   if (taskStagesArr && taskStagesArr.length > 0) {
+              //     taskStageDocs = await TaskStage.find({
+              //       _id: { $in: taskStagesArr },
+              //     }).select("title");
+              //   }
+
+              //   // Find in GroupTaskStage by groupId
+              //   let groupTaskStageDocs = [];
+              //   if (groupId) {
+              //     groupTaskStageDocs = await GroupTaskStage.find({
+              //       groupId: groupId,
+              //     }).select("title");
+              //   }
+
+              //   // Merge and remove duplicates
+              //   taskStagesTitleArr = [
+              //     ...new Set([
+              //       ...taskStageDocs.map((stage) => stage.title),
+              //       ...groupTaskStageDocs.map((stage) => stage.title),
+              //     ]),
+              //   ];
+              // }
+
               if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
-                // Find in TaskStage by IDs
-                let taskStageDocs = [];
-                if (taskStagesArr && taskStagesArr.length > 0) {
-                  taskStageDocs = await TaskStage.find({
-                    _id: { $in: taskStagesArr },
-                  }).select("title");
-                }
-
-                // Find in GroupTaskStage by groupId
-                let groupTaskStageDocs = [];
-                if (groupId) {
-                  groupTaskStageDocs = await GroupTaskStage.find({
-                    groupId: groupId,
-                  }).select("title");
-                }
-
-                // Merge and remove duplicates
-                taskStagesTitleArr = [
-                  ...new Set([
-                    ...taskStageDocs.map((stage) => stage.title),
-                    ...groupTaskStageDocs.map((stage) => stage.title),
-                  ]),
-                ];
+                taskStagesTitleArr = await getTaskStagesTitles(
+                  taskStagesArr,
+                  groupId
+                );
               }
-
-              console.log("taskStagesTitleArr", taskStagesTitleArr);
 
               existingProject = new Project({
                 companyId,
@@ -399,33 +405,38 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             if (!existingProject) {
               let taskStagesTitleArr = [];
 
+              // if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+              //   // Find in TaskStage by IDs
+              //   let taskStageDocs = [];
+              //   if (taskStagesArr && taskStagesArr.length > 0) {
+              //     taskStageDocs = await TaskStage.find({
+              //       _id: { $in: taskStagesArr },
+              //     }).select("title");
+              //   }
+
+              //   // Find in GroupTaskStage by groupId
+              //   let groupTaskStageDocs = [];
+              //   if (groupId) {
+              //     groupTaskStageDocs = await GroupTaskStage.find({
+              //       groupId: groupId,
+              //     }).select("title");
+              //   }
+
+              //   // Merge and remove duplicates
+              //   taskStagesTitleArr = [
+              //     ...new Set([
+              //       ...taskStageDocs.map((stage) => stage.title),
+              //       ...groupTaskStageDocs.map((stage) => stage.title),
+              //     ]),
+              //   ];
+              // }
+
               if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
-                // Find in TaskStage by IDs
-                let taskStageDocs = [];
-                if (taskStagesArr && taskStagesArr.length > 0) {
-                  taskStageDocs = await TaskStage.find({
-                    _id: { $in: taskStagesArr },
-                  }).select("title");
-                }
-
-                // Find in GroupTaskStage by groupId
-                let groupTaskStageDocs = [];
-                if (groupId) {
-                  groupTaskStageDocs = await GroupTaskStage.find({
-                    groupId: groupId,
-                  }).select("title");
-                }
-
-                // Merge and remove duplicates
-                taskStagesTitleArr = [
-                  ...new Set([
-                    ...taskStageDocs.map((stage) => stage.title),
-                    ...groupTaskStageDocs.map((stage) => stage.title),
-                  ]),
-                ];
+                taskStagesTitleArr = await getTaskStagesTitles(
+                  taskStagesArr,
+                  groupId
+                );
               }
-
-              console.log("taskStagesTitleArr", taskStagesTitleArr);
 
               existingProject = new Project({
                 companyId,

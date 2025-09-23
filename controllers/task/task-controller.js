@@ -54,6 +54,7 @@ const { result } = require("lodash");
 const sendNotification = require("../../utils/send-notification");
 const { handleNotifications } = require("../../utils/notification-service");
 const notificationSettingModel = require("../../models/notification-setting/notification-setting-model");
+const { validateAndSaveFiles } = require("../../utils/file-upload-helper");
 
 exports.createTask = (req, res) => {
   console.log(req.body, "request body in create tasks ");
@@ -197,145 +198,15 @@ exports.createTask = (req, res) => {
           model: "user",
         });
 
-      // if (fileName) {
-      //   let uploadFile = {
-      //     _id: _id,
-      //     fileName: fileName,
-      //     isDeleted: false,
-      //     createdBy: userId,
-      //     createdOn: new Date(),
-      //     companyId: companyId,
-      //     projectId: projectId,
-      //     taskId: taskId,
-      //   };
-
-      //   const newuploadfile = new UploadFile(uploadFile);
-      //   const uploadResult = await newuploadfile.save();
-
-      //   if (taskId) {
-      //     await Task.findOneAndUpdate(
-      //       { _id: taskId },
-      //       {
-      //         $push: {
-      //           uploadFiles: {
-      //             _id: uploadResult._id,
-      //             fileName: uploadResult.fileName,
-      //           },
-      //         },
-      //       },
-      //       { new: true }
-      //     );
-      //   } else {
-      //     await Project.findOneAndUpdate(
-      //       { _id: projectId },
-      //       { $push: { uploadFiles: uploadResult._id } }
-      //     );
-      //   }
-      //   console.log(req.files, uploadFile);
-      //   try {
-      //     if (!req.files.uploadFile) {
-      //       res.send({ error: "No files were uploaded." });
-      //       return;
-      //     }
-
-      //     const uploadedFile = req.files.uploadFile;
-      //     console.log(uploadedFile, "uploadedFile");
-      //     const fileUploaded = uploadedFile.name.split(".");
-      //     const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
-
-      //     const validFileExtn = [
-      //       "PDF",
-      //       "DOCX",
-      //       "PNG",
-      //       "JPEG",
-      //       "JPG",
-      //       "TXT",
-      //       "PPT",
-      //       "XLSX",
-      //       "XLS",
-      //       "PPTX",
-      //     ];
-
-      //     if (validFileExtn.includes(fileExtn)) {
-      //       let projectFolderPath;
-      //       if (taskId) {
-      //         projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
-      //       } else {
-      //         projectFolderPath = `${uploadFolder}/${companyId}/${projectId}`;
-      //       }
-
-      //       if (!fs.existsSync(projectFolderPath)) {
-      //         fs.mkdirSync(projectFolderPath, { recursive: true });
-      //       }
-
-      //       uploadedFile.mv(`${projectFolderPath}/${fileName}`, function (err) {
-      //         if (err) {
-      //           console.log(err);
-      //           res.send({ error: "File Not Saved." });
-      //         }
-      //       });
-      //     } else {
-      //       res.send({
-      //         _id: result._id,
-      //         error:
-      //           "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS', 'PPTX')",
-      //       });
-      //     }
-      //   } catch (err) {
-      //     console.log(err);
-      //   }
-      // }
-
       if (req.files && req.files.uploadFiles) {
-        const uploadedFiles = Array.isArray(req.files.uploadFiles)
-          ? req.files.uploadFiles
-          : [req.files.uploadFiles];
-
-        const validFileExtn = [
-          "PDF",
-          "DOCX",
-          "PNG",
-          "JPEG",
-          "JPG",
-          "TXT",
-          "PPT",
-          "XLSX",
-          "XLS",
-          "PPTX",
-        ];
-
-        for (const uploadedFile of uploadedFiles) {
-          const fileExtn = uploadedFile.name.split(".").pop().toUpperCase();
-          if (!validFileExtn.includes(fileExtn)) continue;
-
-          const projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
-          if (!fs.existsSync(projectFolderPath))
-            fs.mkdirSync(projectFolderPath, { recursive: true });
-
-          await uploadedFile.mv(`${projectFolderPath}/${uploadedFile.name}`);
-
-          const uploadFileDoc = new UploadFile({
-            fileName: uploadedFile.name,
-            taskId,
-            projectId,
-            companyId,
-            createdBy: userId,
-            createdOn: new Date(),
-            isDeleted: false,
-          });
-
-          await uploadFileDoc.save();
-
-          // Push to task.uploadFiles
-          await Task.findByIdAndUpdate(taskId, {
-            $push: {
-              uploadFiles: {
-                _id: uploadFileDoc._id,
-                fileName: uploadedFile.name,
-              },
-            },
-          });
-        }
+        await validateAndSaveFiles(
+          req,
+          companyId,
+          projectId,
+          taskId,
+          uploadFolder,
+          userId
+        );
       }
 
       const userIdToken = req.body.userName;
@@ -590,13 +461,12 @@ exports.createTask = (req, res) => {
       });
     });
 };
+
 exports.updateTask = (req, res) => {
   console.log("is it coming th task update");
   console.log(req.body, "request body of update task ");
   const { taskId } = req.body;
   const { projectId, task, companyId, updates } = req.body;
-
-  // console.log(updates, "from updateDate")
 
   const {
     title,
@@ -682,26 +552,6 @@ exports.updateTask = (req, res) => {
         .populate({ path: "interested_products.product_id" })
         .populate("userId", "name");
 
-      // console.log(task, "from task")
-      // if(task.userId){
-      //   const eventType = "TASK_ASSIGNED"
-      //   await sendNotification(task, eventType);
-      // }
-      // if(task.publish_status === "published"){
-      //   const eventType = "TASK_CREATED";
-      //   try {
-      //     const notificationResult = await sendNotification(task, eventType);
-      //     console.log("Notification result:", notificationResult);
-      //   } catch (notificationError) {
-      //     console.error("Notification error:", notificationError);
-      //   }
-      // }
-
-      // if(task.userId){
-      //   const eventType = "TASK_ASSIGNED"
-      //   await sendNotification(task, eventType);
-      // }
-
       const userIdToken = req.body.userName;
       const fields = Object.keys(result.toObject()).filter(
         (key) =>
@@ -743,16 +593,6 @@ exports.updateTask = (req, res) => {
           let updatedDescription = updatedTask.description
             .split("\n")
             .join("<br/> &nbsp; &nbsp; &nbsp; &nbsp; ");
-
-          // let emailText = config.taskEmailAssignContent
-          //   .replace("#title#", updatedTask.title)
-          //   .replace("#description#", updatedDescription)
-          //   .replace("#projectName#", updatedTask.projectId.title)
-          //   .replace("#projectId#", updatedTask.projectId._id)
-          //   .replace("#priority#", updatedTask.priority.toUpperCase())
-          //   .replace("#newTaskId#", updatedTask._id);
-
-          //   console.log(emailText, "from emailText")
 
           let emailText = `
             Hi, <br/><br/>

@@ -13,6 +13,7 @@ const fetchLeads = require("../../webscrape");
 //const { normalizeAddress } = require("../../utils/address");
 const { parseAddressWithGroq } = require("../../utils/address-groq");
 const levenshtein = require("fast-levenshtein");
+const { getTaskStagesTitles } = require("../../utils/task-stage-helper");
 
 // Create a new Project Setting
 exports.createProjectSetting = async (req, res) => {
@@ -52,8 +53,6 @@ exports.getAllProjectSetting = async (req, res) => {
       .json({ success: false, message: "Company ID is required" });
   }
 
-  console.log(`Received companyId from request body: ${companyId}`);
-
   try {
     const projectSetting = await ProjectSetting.find({ companyId, projectId });
 
@@ -64,9 +63,9 @@ exports.getAllProjectSetting = async (req, res) => {
       });
     }
 
-    console.log(
-      `Fetched project settings: ${JSON.stringify(projectSetting, null, 2)}`
-    );
+    // console.log(
+    //   `Fetched project settings: ${JSON.stringify(projectSetting, null, 2)}`
+    // );
 
     res.status(200).json({ success: true, data: projectSetting });
   } catch (error) {
@@ -100,8 +99,6 @@ exports.getProjectSettingById = async (req, res) => {
 };
 
 exports.updateProjectSetting = async (req, res) => {
-  console.log("update project setting................");
-  console.log(req.body, "request body of update...........");
   try {
     const projectSetting = await ProjectSetting.findByIdAndUpdate(
       req.body.id,
@@ -109,7 +106,6 @@ exports.updateProjectSetting = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    console.log(projectSetting, "projectSetting....................");
     if (!projectSetting) {
       return res
         .status(404)
@@ -126,8 +122,6 @@ exports.updateProjectSetting = async (req, res) => {
 exports.createGroupSetting = async (req, res) => {
   try {
     const { groupId, taskStagesArr, ...rest } = req.body;
-
-    console.log("Group settings", req.body);
 
     if (!groupId) {
       return res
@@ -228,9 +222,6 @@ exports.updateGroupSetting = async (req, res) => {
 };
 
 exports.fetchIndiaMartSettings = async (req, res) => {
-  console.log("fetch email settings");
-  console.log(req.body, "request body ...................");
-
   const {
     startDate,
     endDate,
@@ -268,7 +259,7 @@ exports.fetchIndiaMartSettings = async (req, res) => {
   const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
 
   const projectSetting = await ProjectSetting.findOne({ projectId });
-  console.log(projectSetting, "projectSetting.....................");
+
   if (!projectSetting) {
     res
       .status(404)
@@ -278,10 +269,8 @@ exports.fetchIndiaMartSettings = async (req, res) => {
   if (projectSetting.method == "API") {
     try {
       const response = await axios.get(url);
-      console.log("API response:", response.data);
 
       const leadsData = response.data.RESPONSE;
-      console.log(leadsData, "leadsData.....................");
 
       if (enabled) {
         const tasks = leadsData.map((lead) => ({
@@ -363,7 +352,6 @@ exports.fetchIndiaMartSettings = async (req, res) => {
       fetchFrequetly,
       lastFetched,
     } = projectSetting;
-    console.log(authKey);
 
     let newStartDate;
     let newEndDate;
@@ -398,8 +386,6 @@ exports.fetchIndiaMartSettings = async (req, res) => {
       console.log(
         `Fetched ${leadsData.length} leads for companyId: ${companyId}`
       );
-
-      console.log("manual leadsData final...", leadsData);
 
       for (const lead of leadsData) {
         // Check for existing tasks to avoid duplicates
@@ -463,9 +449,6 @@ exports.fetchIndiaMartSettings = async (req, res) => {
 };
 
 exports.fetchIndiaMartSettingsGroup = async (req, res) => {
-  console.log("fetch email settings");
-  console.log(req.body, "request body ...................");
-
   const {
     startDate,
     endDate,
@@ -483,8 +466,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     integrationProvider,
     method,
   } = req.body;
-
-  console.log("taskStagesArr...", taskStagesArr);
 
   if (!authKey) {
     return res.status(400).json({
@@ -518,7 +499,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
   const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
 
   const groupSetting = await GroupSetting.findOne({ groupId });
-  console.log(groupSetting, "projectSetting.....................");
+  //console.log(groupSetting, "projectSetting.....................");
   if (!groupSetting) {
     res
       .status(404)
@@ -528,7 +509,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
   if (groupSetting.method == "API") {
     try {
       const response = await axios.get(url);
-      //console.log("API response:", response.data);
+
       console.log("Total leads received:", response.data.RESPONSE?.length || 0);
 
       const leadsData = response.data.RESPONSE;
@@ -579,13 +560,13 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               const existingAddress =
                 proj.customFieldValues?.get("address") || "";
 
-              console.log(
-                "Comparing:",
-                "new:",
-                normalizedAddress,
-                "old:",
-                existingAddress
-              );
+              // console.log(
+              //   "Comparing:",
+              //   "new:",
+              //   normalizedAddress,
+              //   "old:",
+              //   existingAddress
+              // );
 
               const distance = levenshtein.get(
                 normalizedAddress,
@@ -612,11 +593,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
           const regex = new RegExp(lead.label, "i");
 
-          console.log("regex", regex, "lead.label", lead.label);
-
           const users = await User.find({ name: { $regex: regex }, companyId });
-
-          console.log("users...", users);
 
           console.log("Existing Project:", existingProject);
           const projectUsers = Array.from(
@@ -636,33 +613,38 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           if (!existingProject) {
             let taskStagesTitleArr = [];
 
+            // if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+            //   // Find in TaskStage by IDs
+            //   let taskStageDocs = [];
+            //   if (taskStagesArr && taskStagesArr.length > 0) {
+            //     taskStageDocs = await TaskStage.find({
+            //       _id: { $in: taskStagesArr },
+            //     }).select("title");
+            //   }
+
+            //   // Find in GroupTaskStage by groupId
+            //   let groupTaskStageDocs = [];
+            //   if (groupId) {
+            //     groupTaskStageDocs = await GroupTaskStage.find({
+            //       groupId: groupId,
+            //     }).select("title");
+            //   }
+
+            //   // Merge and remove duplicates
+            //   taskStagesTitleArr = [
+            //     ...new Set([
+            //       ...taskStageDocs.map((stage) => stage.title),
+            //       ...groupTaskStageDocs.map((stage) => stage.title),
+            //     ]),
+            //   ];
+            // }
+
             if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
-              // Find in TaskStage by IDs
-              let taskStageDocs = [];
-              if (taskStagesArr && taskStagesArr.length > 0) {
-                taskStageDocs = await TaskStage.find({
-                  _id: { $in: taskStagesArr },
-                }).select("title");
-              }
-
-              // Find in GroupTaskStage by groupId
-              let groupTaskStageDocs = [];
-              if (groupId) {
-                groupTaskStageDocs = await GroupTaskStage.find({
-                  groupId: groupId,
-                }).select("title");
-              }
-
-              // Merge and remove duplicates
-              taskStagesTitleArr = [
-                ...new Set([
-                  ...taskStageDocs.map((stage) => stage.title),
-                  ...groupTaskStageDocs.map((stage) => stage.title),
-                ]),
-              ];
+              taskStagesTitleArr = await getTaskStagesTitles(
+                taskStagesArr,
+                groupId
+              );
             }
-
-            console.log("taskStagesTitleArr", taskStagesTitleArr);
 
             existingProject = new Project({
               companyId,
@@ -714,8 +696,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
           });
 
-          //console.log("Existing Task:", existingTask);
-
           if (existingTask) {
             console.log(
               `Task already exists for subject: ${lead.SUBJECT} - Skipping.`
@@ -755,7 +735,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           });
 
           await newTask.save();
-          //console.log(`Task created for lead: ${lead.SUBJECT}`);
         }
 
         res
@@ -784,10 +763,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       startDate,
       endDate,
     } = groupSetting;
-
-    console.log("GroupID check", groupId);
-
-    console.log(authKey);
 
     let newStartDate = new Date(startDate);
     let newEndDate = new Date(endDate);
@@ -840,9 +815,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
         const users = await User.find({ name: { $regex: regex }, companyId });
 
-        console.log("users...", users);
-
-        // console.log("existingProject", existingProject);
         const projectUsers = Array.from(
           new Set(
             [
@@ -860,30 +832,37 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         if (!existingProject) {
           let taskStagesTitleArr = [];
 
+          // if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+          //   // Find in TaskStage by IDs
+          //   let taskStageDocs = [];
+          //   if (taskStagesArr && taskStagesArr.length > 0) {
+          //     taskStageDocs = await TaskStage.find({
+          //       _id: { $in: taskStagesArr },
+          //     }).select("title");
+          //   }
+
+          //   // Find in GroupTaskStage by groupId
+          //   let groupTaskStageDocs = [];
+          //   if (groupId) {
+          //     groupTaskStageDocs = await GroupTaskStage.find({
+          //       groupId: groupId,
+          //     }).select("title");
+          //   }
+
+          //   // Merge and remove duplicates
+          //   taskStagesTitleArr = [
+          //     ...new Set([
+          //       ...taskStageDocs.map((stage) => stage.title),
+          //       ...groupTaskStageDocs.map((stage) => stage.title),
+          //     ]),
+          //   ];
+          // }
+
           if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
-            // Find in TaskStage by IDs
-            let taskStageDocs = [];
-            if (taskStagesArr && taskStagesArr.length > 0) {
-              taskStageDocs = await TaskStage.find({
-                _id: { $in: taskStagesArr },
-              }).select("title");
-            }
-
-            // Find in GroupTaskStage by groupId
-            let groupTaskStageDocs = [];
-            if (groupId) {
-              groupTaskStageDocs = await GroupTaskStage.find({
-                groupId: groupId,
-              }).select("title");
-            }
-
-            // Merge and remove duplicates
-            taskStagesTitleArr = [
-              ...new Set([
-                ...taskStageDocs.map((stage) => stage.title),
-                ...groupTaskStageDocs.map((stage) => stage.title),
-              ]),
-            ];
+            taskStagesTitleArr = await getTaskStagesTitles(
+              taskStagesArr,
+              groupId
+            );
           }
 
           existingProject = new Project({
@@ -924,12 +903,9 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             tag: [lead.label],
           });
 
-          // console.log("existingProject creation", existingProject);
-
           await existingProject.save();
           console.log(`Project created: ${lead.name}`);
         } else {
-          //console.log(`Project already exists: ${lead.name} - Skipping.`);
           console.log(`Project already exists: ${lead.name}`);
         }
 
@@ -939,8 +915,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           title: lead.productName,
           isDeleted: false,
         });
-
-        //console.log("existingTask", existingTask);
 
         // if (existingTask) {
         //   console.log(
@@ -976,19 +950,14 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
           });
 
-          console.log("newTask", newTask);
-
           await newTask.save();
           console.log(`Task created for lead: ${lead.productName}`);
         } else {
           console.log(`Task already exists for product: ${lead.productName}`);
         }
 
-        //console.log("lead-leadDetail...", lead.leadDetail);
-
         if (lead.leadDetail && Array.isArray(lead.leadDetail)) {
           for (const detail of lead.leadDetail) {
-            //console.log("detail...", JSON.stringify(detail));
             try {
               const response = await fetch(
                 "http://142.93.222.95:8000/extract_product",
@@ -1006,12 +975,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               }
 
               const responseData = await response.json();
-              //console.log("JSON detail:", JSON.stringify(detail));
-              //console.log("Extracted Product Data:", responseData);
 
               if (!responseData?.product) {
                 console.log("No product extracted, skipping task creation.");
-                continue; // Skip this iteration
+                continue;
               }
 
               // Prevent duplicate tasks
@@ -1058,8 +1025,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
                 },
                 isDeleted: false,
               });
-
-              console.log("newTask", newTask);
 
               await newTask.save();
               console.log(`Task created for lead: ${responseData?.product}`);
