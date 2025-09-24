@@ -381,7 +381,6 @@ exports.projectFileUpload = async (req, res) => {
       success: false,
     });
   }
-  
 
   const uploadedFile = req.files.projectFile;
   const fileUploaded = uploadedFile.name.split(".");
@@ -493,7 +492,7 @@ exports.projectFileUpload = async (req, res) => {
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         });
 
-        if(!projectStage){
+        if (!projectStage) {
           projectStage = await ProjectStage.findOne({
             title: statusTitle,
             companyId: companyId,
@@ -848,7 +847,7 @@ exports.projectFileUpload = async (req, res) => {
               }
             }
 
-            console.log(project.projectStageId, "from project.projectStageId ")
+            console.log(project.projectStageId, "from project.projectStageId ");
 
             project.projectType = project.projectType || "Issue Tracker";
 
@@ -1435,64 +1434,138 @@ exports.deleteUploadFile = (req, res) => {
   });
 };
 
+// exports.postUploadFileByProjectId = async (req, res) => {
+//   console.log(req.body);
+//   console.log(req.files.uploadFile, "files...");
+//   const companyId = req.body.companyId;
+//   const projectId = req.body.projectId;
+//   const taskId = req.body.taskId || null;
+
+//   let uploadFile = {
+//     _id: req.body._id,
+//     fileName: req.body.fileName,
+//     isDeleted: false,
+//     createdBy: req.body.userId,
+//     createdOn: new Date(),
+//     companyId: companyId,
+//     projectId: projectId,
+//     taskId: taskId,
+//   };
+
+//   const newuploadfile = new UploadFile(uploadFile);
+//   const result = await newuploadfile.save();
+
+//   if (taskId) {
+//     await Task.findOneAndUpdate(
+//       { _id: taskId },
+//       { $push: { uploadFiles: result._id } }
+//     );
+//   } else {
+//     await Project.findOneAndUpdate(
+//       { _id: projectId },
+//       { $push: { uploadFiles: result._id } }
+//     );
+//   }
+
+//   try {
+//     if (!req.files.uploadFile) {
+//       res.send({ error: "No files were uploaded." });
+//       return;
+//     }
+
+//     const fileName = req.body.fileName;
+//     const uploadedFile = req.files.uploadFile;
+//     const fileUploaded = uploadedFile.name.split(".");
+//     const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+
+//     const validFileExtn = [
+//       "PDF",
+//       "DOCX",
+//       "PNG",
+//       "JPEG",
+//       "JPG",
+//       "TXT",
+//       "PPT",
+//       "XLSX",
+//       "XLS",
+//       "PPTX",
+//     ];
+
+//     if (validFileExtn.includes(fileExtn)) {
+//       let projectFolderPath;
+//       if (taskId) {
+//         projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
+//       } else {
+//         projectFolderPath = `${uploadFolder}/${companyId}/${projectId}`;
+//       }
+
+//       if (!fs.existsSync(projectFolderPath)) {
+//         fs.mkdirSync(projectFolderPath, { recursive: true });
+//       }
+
+//       uploadedFile.mv(`${projectFolderPath}/${fileName}`, function (err) {
+//         if (err) {
+//           console.log(err);
+//           res.send({ error: "File Not Saved." });
+//         }
+//       });
+//     } else {
+//       res.send({
+//         error:
+//           "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS', 'PPTX')",
+//       });
+//     }
+//   } catch (err) {
+//     console.log(err);
+//   }
+// };
+
 exports.postUploadFileByProjectId = async (req, res) => {
-  console.log(req.body);
-  console.log(req.files.uploadFile, "files");
-  const companyId = req.body.companyId;
-  const projectId = req.body.projectId;
-  const taskId = req.body.taskId || null;
-
-  let uploadFile = {
-    _id: req.body._id,
-    fileName: req.body.fileName,
-    isDeleted: false,
-    createdBy: req.body.userId,
-    createdOn: new Date(),
-    companyId: companyId,
-    projectId: projectId,
-    taskId: taskId,
-  };
-
-  const newuploadfile = new UploadFile(uploadFile);
-  const result = await newuploadfile.save();
-
-  if (taskId) {
-    await Task.findOneAndUpdate(
-      { _id: taskId },
-      { $push: { uploadFiles: result._id } }
-    );
-  } else {
-    await Project.findOneAndUpdate(
-      { _id: projectId },
-      { $push: { uploadFiles: result._id } }
-    );
-  }
-
   try {
-    if (!req.files.uploadFile) {
-      res.send({ error: "No files were uploaded." });
-      return;
+    const companyId = req.body.companyId;
+    const projectId = req.body.projectId;
+    const taskId = req.body.taskId || null;
+
+    if (!req.files || !req.files.uploadFile) {
+      return res.status(400).send({ error: "No files were uploaded." });
     }
 
-    const fileName = req.body.fileName;
-    const uploadedFile = req.files.uploadFile;
-    const fileUploaded = uploadedFile.name.split(".");
-    const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+    // Ensure files is always an array
+    const files = Array.isArray(req.files.uploadFile)
+      ? req.files.uploadFile
+      : [req.files.uploadFile];
 
-    const validFileExtn = [
-      "PDF",
-      "DOCX",
-      "PNG",
-      "JPEG",
-      "JPG",
-      "TXT",
-      "PPT",
-      "XLSX",
-      "XLS",
-      "PPTX",
-    ];
+    console.log("files...", files);
 
-    if (validFileExtn.includes(fileExtn)) {
+    const uploadedFilesData = [];
+
+    for (const uploadedFile of files) {
+      const fileName = uploadedFile.name;
+      const fileUploaded = fileName.split(".");
+      const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+
+      const validFileExtn = [
+        "PDF",
+        "DOCX",
+        "PNG",
+        "JPEG",
+        "JPG",
+        "TXT",
+        "PPT",
+        "XLSX",
+        "XLS",
+        "PPTX",
+      ];
+
+      if (!validFileExtn.includes(fileExtn)) {
+        uploadedFilesData.push({
+          fileName,
+          success: false,
+          error: `File format not supported!`,
+        });
+        continue;
+      }
+
       let projectFolderPath;
       if (taskId) {
         projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
@@ -1504,20 +1577,43 @@ exports.postUploadFileByProjectId = async (req, res) => {
         fs.mkdirSync(projectFolderPath, { recursive: true });
       }
 
-      uploadedFile.mv(`${projectFolderPath}/${fileName}`, function (err) {
-        if (err) {
-          console.log(err);
-          res.send({ error: "File Not Saved." });
-        }
-      });
-    } else {
-      res.send({
-        error:
-          "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS', 'PPTX')",
-      });
+      // Move file
+      await uploadedFile.mv(`${projectFolderPath}/${fileName}`);
+
+      // Save to database
+      let uploadFileData = {
+        _id: req.body._id,
+        fileName,
+        isDeleted: false,
+        createdBy: req.body.userId,
+        createdOn: new Date(),
+        companyId,
+        projectId,
+        taskId,
+      };
+
+      const newUploadFile = new UploadFile(uploadFileData);
+      const result = await newUploadFile.save();
+
+      if (taskId) {
+        await Task.findOneAndUpdate(
+          { _id: taskId },
+          { $push: { uploadFiles: result._id } }
+        );
+      } else {
+        await Project.findOneAndUpdate(
+          { _id: projectId },
+          { $push: { uploadFiles: result._id } }
+        );
+      }
+
+      uploadedFilesData.push({ fileName, success: true, id: result._id });
     }
+
+    res.send({ success: true, uploadedFiles: uploadedFilesData });
   } catch (err) {
-    console.log(err);
+    console.error(err);
+    res.status(500).send({ error: "Something went wrong" });
   }
 };
 
