@@ -4,24 +4,20 @@ const GroupProjectStage = require("../../models/project-stages/group-project-sta
 const Project = require("../../models/project/project-model");
 const Task = require("../../models/task/task-model");
 const audit = require("../audit-log/audit-log-controller");
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, NOW } = require("../../utils/defaultValues");
 
 exports.create_project_stage = async (req, res) => {
   try {
     const { sequence, title, displayName, show, companyId, createdBy } =
       req.body;
 
-    if (!companyId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Company ID is required." });
-    }
-    if (!title || !displayName) {
-      return res.status(400).json({
-        success: false,
-        error: "Title and display name are required.",
-      });
-    }
+      const validation = await validateStages({ companyId, title, displayName, check : "create"});
+      if (!validation.valid) {
+          return res.json({
+          success: false,
+          message: validation.error
+        });
+      }
 
     const newStage = new ProjectStage({
       sequence,
@@ -30,9 +26,9 @@ exports.create_project_stage = async (req, res) => {
       show,
       companyId,
       createdBy,
-      createdOn: new Date(),
+      createdOn: NOW,
       modifiedBy: createdBy,
-      modifiedOn: new Date(),
+      modifiedOn: NOW,
     });
 
     const result = await newStage.save();
@@ -106,7 +102,9 @@ exports.get_project_stages_by_company = async (req, res) => {
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
-    }).skip(page * limit).limit(limit);
+    }).select("_id title displayName show sequence")
+    .sort({ sequence: 1 })
+    .skip(page * limit).limit(limit);
 
     const totalCount = await ProjectStage.countDocuments({
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
@@ -178,11 +176,20 @@ exports.get_project_stages_by_company = async (req, res) => {
 exports.update_project_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { modifiedBy, ...updateData } = req.body;
+    const { companyId, title, displayName, modifiedBy } = req.body;
+    const { ...updateData } = req.body;
+
+    const validation = await validateStages({ companyId, title, displayName, check : "update", id});
+      if (!validation.valid) {
+          return res.json({
+          success: false,
+          message: validation.error
+        });
+      }
 
     const updatedStage = await ProjectStage.findByIdAndUpdate(
       id,
-      { ...updateData, modifiedOn: new Date(), modifiedBy },
+      { ...updateData, modifiedOn: NOW, modifiedBy },
       { new: true }
     );
 
@@ -345,21 +352,13 @@ exports.create_group_project_stage = async (req, res) => {
       createdBy,
     } = req.body;
 
-    console.log("req.body...create_group_project_stage", req.body);
-
-    if (!companyId || !groupId) {
-      return res.status(400).json({
-        success: false,
-        error: "Company ID and Group ID are required.",
-      });
-    }
-
-    if (!title || !displayName) {
-      return res.status(400).json({
-        success: false,
-        error: "Title and display name are required.",
-      });
-    }
+    const validation = await validateStages({ companyId, title, displayName, check : "group-create", groupId});
+      if (!validation.valid) {
+          return res.json({
+          success: false,
+          message: validation.error
+        });
+      }
 
     const newStage = new GroupProjectStage({
       sequence,
@@ -530,14 +529,16 @@ exports.get_project_stages_by_group = async (req, res) => {
 exports.update_group_project_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { sequence, title, displayName, show, groupId, modifiedBy } =
+    const { sequence, title, displayName, show, groupId, modifiedBy, companyId } =
       req.body;
 
-    if (!id || !groupId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "ID and Group ID are required." });
-    }
+      const validation = await validateStages({ companyId, title, displayName, check : "group-update", id, groupId});
+      if (!validation.valid) {
+          return res.json({
+          success: false,
+          message: validation.error
+        });
+      }
 
     const updatedStage = await GroupProjectStage.findByIdAndUpdate(
       id,
@@ -771,4 +772,45 @@ exports.migrateGlobalStagesToGroupStage = async (req, res) => {
       .status(500)
       .json({ success: false, message: "Migration failed" });
   }
+};
+
+const validateStages = async ({ companyId, title, displayName, check, id, groupId }) => {
+  if (!companyId) {
+    return { valid: false, error: "Company ID is required." };
+  }
+
+  if (!title || !displayName) {
+    return { valid: false, error: "All fields marked with an asterisk (*) are mandatory." };
+  }
+
+  if(check === "update"){
+    if(!id){
+      return { valid: false, error: "ID is required." };
+    }
+  }
+
+  if(check === "group-update"){
+    if(!id || !groupId){
+      return { valid: false, error: "ID's is required." };
+    }
+  }
+
+  if(check === "group-create"){
+    if(!groupId){
+      return { valid: false, error: "groupId ID is required." };
+    }
+    const existingTitle = await GroupProjectStage.findOne({ title, isDeleted: false }).select("title");
+    if (existingTitle) {
+      return { valid: false, error: "Title already exists!" };
+    }
+  }
+
+  if(check === "create"){
+    const existingTitle = await ProjectStage.findOne({ title, isDeleted: false }).select("title");
+    if (existingTitle) {
+      return { valid: false, error: "Title already exists!" };
+    }
+  }
+
+  return { valid: true };
 };

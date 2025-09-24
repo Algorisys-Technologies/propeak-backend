@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const DEFAULT_QUERY = "";
 const DEFAULT_PAGE = 0;
-const DEFAULT_LIMIT = 5;
+const DEFAULT_LIMIT = 6;
 const NOW = new Date();
 
 const toObjectId = (id) => {

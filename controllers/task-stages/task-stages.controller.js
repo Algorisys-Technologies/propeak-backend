@@ -3,7 +3,7 @@ const TaskStage = require("../../models/task-stages/task-stages-model");
 const GroupTaskStage = require("../../models/task-stages/group-task-stages-model");
 const audit = require("../audit-log/audit-log-controller");
 const Task = require("../../models/task/task-model");
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, toObjectId } = require("../../utils/defaultValues");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, toObjectId, NOW } = require("../../utils/defaultValues");
 
 
 // Create a new task stage
@@ -12,17 +12,13 @@ exports.create_task_stage = async (req, res) => {
     const { sequence, title, displayName, show, companyId, createdBy } =
       req.body;
 
-    if (!companyId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Company ID is required." });
-    }
-    if (!title || !displayName) {
-      return res.status(400).json({
-        success: false,
-        error: "Title and display name are required.",
-      });
-    }
+      const validation = await validateStages({ companyId, title, displayName, check : "create"});
+      if (!validation.valid) {
+          return res.json({
+          success: false,
+          message: validation.error
+        });
+      }
 
     const newStage = new TaskStage({
       sequence,
@@ -97,12 +93,12 @@ exports.get_task_stages = async (req, res) => {
   }
 };
 
-exports.get_task_stages = async (req, res) => {
+exports.get_task_stages_group = async (req, res) => {
   try {
     const { companyId } = req.body;
-    const stages = await TaskStage.find({
+    const stages = await GroupTaskStage.find({
       companyId: new mongoose.Types.ObjectId(companyId),
-      isDeleted: { $ne: true },
+      isDeleted: false, 
     }).select("_id displayName title");
     return res.status(200).json({ success: true, stages });
   }catch(error){
@@ -165,7 +161,7 @@ exports.select_task_stages = async (req, res) => {
     const { companyId } = req.body;
 
     const stages = await TaskStage.find({
-      companyId
+      companyId,
     }).select("_id displayName title");
 
     if (!stages) {
@@ -199,7 +195,9 @@ exports.get_task_stages_by_company = async (req, res) => {
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
       companyId: toObjectId(companyId),
       isDeleted: { $ne: true },
-    }).skip(page * limit).limit(limit);
+    }).sort({ sequence: 1 }) 
+    .select("_id title displayName show sequence")
+    .skip(page * limit).limit(limit);
 
     const totalCount = await TaskStage.countDocuments({
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
@@ -265,7 +263,16 @@ exports.get_task_stages_by_company = async (req, res) => {
 exports.update_task_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { modifiedBy, ...updateData } = req.body;
+    const { companyId, title, displayName, modifiedBy } = req.body;
+    const { ...updateData } = req.body;
+
+    const validation = await validateStages({ companyId, title, displayName, check : "update", id});
+    if (!validation.valid) {
+        return res.json({
+        success: false,
+        message: validation.error
+      });
+    }
 
     const updatedStage = await TaskStage.findByIdAndUpdate(
       id,
@@ -326,7 +333,7 @@ exports.reorder_task_stages = async (req, res) => {
     const updatePromises = stages.map((stage) =>
       TaskStage.findByIdAndUpdate(
         stage._id,
-        { sequence: stage.sequence, modifiedOn: new Date(), modifiedBy },
+        { sequence: stage.sequence, modifiedOn: NOW, modifiedBy },
         { new: true }
       )
     );
@@ -415,6 +422,7 @@ exports.select_group_task_stages = async (req, res) => {
     const stages = await GroupTaskStage.find({
       companyId,
       groupId,
+      isDeleted: false,
     }).select("_id displayName title");
 
     if (!stages) {
@@ -452,7 +460,9 @@ exports.get_task_stages_by_group = async (req, res) => {
       groupId: new mongoose.Types.ObjectId(groupId),
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
-    }).skip(page*limit).limit(limit);
+    }).sort({ sequence: 1 }) 
+    .select("_id title displayName show sequence")
+    .skip(page*limit).limit(limit);
 
     const totalCount = await GroupTaskStage.countDocuments({
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
@@ -529,12 +539,13 @@ exports.create_group_task_stage = async (req, res) => {
       createdBy,
     } = req.body;
 
-    if (!companyId || !groupId) {
-      return res.status(400).json({
-        success: false,
-        error: "Company ID and Group ID are required.",
-      });
-    }
+    const validation = await validateStages({ companyId, title, displayName, check : "group-create", groupId});
+      if (!validation.valid) {
+          return res.json({
+          success: false,
+          message: validation.error
+        });
+      }
 
     if (!title || !displayName) {
       return res.status(400).json({
@@ -596,14 +607,16 @@ exports.create_group_task_stage = async (req, res) => {
 exports.update_group_task_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { sequence, title, displayName, show, groupId, modifiedBy } =
+    const { sequence, title, displayName, show, groupId, modifiedBy, companyId } =
       req.body;
 
-    if (!groupId || !id) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Group ID and Stage ID are required." });
-    }
+      const validation = await validateStages({ companyId, title, displayName, check : "group-update", id, groupId});
+      if (!validation.valid) {
+          return res.json({
+          success: false,
+          message: validation.error
+        });
+      }
 
     const updatedData = {
       sequence,
@@ -670,7 +683,7 @@ exports.delete_group_task_stage = async (req, res) => {
 
 exports.reorder_group_task_stages = async (req, res) => {
   try {
-    const { companyId, groupId, stages = [] } = req.body;
+    const { companyId, groupId, stages } = req.body;
 
     if (!companyId || !groupId || !Array.isArray(stages)) {
       return res.status(400).json({
@@ -679,14 +692,24 @@ exports.reorder_group_task_stages = async (req, res) => {
       });
     }
 
-    const bulkOps = stages.map((stage, index) => ({
-      updateOne: {
-        filter: { _id: stage._id, companyId, groupId },
-        update: { $set: { sequence: index } },
-      },
-    }));
+    await Promise.all(
+      stages.map((stage) => {
+        return GroupTaskStage.findByIdAndUpdate(
+          stage._id,
+          { sequence: stage.sequence, modifiedOn: NOW },
+          { new: true }
+        );
+      })
+    );
 
-    await GroupTaskStage.bulkWrite(bulkOps);
+    // const bulkOps = stages.map((stage, index) => ({
+    //   updateOne: {
+    //     filter: { _id: stage._id, companyId, groupId },
+    //     update: { $set: { sequence: index } },
+    //   },
+    // }));
+
+    // await GroupTaskStage.bulkWrite(bulkOps);
 
     return res.status(200).json({
       success: true,
@@ -699,4 +722,46 @@ exports.reorder_group_task_stages = async (req, res) => {
       error: "Failed to reorder group-level task stages.",
     });
   }
+};
+
+
+const validateStages = async ({ companyId, title, displayName, check, id, groupId }) => {
+  if (!companyId) {
+    return { valid: false, error: "Company ID is required." };
+  }
+
+  if (!title || !displayName) {
+    return { valid: false, error: "All fields marked with an asterisk (*) are mandatory." };
+  }
+
+  if(check === "update"){
+    if(!id){
+      return { valid: false, error: "ID is required." };
+    }
+  }
+
+  if(check === "group-update"){
+    if(!id || !groupId){
+      return { valid: false, error: "ID's is required." };
+    }
+  }
+
+  if(check === "group-create"){
+    if(!groupId){
+      return { valid: false, error: "groupId ID is required." };
+    }
+    const existingTitle = await GroupTaskStage.findOne({ title, isDeleted: false }).select("title");
+    if (existingTitle) {
+      return { valid: false, error: "Title already exists!" };
+    }
+  }
+
+  if(check === "create"){
+    const existingTitle = await TaskStage.findOne({ title }).select("title");
+    if (existingTitle) {
+      return { valid: false, error: "Title already exists!" };
+    }
+  }
+
+  return { valid: true };
 };
