@@ -1,6 +1,7 @@
 const fs = require("fs");
 const { UploadFile } = require("../models/upload-file/upload-file-model");
 const Task = require("../models/task/task-model");
+const { VALID_FILE_EXTENSIONS } = require("./constants");
 
 async function validateAndSaveFiles(
   req,
@@ -18,22 +19,9 @@ async function validateAndSaveFiles(
 
   console.log("uploadedFiles.....", uploadedFiles);
 
-  const validFileExtn = [
-    "PDF",
-    "DOCX",
-    "PNG",
-    "JPEG",
-    "JPG",
-    "TXT",
-    "PPT",
-    "XLSX",
-    "XLS",
-    "PPTX",
-  ];
-
   for (const uploadedFile of uploadedFiles) {
     const fileExtn = uploadedFile.name.split(".").pop().toUpperCase();
-    if (!validFileExtn.includes(fileExtn)) continue;
+    if (!VALID_FILE_EXTENSIONS.includes(fileExtn)) continue;
 
     const projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
     if (!fs.existsSync(projectFolderPath))

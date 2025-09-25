@@ -12,8 +12,11 @@ const moment = require("moment");
 const fetchLeads = require("../../webscrape");
 //const { normalizeAddress } = require("../../utils/address");
 const { parseAddressWithGroq } = require("../../utils/address-groq");
-const levenshtein = require("fast-levenshtein");
+const {
+  findSimilarProjectByAddress,
+} = require("../../utils/address-similarity");
 const { getTaskStagesTitles } = require("../../utils/task-stage-helper");
+const { DEFAULT_TASK_STAGES } = require("../../utils/constants");
 
 // Create a new Project Setting
 exports.createProjectSetting = async (req, res) => {
@@ -556,39 +559,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
           let existingProject = null;
           if (projects.length > 0 && normalizedAddress) {
-            for (const proj of projects) {
-              const existingAddress =
-                proj.customFieldValues?.get("address") || "";
-
-              // console.log(
-              //   "Comparing:",
-              //   "new:",
-              //   normalizedAddress,
-              //   "old:",
-              //   existingAddress
-              // );
-
-              const distance = levenshtein.get(
-                normalizedAddress,
-                existingAddress
-              );
-              const maxLength = Math.max(
-                normalizedAddress.length,
-                existingAddress.length
-              );
-              const similarity = 1 - distance / maxLength;
-
-              if (similarity >= 0.8) {
-                // 80% threshold
-                existingProject = proj;
-                console.log(
-                  `Duplicate project detected: ${projectTitle} (${Math.round(
-                    similarity * 100
-                  )}% match)`
-                );
-                break;
-              }
-            }
+            existingProject = findSimilarProjectByAddress(
+              projects,
+              normalizedAddress
+            );
           }
 
           const regex = new RegExp(lead.label, "i");
@@ -613,32 +587,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           if (!existingProject) {
             let taskStagesTitleArr = [];
 
-            // if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
-            //   // Find in TaskStage by IDs
-            //   let taskStageDocs = [];
-            //   if (taskStagesArr && taskStagesArr.length > 0) {
-            //     taskStageDocs = await TaskStage.find({
-            //       _id: { $in: taskStagesArr },
-            //     }).select("title");
-            //   }
-
-            //   // Find in GroupTaskStage by groupId
-            //   let groupTaskStageDocs = [];
-            //   if (groupId) {
-            //     groupTaskStageDocs = await GroupTaskStage.find({
-            //       groupId: groupId,
-            //     }).select("title");
-            //   }
-
-            //   // Merge and remove duplicates
-            //   taskStagesTitleArr = [
-            //     ...new Set([
-            //       ...taskStageDocs.map((stage) => stage.title),
-            //       ...groupTaskStageDocs.map((stage) => stage.title),
-            //     ]),
-            //   ];
-            // }
-
             if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
               taskStagesTitleArr = await getTaskStagesTitles(
                 taskStagesArr,
@@ -654,11 +602,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               enddate: new Date(),
               status: "todo",
               projectStageId,
-              //taskStages: ["todo", "inprogress", "completed"],
               taskStages:
                 taskStagesTitleArr.length > 0
                   ? taskStagesTitleArr
-                  : ["todo", "inprogress", "completed"],
+                  : DEFAULT_TASK_STAGES,
               userid: new mongoose.Types.ObjectId(projectOwnerId),
               createdBy: new mongoose.Types.ObjectId(userId),
               createdOn: new Date(),
@@ -832,32 +779,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         if (!existingProject) {
           let taskStagesTitleArr = [];
 
-          // if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
-          //   // Find in TaskStage by IDs
-          //   let taskStageDocs = [];
-          //   if (taskStagesArr && taskStagesArr.length > 0) {
-          //     taskStageDocs = await TaskStage.find({
-          //       _id: { $in: taskStagesArr },
-          //     }).select("title");
-          //   }
-
-          //   // Find in GroupTaskStage by groupId
-          //   let groupTaskStageDocs = [];
-          //   if (groupId) {
-          //     groupTaskStageDocs = await GroupTaskStage.find({
-          //       groupId: groupId,
-          //     }).select("title");
-          //   }
-
-          //   // Merge and remove duplicates
-          //   taskStagesTitleArr = [
-          //     ...new Set([
-          //       ...taskStageDocs.map((stage) => stage.title),
-          //       ...groupTaskStageDocs.map((stage) => stage.title),
-          //     ]),
-          //   ];
-          // }
-
           if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
             taskStagesTitleArr = await getTaskStagesTitles(
               taskStagesArr,
@@ -873,11 +794,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             enddate: new Date(),
             status: "todo",
             projectStageId,
-            //taskStages: ["todo", "inprogress", "completed"],
             taskStages:
               taskStagesTitleArr.length > 0
                 ? taskStagesTitleArr
-                : ["todo", "inprogress", "completed"],
+                : DEFAULT_TASK_STAGES,
             userid: new mongoose.Types.ObjectId(projectOwnerId),
             createdBy: new mongoose.Types.ObjectId(userId),
             createdOn: new Date(),

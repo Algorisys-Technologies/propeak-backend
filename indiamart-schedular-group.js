@@ -9,8 +9,11 @@ const dotenv = require("dotenv");
 const Project = require("./models/project/project-model");
 const TaskStage = require("./models/task-stages/task-stages-model");
 const GroupTaskStage = require("./models/task-stages/group-task-stages-model");
-const { normalizeAddress } = require("./utils/address");
+//const { normalizeAddress } = require("./utils/address");
 const { getTaskStagesTitles } = require("./utils/task-stage-helper");
+const { parseAddressWithGroq } = require("./utils/address-groq");
+const { findSimilarProjectByAddress } = require("./utils/address-similarity");
+const { DEFAULT_TASK_STAGES } = require("./utils/constants");
 
 dotenv.config();
 
@@ -116,20 +119,38 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
 
             let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
 
-            const normalizedAddress = normalizeAddress(address);
+            //const normalizedAddress = normalizeAddress(address);
+            let structuredAddress = await parseAddressWithGroq(address);
+            const normalizedAddress = structuredAddress?.normalized || "";
 
-            let projectQuery = {
+            // let projectQuery = {
+            //   companyId,
+            //   group: new mongoose.Types.ObjectId(groupId),
+            //   title: projectTitle,
+            //   isDeleted: false,
+            // };
+
+            // if (normalizedAddress) {
+            //   projectQuery["customFieldValues.address"] = normalizedAddress;
+            // }
+
+            // let existingProject = await Project.findOne(projectQuery);
+
+            // Step 1: Find all projects with same company/group/title
+            let projects = await Project.find({
               companyId,
               group: new mongoose.Types.ObjectId(groupId),
               title: projectTitle,
               isDeleted: false,
-            };
+            });
 
-            if (normalizedAddress) {
-              projectQuery["customFieldValues.address"] = normalizedAddress;
+            let existingProject = null;
+            if (projects.length > 0 && normalizedAddress) {
+              existingProject = findSimilarProjectByAddress(
+                projects,
+                normalizedAddress
+              );
             }
-
-            let existingProject = await Project.findOne(projectQuery);
 
             const regex = new RegExp(lead.label, "i");
 
@@ -157,32 +178,6 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             if (!existingProject) {
               let taskStagesTitleArr = [];
 
-              // if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
-              //   // Find in TaskStage by IDs
-              //   let taskStageDocs = [];
-              //   if (taskStagesArr && taskStagesArr.length > 0) {
-              //     taskStageDocs = await TaskStage.find({
-              //       _id: { $in: taskStagesArr },
-              //     }).select("title");
-              //   }
-
-              //   // Find in GroupTaskStage by groupId
-              //   let groupTaskStageDocs = [];
-              //   if (groupId) {
-              //     groupTaskStageDocs = await GroupTaskStage.find({
-              //       groupId: groupId,
-              //     }).select("title");
-              //   }
-
-              //   // Merge and remove duplicates
-              //   taskStagesTitleArr = [
-              //     ...new Set([
-              //       ...taskStageDocs.map((stage) => stage.title),
-              //       ...groupTaskStageDocs.map((stage) => stage.title),
-              //     ]),
-              //   ];
-              // }
-
               if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
                 taskStagesTitleArr = await getTaskStagesTitles(
                   taskStagesArr,
@@ -198,11 +193,10 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
-                //taskStages: ["todo", "inprogress", "completed"],
                 taskStages:
                   taskStagesTitleArr.length > 0
                     ? taskStagesTitleArr
-                    : ["todo", "inprogress", "completed"],
+                    : DEFAULT_TASK_STAGES,
                 userid: new mongoose.Types.ObjectId(projectOwnerId),
                 createdBy: new mongoose.Types.ObjectId(userId),
                 createdOn: new Date(),
@@ -405,32 +399,6 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             if (!existingProject) {
               let taskStagesTitleArr = [];
 
-              // if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
-              //   // Find in TaskStage by IDs
-              //   let taskStageDocs = [];
-              //   if (taskStagesArr && taskStagesArr.length > 0) {
-              //     taskStageDocs = await TaskStage.find({
-              //       _id: { $in: taskStagesArr },
-              //     }).select("title");
-              //   }
-
-              //   // Find in GroupTaskStage by groupId
-              //   let groupTaskStageDocs = [];
-              //   if (groupId) {
-              //     groupTaskStageDocs = await GroupTaskStage.find({
-              //       groupId: groupId,
-              //     }).select("title");
-              //   }
-
-              //   // Merge and remove duplicates
-              //   taskStagesTitleArr = [
-              //     ...new Set([
-              //       ...taskStageDocs.map((stage) => stage.title),
-              //       ...groupTaskStageDocs.map((stage) => stage.title),
-              //     ]),
-              //   ];
-              // }
-
               if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
                 taskStagesTitleArr = await getTaskStagesTitles(
                   taskStagesArr,
@@ -446,11 +414,10 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
-                //taskStages: ["todo", "inprogress", "completed"],
                 taskStages:
                   taskStagesTitleArr.length > 0
                     ? taskStagesTitleArr
-                    : ["todo", "inprogress", "completed"],
+                    : DEFAULT_TASK_STAGES,
                 userid: new mongoose.Types.ObjectId(projectOwnerId),
                 createdBy: new mongoose.Types.ObjectId(userId),
                 createdOn: new Date(),
