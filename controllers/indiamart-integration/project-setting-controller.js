@@ -6,9 +6,17 @@ const Lead = require("../../models/indiamart-integration/indiamart-lead-model");
 const Task = require("../../models/task/task-model");
 const Project = require("../../models/project/project-model");
 const User = require("../../models/user/user-model");
+const TaskStage = require("../../models/task-stages/task-stages-model");
+const GroupTaskStage = require("../../models/task-stages/group-task-stages-model");
 const moment = require("moment");
 const fetchLeads = require("../../webscrape");
-const { normalizeAddress } = require("../../utils/address");
+//const { normalizeAddress } = require("../../utils/address");
+const { parseAddressWithGroq } = require("../../utils/address-groq");
+const {
+  findSimilarProjectByAddress,
+} = require("../../utils/address-similarity");
+const { getTaskStagesTitles } = require("../../utils/task-stage-helper");
+const { DEFAULT_TASK_STAGES } = require("../../utils/constants");
 
 // Create a new Project Setting
 exports.createProjectSetting = async (req, res) => {
@@ -48,8 +56,6 @@ exports.getAllProjectSetting = async (req, res) => {
       .json({ success: false, message: "Company ID is required" });
   }
 
-  console.log(`Received companyId from request body: ${companyId}`);
-
   try {
     const projectSetting = await ProjectSetting.find({ companyId, projectId });
 
@@ -60,9 +66,9 @@ exports.getAllProjectSetting = async (req, res) => {
       });
     }
 
-    console.log(
-      `Fetched project settings: ${JSON.stringify(projectSetting, null, 2)}`
-    );
+    // console.log(
+    //   `Fetched project settings: ${JSON.stringify(projectSetting, null, 2)}`
+    // );
 
     res.status(200).json({ success: true, data: projectSetting });
   } catch (error) {
@@ -96,8 +102,6 @@ exports.getProjectSettingById = async (req, res) => {
 };
 
 exports.updateProjectSetting = async (req, res) => {
-  console.log("update project setting................");
-  console.log(req.body, "request body of update...........");
   try {
     const projectSetting = await ProjectSetting.findByIdAndUpdate(
       req.body.id,
@@ -105,7 +109,6 @@ exports.updateProjectSetting = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    console.log(projectSetting, "projectSetting....................");
     if (!projectSetting) {
       return res
         .status(404)
@@ -121,7 +124,7 @@ exports.updateProjectSetting = async (req, res) => {
 // Create a new Group Setting
 exports.createGroupSetting = async (req, res) => {
   try {
-    const { groupId } = req.body;
+    const { groupId, taskStagesArr, ...rest } = req.body;
 
     if (!groupId) {
       return res
@@ -137,8 +140,15 @@ exports.createGroupSetting = async (req, res) => {
       });
     }
 
+    const normalizedData = {
+      ...rest,
+      groupId,
+      taskStagesArr: Array.isArray(taskStagesArr) ? taskStagesArr : [],
+    };
+
     // Create a new GroupSetting
-    const groupSetting = new GroupSetting(req.body);
+    //const groupSetting = new GroupSetting(req.body);
+    const groupSetting = new GroupSetting(normalizedData);
     await groupSetting.save();
 
     res.status(201).json({ success: true, data: groupSetting });
@@ -215,9 +225,6 @@ exports.updateGroupSetting = async (req, res) => {
 };
 
 exports.fetchIndiaMartSettings = async (req, res) => {
-  console.log("fetch email settings");
-  console.log(req.body, "request body ...................");
-
   const {
     startDate,
     endDate,
@@ -255,7 +262,7 @@ exports.fetchIndiaMartSettings = async (req, res) => {
   const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
 
   const projectSetting = await ProjectSetting.findOne({ projectId });
-  console.log(projectSetting, "projectSetting.....................");
+
   if (!projectSetting) {
     res
       .status(404)
@@ -265,10 +272,8 @@ exports.fetchIndiaMartSettings = async (req, res) => {
   if (projectSetting.method == "API") {
     try {
       const response = await axios.get(url);
-      console.log("API response:", response.data);
 
       const leadsData = response.data.RESPONSE;
-      console.log(leadsData, "leadsData.....................");
 
       if (enabled) {
         const tasks = leadsData.map((lead) => ({
@@ -350,7 +355,6 @@ exports.fetchIndiaMartSettings = async (req, res) => {
       fetchFrequetly,
       lastFetched,
     } = projectSetting;
-    console.log(authKey);
 
     let newStartDate;
     let newEndDate;
@@ -385,8 +389,6 @@ exports.fetchIndiaMartSettings = async (req, res) => {
       console.log(
         `Fetched ${leadsData.length} leads for companyId: ${companyId}`
       );
-
-      console.log("manual leadsData final...", leadsData);
 
       for (const lead of leadsData) {
         // Check for existing tasks to avoid duplicates
@@ -450,9 +452,6 @@ exports.fetchIndiaMartSettings = async (req, res) => {
 };
 
 exports.fetchIndiaMartSettingsGroup = async (req, res) => {
-  console.log("fetch email settings");
-  console.log(req.body, "request body ...................");
-
   const {
     startDate,
     endDate,
@@ -460,6 +459,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     enabled,
     groupId,
     taskStageId,
+    taskStagesArr,
     projectStageId,
     projectTypeId,
     projectOwnerId,
@@ -502,7 +502,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
   const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
 
   const groupSetting = await GroupSetting.findOne({ groupId });
-  console.log(groupSetting, "projectSetting.....................");
+  //console.log(groupSetting, "projectSetting.....................");
   if (!groupSetting) {
     res
       .status(404)
@@ -512,7 +512,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
   if (groupSetting.method == "API") {
     try {
       const response = await axios.get(url);
-      //console.log("API response:", response.data);
+
       console.log("Total leads received:", response.data.RESPONSE?.length || 0);
 
       const leadsData = response.data.RESPONSE;
@@ -532,28 +532,42 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
 
           let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
 
-          const normalizedAddress = normalizeAddress(address);
+          //const normalizedAddress = normalizeAddress(address);
+          let structuredAddress = await parseAddressWithGroq(address);
+          const normalizedAddress = structuredAddress?.normalized || "";
 
-          let projectQuery = {
+          // let projectQuery = {
+          //   companyId,
+          //   group: new mongoose.Types.ObjectId(groupId),
+          //   title: projectTitle,
+          //   isDeleted: false,
+          // };
+
+          // if (normalizedAddress) {
+          //   projectQuery["customFieldValues.address"] = normalizedAddress;
+          // }
+
+          // let existingProject = await Project.findOne(projectQuery);
+
+          // Step 1: Find all projects with same company/group/title
+          let projects = await Project.find({
             companyId,
             group: new mongoose.Types.ObjectId(groupId),
             title: projectTitle,
             isDeleted: false,
-          };
+          });
 
-          if (normalizedAddress) {
-            projectQuery["customFieldValues.address"] = normalizedAddress;
+          let existingProject = null;
+          if (projects.length > 0 && normalizedAddress) {
+            existingProject = findSimilarProjectByAddress(
+              projects,
+              normalizedAddress
+            );
           }
-
-          let existingProject = await Project.findOne(projectQuery);
 
           const regex = new RegExp(lead.label, "i");
 
-          console.log("regex", regex, "lead.label", lead.label);
-
           const users = await User.find({ name: { $regex: regex }, companyId });
-
-          console.log("users...", users);
 
           console.log("Existing Project:", existingProject);
           const projectUsers = Array.from(
@@ -571,34 +585,37 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           );
 
           if (!existingProject) {
+            let taskStagesTitleArr = [];
+
+            if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+              taskStagesTitleArr = await getTaskStagesTitles(
+                taskStagesArr,
+                groupId
+              );
+            }
+
             existingProject = new Project({
               companyId,
-              // title: lead.SENDER_COMPANY,
               title: projectTitle,
               description: projectTitle,
               startdate: lead.QUERY_TIME,
               enddate: new Date(),
               status: "todo",
               projectStageId,
-              taskStages: ["todo", "inprogress", "completed"],
-              //userid: new mongoose.Types.ObjectId("6697895d67a0c74106a26a13"),
+              taskStages:
+                taskStagesTitleArr.length > 0
+                  ? taskStagesTitleArr
+                  : DEFAULT_TASK_STAGES,
               userid: new mongoose.Types.ObjectId(projectOwnerId),
               createdBy: new mongoose.Types.ObjectId(userId),
               createdOn: new Date(),
               modifiedOn: new Date(),
               sendnotification: false,
-              //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
               group: new mongoose.Types.ObjectId(groupId),
               isDeleted: false,
               miscellaneous: false,
               archive: false,
               customFieldValues: { address: normalizedAddress },
-              // projectUsers: [
-              //   new mongoose.Types.ObjectId(userId),
-              //   new mongoose.Types.ObjectId(projectOwnerId),
-              //   new mongoose.Types.ObjectId(notifyUserId),
-              //   users[0]?._id || null,
-              // ],
               projectUsers: projectUsers,
               notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
               messages: [],
@@ -606,9 +623,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               tasks: [],
               customTaskFields: [],
               projectTypeId: new mongoose.Types.ObjectId(projectTypeId),
-              // projectTypeId: new mongoose.Types.ObjectId(
-              //   "673202c115c8e180c21e9ac7"
-              // ),
               creation_mode: "AUTO",
               lead_source: "INDIAMART",
               tag: [lead.label],
@@ -629,8 +643,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
           });
 
-          //console.log("Existing Task:", existingTask);
-
           if (existingTask) {
             console.log(
               `Task already exists for subject: ${lead.SUBJECT} - Skipping.`
@@ -642,9 +654,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           const newTask = new Task({
             projectId: existingProject._id,
             taskStageId,
-            // taskStageId: new mongoose.Types.ObjectId(
-            //   "6732031b15c8e180c21e9aee"
-            // ),
             companyId,
             title: lead.SUBJECT,
             description: lead.SUBJECT,
@@ -673,7 +682,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           });
 
           await newTask.save();
-          //console.log(`Task created for lead: ${lead.SUBJECT}`);
         }
 
         res
@@ -694,6 +702,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       userId,
       projectStageId,
       taskStageId,
+      taskStagesArr,
       projectTypeId,
       projectOwnerId,
       notifyUserId,
@@ -701,10 +710,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       startDate,
       endDate,
     } = groupSetting;
-
-    console.log("GroupID check", groupId);
-
-    console.log(authKey);
 
     let newStartDate = new Date(startDate);
     let newEndDate = new Date(endDate);
@@ -740,22 +745,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
       );
 
       for (const lead of leadsData) {
-        // Check if a project already exists for the same SENDER_NAME
-        // let existingProject = await Project.findOne({
-        //   companyId,
-        //   group: new mongoose.Types.ObjectId(groupId),
-        //   title: lead.name,
-        //   isDeleted: false,
-        // });
-
-        // let existingProject = await Project.findOne({
-        //   companyId,
-        //   group: new mongoose.Types.ObjectId(groupId),
-        //   title: lead.name,
-        //   isDeleted: false,
-        //   "customFieldValues.address": lead.address,
-        // });
-
         let projectQuery = {
           companyId,
           group: new mongoose.Types.ObjectId(groupId),
@@ -768,33 +757,11 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         }
 
         let existingProject = await Project.findOne(projectQuery);
-        // let existingProject = null;
-        // let existingTitleProject = await Project.findOne({
-        //   companyId,
-        //   group: new mongoose.Types.ObjectId(groupId),
-        //   title: lead.name,
-        //   isDeleted: false,
-        // });
-
-        // // If address is present, check for matching project with same address
-        // if (lead.address && existingTitleProject) {
-        //   if (
-        //     existingTitleProject.customFieldValues?.address &&
-        //     existingTitleProject.customFieldValues.address
-        //       .trim()
-        //       .toLowerCase() === lead.address.trim().toLowerCase()
-        //   ) {
-        //     existingProject = existingTitleProject;
-        //   }
-        // }
 
         const regex = new RegExp(lead.label, "i");
 
         const users = await User.find({ name: { $regex: regex }, companyId });
 
-        console.log("users...", users);
-
-        // console.log("existingProject", existingProject);
         const projectUsers = Array.from(
           new Set(
             [
@@ -810,6 +777,15 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
         );
 
         if (!existingProject) {
+          let taskStagesTitleArr = [];
+
+          if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+            taskStagesTitleArr = await getTaskStagesTitles(
+              taskStagesArr,
+              groupId
+            );
+          }
+
           existingProject = new Project({
             companyId,
             title: lead.name,
@@ -818,10 +794,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             enddate: new Date(),
             status: "todo",
             projectStageId,
-            // projectStageId: new mongoose.Types.ObjectId(
-            //   "673202d015c8e180c21e9acf"
-            // ),
-            taskStages: ["todo", "inprogress", "completed"],
+            taskStages:
+              taskStagesTitleArr.length > 0
+                ? taskStagesTitleArr
+                : DEFAULT_TASK_STAGES,
             userid: new mongoose.Types.ObjectId(projectOwnerId),
             createdBy: new mongoose.Types.ObjectId(userId),
             createdOn: new Date(),
@@ -835,12 +811,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             customFieldValues: {
               address: lead.address,
             },
-            // projectUsers: [
-            //   new mongoose.Types.ObjectId(userId),
-            //   new mongoose.Types.ObjectId(projectOwnerId),
-            //   new mongoose.Types.ObjectId(notifyUserId),
-            //   users[0]?._id || null,
-            // ],
             projectUsers: projectUsers,
             notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
             messages: [],
@@ -853,12 +823,9 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             tag: [lead.label],
           });
 
-          // console.log("existingProject creation", existingProject);
-
           await existingProject.save();
           console.log(`Project created: ${lead.name}`);
         } else {
-          //console.log(`Project already exists: ${lead.name} - Skipping.`);
           console.log(`Project already exists: ${lead.name}`);
         }
 
@@ -868,8 +835,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           title: lead.productName,
           isDeleted: false,
         });
-
-        //console.log("existingTask", existingTask);
 
         // if (existingTask) {
         //   console.log(
@@ -883,7 +848,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
           const newTask = new Task({
             projectId: existingProject._id,
             taskStageId,
-            //taskStageId: new mongoose.Types.ObjectId("6732031b15c8e180c21e9aee"),
             companyId,
             title: lead.productName,
             description: lead.productName,
@@ -906,19 +870,14 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
             isDeleted: false,
           });
 
-          console.log("newTask", newTask);
-
           await newTask.save();
           console.log(`Task created for lead: ${lead.productName}`);
         } else {
           console.log(`Task already exists for product: ${lead.productName}`);
         }
 
-        //console.log("lead-leadDetail...", lead.leadDetail);
-
         if (lead.leadDetail && Array.isArray(lead.leadDetail)) {
           for (const detail of lead.leadDetail) {
-            //console.log("detail...", JSON.stringify(detail));
             try {
               const response = await fetch(
                 "http://142.93.222.95:8000/extract_product",
@@ -936,12 +895,10 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               }
 
               const responseData = await response.json();
-              //console.log("JSON detail:", JSON.stringify(detail));
-              //console.log("Extracted Product Data:", responseData);
 
               if (!responseData?.product) {
                 console.log("No product extracted, skipping task creation.");
-                continue; // Skip this iteration
+                continue;
               }
 
               // Prevent duplicate tasks
@@ -988,8 +945,6 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
                 },
                 isDeleted: false,
               });
-
-              console.log("newTask", newTask);
 
               await newTask.save();
               console.log(`Task created for lead: ${responseData?.product}`);

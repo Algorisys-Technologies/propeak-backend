@@ -7,7 +7,13 @@ const User = require("./models/user/user-model");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const Project = require("./models/project/project-model");
-const { normalizeAddress } = require("./utils/address");
+const TaskStage = require("./models/task-stages/task-stages-model");
+const GroupTaskStage = require("./models/task-stages/group-task-stages-model");
+//const { normalizeAddress } = require("./utils/address");
+const { getTaskStagesTitles } = require("./utils/task-stage-helper");
+const { parseAddressWithGroq } = require("./utils/address-groq");
+const { findSimilarProjectByAddress } = require("./utils/address-similarity");
+const { DEFAULT_TASK_STAGES } = require("./utils/constants");
 
 dotenv.config();
 
@@ -49,6 +55,7 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
           userId,
           groupId,
           taskStageId,
+          taskStagesArr,
           projectStageId,
           projectTypeId,
           projectOwnerId,
@@ -60,6 +67,8 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
           lastFetched,
         } = setting;
         console.log(authKey);
+
+        console.log("taskStagesArr", taskStagesArr);
 
         let newStartDate;
         let newEndDate;
@@ -110,20 +119,38 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
 
             let address = `${lead.SENDER_ADDRESS}, City: ${lead.SENDER_CITY}, State: ${lead.SENDER_STATE}, Pincode: ${lead.SENDER_PINCODE}, Country: ${lead.SENDER_COUNTRY_ISO}`;
 
-            const normalizedAddress = normalizeAddress(address);
+            //const normalizedAddress = normalizeAddress(address);
+            let structuredAddress = await parseAddressWithGroq(address);
+            const normalizedAddress = structuredAddress?.normalized || "";
 
-            let projectQuery = {
+            // let projectQuery = {
+            //   companyId,
+            //   group: new mongoose.Types.ObjectId(groupId),
+            //   title: projectTitle,
+            //   isDeleted: false,
+            // };
+
+            // if (normalizedAddress) {
+            //   projectQuery["customFieldValues.address"] = normalizedAddress;
+            // }
+
+            // let existingProject = await Project.findOne(projectQuery);
+
+            // Step 1: Find all projects with same company/group/title
+            let projects = await Project.find({
               companyId,
               group: new mongoose.Types.ObjectId(groupId),
               title: projectTitle,
               isDeleted: false,
-            };
+            });
 
-            if (normalizedAddress) {
-              projectQuery["customFieldValues.address"] = normalizedAddress;
+            let existingProject = null;
+            if (projects.length > 0 && normalizedAddress) {
+              existingProject = findSimilarProjectByAddress(
+                projects,
+                normalizedAddress
+              );
             }
-
-            let existingProject = await Project.findOne(projectQuery);
 
             const regex = new RegExp(lead.label, "i");
 
@@ -149,6 +176,15 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             );
 
             if (!existingProject) {
+              let taskStagesTitleArr = [];
+
+              if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+                taskStagesTitleArr = await getTaskStagesTitles(
+                  taskStagesArr,
+                  groupId
+                );
+              }
+
               existingProject = new Project({
                 companyId,
                 title: projectTitle,
@@ -157,24 +193,20 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
-                taskStages: ["todo", "inprogress", "completed"],
+                taskStages:
+                  taskStagesTitleArr.length > 0
+                    ? taskStagesTitleArr
+                    : DEFAULT_TASK_STAGES,
                 userid: new mongoose.Types.ObjectId(projectOwnerId),
                 createdBy: new mongoose.Types.ObjectId(userId),
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 sendnotification: false,
-                //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
                 group: new mongoose.Types.ObjectId(groupId),
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
                 customFieldValues: { address: normalizedAddress },
-                // projectUsers: [
-                //   new mongoose.Types.ObjectId(userId),
-                //   new mongoose.Types.ObjectId(projectOwnerId),
-                //   new mongoose.Types.ObjectId(notifyUserId),
-                //   users[0]?._id || null,
-                // ],
                 projectUsers: projectUsers,
                 notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
                 messages: [],
@@ -215,11 +247,8 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             const newTask = new Task({
               projectId: existingProject._id,
               taskStageId,
-              // taskStageId: new mongoose.Types.ObjectId(
-              //   "6732031b15c8e180c21e9aee"
-              // ),
               companyId,
-              title: lead.SUBJECT, // Use lead subject as task title
+              title: lead.SUBJECT,
               description: lead.SUBJECT,
               startDate: lead.QUERY_TIME,
               createdOn: new Date(),
@@ -267,6 +296,7 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
           userId,
           groupId,
           taskStageId,
+          taskStagesArr,
           projectStageId,
           projectTypeId,
           projectOwnerId,
@@ -367,6 +397,15 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
             );
 
             if (!existingProject) {
+              let taskStagesTitleArr = [];
+
+              if ((taskStagesArr && taskStagesArr.length > 0) || groupId) {
+                taskStagesTitleArr = await getTaskStagesTitles(
+                  taskStagesArr,
+                  groupId
+                );
+              }
+
               existingProject = new Project({
                 companyId,
                 title: lead.name,
@@ -375,27 +414,20 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
                 enddate: new Date(),
                 status: "todo",
                 projectStageId,
-                // projectStageId: new mongoose.Types.ObjectId(
-                //   "673202d015c8e180c21e9acf"
-                // ),
-                taskStages: ["todo", "inprogress", "completed"],
+                taskStages:
+                  taskStagesTitleArr.length > 0
+                    ? taskStagesTitleArr
+                    : DEFAULT_TASK_STAGES,
                 userid: new mongoose.Types.ObjectId(projectOwnerId),
                 createdBy: new mongoose.Types.ObjectId(userId),
                 createdOn: new Date(),
                 modifiedOn: new Date(),
                 sendnotification: false,
-                //group: new mongoose.Types.ObjectId("67d9109da7af4496e62ad5f6"),
                 group: new mongoose.Types.ObjectId(groupId),
                 isDeleted: false,
                 miscellaneous: false,
                 archive: false,
                 customFieldValues: { address: lead.address },
-                // projectUsers: [
-                //   new mongoose.Types.ObjectId(userId),
-                //   new mongoose.Types.ObjectId(projectOwnerId),
-                //   new mongoose.Types.ObjectId(notifyUserId),
-                //   users[0]?._id || null,
-                // ],
                 projectUsers: projectUsers,
                 notifyUsers: [new mongoose.Types.ObjectId(notifyUserId)],
                 messages: [],
