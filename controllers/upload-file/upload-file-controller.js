@@ -26,6 +26,9 @@ const GroupProjectStage = require("../../models/project-stages/group-project-sta
 const { dateFnsLocalizer } = require("react-big-calendar");
 const Product = require("../../models/product/product-model");
 const projectType = require("../../models/project-types/project-types-model");
+const {
+  uploadProjectFiles,
+} = require("../../utils/project-file-upload-helper");
 const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
 };
@@ -1435,63 +1438,51 @@ exports.deleteUploadFile = (req, res) => {
 };
 
 // exports.postUploadFileByProjectId = async (req, res) => {
-//   console.log(req.body);
-//   console.log(req.files.uploadFile, "files...");
-//   const companyId = req.body.companyId;
-//   const projectId = req.body.projectId;
-//   const taskId = req.body.taskId || null;
-
-//   let uploadFile = {
-//     _id: req.body._id,
-//     fileName: req.body.fileName,
-//     isDeleted: false,
-//     createdBy: req.body.userId,
-//     createdOn: new Date(),
-//     companyId: companyId,
-//     projectId: projectId,
-//     taskId: taskId,
-//   };
-
-//   const newuploadfile = new UploadFile(uploadFile);
-//   const result = await newuploadfile.save();
-
-//   if (taskId) {
-//     await Task.findOneAndUpdate(
-//       { _id: taskId },
-//       { $push: { uploadFiles: result._id } }
-//     );
-//   } else {
-//     await Project.findOneAndUpdate(
-//       { _id: projectId },
-//       { $push: { uploadFiles: result._id } }
-//     );
-//   }
-
 //   try {
-//     if (!req.files.uploadFile) {
-//       res.send({ error: "No files were uploaded." });
-//       return;
+//     const companyId = req.body.companyId;
+//     const projectId = req.body.projectId;
+//     const taskId = req.body.taskId || null;
+
+//     if (!req.files || !req.files.uploadFile) {
+//       return res.status(400).send({ error: "No files were uploaded." });
 //     }
 
-//     const fileName = req.body.fileName;
-//     const uploadedFile = req.files.uploadFile;
-//     const fileUploaded = uploadedFile.name.split(".");
-//     const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+//     // Ensure files is always an array
+//     const files = Array.isArray(req.files.uploadFile)
+//       ? req.files.uploadFile
+//       : [req.files.uploadFile];
 
-//     const validFileExtn = [
-//       "PDF",
-//       "DOCX",
-//       "PNG",
-//       "JPEG",
-//       "JPG",
-//       "TXT",
-//       "PPT",
-//       "XLSX",
-//       "XLS",
-//       "PPTX",
-//     ];
+//     console.log("files...", files);
 
-//     if (validFileExtn.includes(fileExtn)) {
+//     const uploadedFilesData = [];
+
+//     for (const uploadedFile of files) {
+//       const fileName = uploadedFile.name;
+//       const fileUploaded = fileName.split(".");
+//       const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+
+//       const validFileExtn = [
+//         "PDF",
+//         "DOCX",
+//         "PNG",
+//         "JPEG",
+//         "JPG",
+//         "TXT",
+//         "PPT",
+//         "XLSX",
+//         "XLS",
+//         "PPTX",
+//       ];
+
+//       if (!validFileExtn.includes(fileExtn)) {
+//         uploadedFilesData.push({
+//           fileName,
+//           success: false,
+//           error: `File format not supported!`,
+//         });
+//         continue;
+//       }
+
 //       let projectFolderPath;
 //       if (taskId) {
 //         projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
@@ -1503,117 +1494,66 @@ exports.deleteUploadFile = (req, res) => {
 //         fs.mkdirSync(projectFolderPath, { recursive: true });
 //       }
 
-//       uploadedFile.mv(`${projectFolderPath}/${fileName}`, function (err) {
-//         if (err) {
-//           console.log(err);
-//           res.send({ error: "File Not Saved." });
-//         }
-//       });
-//     } else {
-//       res.send({
-//         error:
-//           "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS', 'PPTX')",
-//       });
+//       // Move file
+//       await uploadedFile.mv(`${projectFolderPath}/${fileName}`);
+
+//       // Save to database
+//       let uploadFileData = {
+//         _id: req.body._id,
+//         fileName,
+//         isDeleted: false,
+//         createdBy: req.body.userId,
+//         createdOn: new Date(),
+//         companyId,
+//         projectId,
+//         taskId,
+//       };
+
+//       const newUploadFile = new UploadFile(uploadFileData);
+//       const result = await newUploadFile.save();
+
+//       if (taskId) {
+//         await Task.findOneAndUpdate(
+//           { _id: taskId },
+//           { $push: { uploadFiles: result._id } }
+//         );
+//       } else {
+//         await Project.findOneAndUpdate(
+//           { _id: projectId },
+//           { $push: { uploadFiles: result._id } }
+//         );
+//       }
+
+//       uploadedFilesData.push({ fileName, success: true, id: result._id });
 //     }
+
+//     res.send({ success: true, uploadedFiles: uploadedFilesData });
 //   } catch (err) {
-//     console.log(err);
+//     console.error(err);
+//     res.status(500).send({ error: "Something went wrong" });
 //   }
 // };
 
 exports.postUploadFileByProjectId = async (req, res) => {
   try {
-    const companyId = req.body.companyId;
-    const projectId = req.body.projectId;
-    const taskId = req.body.taskId || null;
+    const { companyId, projectId, taskId, userId, _id } = req.body;
 
-    if (!req.files || !req.files.uploadFile) {
-      return res.status(400).send({ error: "No files were uploaded." });
-    }
-
-    // Ensure files is always an array
-    const files = Array.isArray(req.files.uploadFile)
-      ? req.files.uploadFile
-      : [req.files.uploadFile];
-
-    console.log("files...", files);
-
-    const uploadedFilesData = [];
-
-    for (const uploadedFile of files) {
-      const fileName = uploadedFile.name;
-      const fileUploaded = fileName.split(".");
-      const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
-
-      const validFileExtn = [
-        "PDF",
-        "DOCX",
-        "PNG",
-        "JPEG",
-        "JPG",
-        "TXT",
-        "PPT",
-        "XLSX",
-        "XLS",
-        "PPTX",
-      ];
-
-      if (!validFileExtn.includes(fileExtn)) {
-        uploadedFilesData.push({
-          fileName,
-          success: false,
-          error: `File format not supported!`,
-        });
-        continue;
-      }
-
-      let projectFolderPath;
-      if (taskId) {
-        projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
-      } else {
-        projectFolderPath = `${uploadFolder}/${companyId}/${projectId}`;
-      }
-
-      if (!fs.existsSync(projectFolderPath)) {
-        fs.mkdirSync(projectFolderPath, { recursive: true });
-      }
-
-      // Move file
-      await uploadedFile.mv(`${projectFolderPath}/${fileName}`);
-
-      // Save to database
-      let uploadFileData = {
-        _id: req.body._id,
-        fileName,
-        isDeleted: false,
-        createdBy: req.body.userId,
-        createdOn: new Date(),
-        companyId,
-        projectId,
-        taskId,
-      };
-
-      const newUploadFile = new UploadFile(uploadFileData);
-      const result = await newUploadFile.save();
-
-      if (taskId) {
-        await Task.findOneAndUpdate(
-          { _id: taskId },
-          { $push: { uploadFiles: result._id } }
-        );
-      } else {
-        await Project.findOneAndUpdate(
-          { _id: projectId },
-          { $push: { uploadFiles: result._id } }
-        );
-      }
-
-      uploadedFilesData.push({ fileName, success: true, id: result._id });
-    }
+    const uploadedFilesData = await uploadProjectFiles({
+      files: req.files,
+      companyId,
+      projectId,
+      taskId: taskId || null,
+      uploadFolder,
+      userId,
+      _id,
+    });
 
     res.send({ success: true, uploadedFiles: uploadedFilesData });
   } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: "Something went wrong" });
+    console.error("Upload error:", err);
+    res
+      .status(err.message === "No files were uploaded." ? 400 : 500)
+      .send({ error: err.message || "Something went wrong" });
   }
 };
 
