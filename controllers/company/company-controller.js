@@ -2,10 +2,11 @@ const mongoose = require("mongoose");
 const Company = require("../../models/company/company-model.js");
 const userModel = require("../../models/user/user-model.js");
 const { companyCode } = require("../../config/config.js");
+const { logError } = require("../../common/logger.js");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, toObjectId } = require("../../utils/defaultValues");
 
 // Create a Company
 exports.createCompany = async (req, res) => {
-  // console.log("company.........................")
   try {
     const {
       companyName,
@@ -18,7 +19,6 @@ exports.createCompany = async (req, res) => {
       logo,
       geoTrackingTime,
     } = req.body;
-    // console.log(req.body, "request body response ");
     // Validate required fields
     if (!companyName || !companyCode) {
       return res.status(400).json({
@@ -55,7 +55,7 @@ exports.createCompany = async (req, res) => {
     await newCompany.save();
     return res.status(201).json({ success: true, company: newCompany });
   } catch (error) {
-    console.error("Error creating company:", error);
+    logError(error.stack || error.message, "createCompany");
     return res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -136,7 +136,7 @@ exports.getAllCompanies = async (req, res) => {
       totalPages,
     });
   } catch (error) {
-    console.error("Error fetching companies:", error);
+    logError(error.stack || error.message, "getAllCompanies");
     return res.status(500).json({
       success: false,
       error: "Failed to load companies.",
@@ -149,7 +149,7 @@ exports.getCompanyById = async (req, res) => {
     const { id: companyId } = req.params;
 
     // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(companyId)) {
+    if (!toObjectId(companyId)) {
       return res
         .status(400)
         .json({ success: false, error: "Invalid Company ID." });
@@ -165,6 +165,7 @@ exports.getCompanyById = async (req, res) => {
 
     return res.status(200).json({ success: true, companies: [company] });
   } catch (error) {
+    logError(error.stack || error.message, "getCompanyById");
     return res
       .status(500)
       .json({ success: false, error: "Failed to load company." });
@@ -190,6 +191,7 @@ exports.updateCompany = async (req, res) => {
 
     return res.status(200).json({ success: true, company: updatedCompany });
   } catch (error) {
+    logError(error.stack || error.message, "updateCompany");
     return res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -212,6 +214,7 @@ exports.deleteCompany = async (req, res) => {
     }
     return res.status(204).send();
   } catch (error) {
+    logError(error.stack || error.message, "deleteCompany");
     return res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -255,7 +258,7 @@ exports.getCompaniesByEmail = async (req, res) => {
 
     return res.status(200).json({ success: true, companies });
   } catch (error) {
-    console.error("Error fetching companies by email:", error);
+    logError(error.stack || error.message, "getCompaniesByEmail");
     return res
       .status(500)
       .json({ success: false, error: "Failed to load companies." });
