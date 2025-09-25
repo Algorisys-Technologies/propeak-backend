@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const ProjectType = require("../../models/project-types/project-types-model");
 const audit = require("../audit-log/audit-log-controller");
 const AuditLogs = require("../../models/auditlog/audit-log-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, toObjectId } = require("../../utils/defaultValues");
 
 exports.create_project_type = async (req, res) => {
   console.log("create_project_type request received");
@@ -15,9 +16,21 @@ exports.create_project_type = async (req, res) => {
     }
 
     if (!projectType) {
-      return res.status(400).json({
+      return res.json({
         success: false,
-        error: "Project type is required.",
+        message: "Project type is required.",
+      });
+    }
+
+    const existingType = await ProjectType.findOne({
+      projectType,
+      isDeleted: false,
+    });
+
+    if(existingType){
+      return res.json({
+        success: false,
+        message: "Project type is already exits.",
       });
     }
 
@@ -53,9 +66,9 @@ exports.create_project_type = async (req, res) => {
       }
     });
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: "Project type created successfully!",
+      message: `The project type "${result.projectType}" was successfully added`,
       projectType: result,
     });
   } catch (error) {
@@ -68,7 +81,7 @@ exports.create_project_type = async (req, res) => {
 
 exports.select_project_types = async (req, res) => {
   try {
-    const { companyId, query } = req.body;
+    const { companyId } = req.body;
 
     // Validate companyId
     if (!companyId) {
@@ -96,8 +109,9 @@ exports.select_project_types = async (req, res) => {
 // Get project types by company
 exports.get_project_types_by_company = async (req, res) => {
   try {
-    const { companyId, query } = req.body;
+    const { companyId, query = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.body;
     const regex = new RegExp(query, "i");
+    const limit = DEFAULT_LIMIT;
 
     // Validate companyId
     if (!companyId) {
@@ -111,15 +125,88 @@ exports.get_project_types_by_company = async (req, res) => {
       ],
       companyId,
       isDeleted: { $ne: true },
+    }).skip(page * limit).limit(limit);
+
+    const totalCount = await ProjectType.countDocuments({
+      $or: [
+        { projectType: { $regex: regex} },
+      ],
+      companyId,
+      isDeleted: { $ne: true },
     });
 
-    return res.status(200).json({ success: true, projectTypes });
+    const totalPages = Math.ceil(totalCount/limit);
+
+    const projectTypeUsage = await ProjectType.aggregate([
+      {
+        $match: {
+          companyId: toObjectId(companyId),
+          isDeleted: { $ne: true }, // only active project types
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          let: { typeId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$projectTypeId", "$$typeId"] },
+                    { $ne: ["$isDeleted", true] }, // only active projects
+                  ],
+                },
+              },
+            },
+            { $limit: 1 }, // only need to know if at least one exists
+            { $count: "count" }, // count projects in the lookup
+          ],
+          as: "projectStats",
+        },
+      },
+      {
+        $addFields: {
+          projectCount: { $ifNull: [{ $arrayElemAt: ["$projectStats.count", 0] }, 0] },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          projectCount: 1,
+        },
+      },
+    ]);
+    return res.json({ success: true, data: projectTypes, projectTypeUsage, totalCount, totalPages });
   } catch (error) {
     console.error(
       "Error fetching project types for companyId:",
       companyId,
       error
     );
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to load project types." });
+  }
+};
+
+exports.select_project_types_by_company = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+
+    // Validate companyId
+    if (!companyId) {
+      return res.status(400).json({ error: "Company ID is required." });
+    }
+
+    // Fetch project types where isDeleted is not true
+    const projectTypes = await ProjectType.find({
+      companyId,
+      isDeleted: { $ne: true },
+    });
+
+    return res.json({ success: true, projectTypes});
+  } catch (error) {
     return res
       .status(500)
       .json({ success: false, error: "Failed to load project types." });
@@ -172,6 +259,25 @@ exports.update_project_type = async (req, res) => {
     const { id } = req.params;
     const { modifiedBy, ...updateData } = req.body;
 
+    const projectType = updateData.projectType;
+    if (!projectType) {
+      return res.json({
+        success: false,
+        message: "Project type is required.",
+      });
+    }
+    // const existingType = await ProjectType.findOne({
+    //   projectType,
+    //   isDeleted: false,
+    // });
+
+    // if(existingType){
+    //   return res.json({
+    //     success: false,
+    //     message: "Project type is already exits.",
+    //   });
+    // }
+
     const updatedProjectType = await ProjectType.findByIdAndUpdate(
       id,
       { ...updateData, modifiedOn: new Date(), modifiedBy },
@@ -198,7 +304,7 @@ exports.update_project_type = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Project type updated successfully.",
+      message: `The project type "${updatedProjectType.projectType}" was successfully updated.`,
       data: updatedProjectType,
     });
   } catch (error) {

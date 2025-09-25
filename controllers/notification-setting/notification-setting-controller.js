@@ -12,6 +12,8 @@ const errors = {
   NOT_AUTHORIZED: "You're not authorized",
 };
 const { isValidObjectId } = require("mongoose");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+
 
 exports.createNotificationSetting = async (req, res) => {
   try {
@@ -331,8 +333,11 @@ exports.toggleNotificationActive = async (req, res) => {
 
 exports.getNotificationSettings = async (req, res) => {
   try {
-    const { companyId } = req.body;
-    const query = req.query.query;
+    const { companyId, userId } = req.body;
+    const query = req.query.query || DEFAULT_QUERY;
+    const page = parseInt(req.query.page) || DEFAULT_PAGE;
+    // const page = req.query.page ? req.query.page : 0;
+    const limit = DEFAULT_LIMIT;
     if (!companyId) {
       return res.status(400).json({
         success: false,
@@ -343,6 +348,7 @@ exports.getNotificationSettings = async (req, res) => {
     const filter = {
       companyId,
       isDeleted: false,
+      // notifyUserIds: { $in: [userId] },
     };
     if (query) {
       filter.projectId = query;
@@ -367,12 +373,17 @@ exports.getNotificationSettings = async (req, res) => {
       .populate({
         path: "notifyUserIds",
         select: "name email",
-      });
+      })
+      .skip(page * limit)
+      .limit(limit)
 
+    const totalDocuments = await NotificationSetting.countDocuments(filter);
+    const totalPages = Math.ceil(totalDocuments / limit);
     res.status(200).json({
       success: true,
       message: "Notification settings fetched successfully",
       data: settings,
+      totalPages,
     });
   } catch (error) {
     console.error("Error fetching notification settings:", error);
@@ -517,3 +528,4 @@ exports.updatePreferences = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+

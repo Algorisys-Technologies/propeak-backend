@@ -9,12 +9,14 @@ const errors = {
   ADDHIDENOTIFICATIONERROR: "Error occurred while adding the hide notification",
   NOT_AUTHORIZED: "You're not authorized",
 };
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, NOW } = require("../../utils/defaultValues");
+
 
 exports.bellNotification = async (req, res) => {
   try {
     const { companyId, userId } = req.body;
-    const npage = req.query.npage ? req.query.npage : 0;
-    const limit = 5;
+    const npage = req.query.npage ? req.query.npage : DEFAULT_PAGE;
+    const limit = DEFAULT_LIMIT;
 
     if (!companyId || !userId) {
       return res.status(200).json({
@@ -23,29 +25,58 @@ exports.bellNotification = async (req, res) => {
       });
     }
 
-    const notifications = await UserNotification.find({isDeleted: false,
+    const notifications = await UserNotification.find({
+      isDeleted: false,
       companyId,
       userId,
-      read: false
+      $or: [
+        { read: false },
+        { permanentlySkipped: true, read: false } // only skipped if still unread
+      ],
     })
-      .select("_id userId subject message url read category createdOn")
+      .select("_id userId subject message url read category createdOn permanentlySkipped skipUntil")
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * npage);
-
+    
+    // total count with skipped also
     const totalPages = Math.ceil(
-      (await UserNotification.countDocuments({ isDeleted: false,
+      (await UserNotification.countDocuments({
+        isDeleted: false,
         companyId,
         userId,
-        read: false
+        $or: [
+          { read: false },
+          { permanentlySkipped: true, read: false }
+        ],
       })) / limit
     );
-
+    
     const unReadNotification = await UserNotification.countDocuments({
-      read: false,
       companyId,
       userId,
-    }).select("read");
+      $or: [
+        { read: false },
+        { permanentlySkipped: true, read: false }
+      ],
+    }).select('read');
+    
+    const TaskReminderData = await UserNotification.find({
+      isDeleted: false,
+      active: true,
+      companyId,
+      userId,
+      eventType: "TASK_REMINDER_DUE",
+      permanentlySkipped: { $ne: true },
+      $or: [
+        { skipUntil: { $exists: false } },
+        { skipUntil: null },
+        { skipUntil: { $lt: NOW } }
+      ]
+    })
+    .select("_id userId subject message url taskId eventType createdOn skipUntil permanentlySkipped")
+    .sort({ createdOn: -1 });
+
 
     return res.status(200).json({
       success: true,
@@ -53,6 +84,7 @@ exports.bellNotification = async (req, res) => {
       settings: notifications,
       totalPages,
       unReadNotification,
+      TaskReminderData,
     });
   } catch (error) {
     console.error("Error fetching notifications:", error);
@@ -66,9 +98,9 @@ exports.bellNotification = async (req, res) => {
 exports.getNotifications = async (req, res) => {
   try {
     const { companyId, userId } = req.body;
-    const page = req.query.page ? req.query.page : 0;
-    const filter = req.query.filter;
-    const limit = 5;
+    const page = req.query.page ? req.query.page : DEFAULT_PAGE;
+    const filter = req.query.filter || DEFAULT_QUERY;
+    const limit = DEFAULT_LIMIT;
 
     if (!companyId || !userId) {
       return res.status(200).json({
@@ -93,7 +125,7 @@ exports.getNotifications = async (req, res) => {
 
     // Paged notifications
     const notificationCenter = await UserNotification.find(filterQuery)
-      .select("_id userId subject message url read category eventType projectId createdOn")
+      .select("_id userId subject message url read category eventType projectId createdOn permanentlySkipped skipUntil")
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * page)
@@ -103,9 +135,12 @@ exports.getNotifications = async (req, res) => {
     const centerTotalPages = Math.ceil(totalDocuments / limit);
 
     const unReadNotification = await UserNotification.countDocuments({
-      read: false,
       companyId,
       userId,
+      $or: [
+        { read: false },
+        { permanentlySkipped: true, read: false }
+      ],
     }).select("read");
 
     return res.status(200).json({
@@ -116,7 +151,7 @@ exports.getNotifications = async (req, res) => {
       unReadNotification,
     });
   } catch (error) {
-    console.error("Error fetching notifications:", error);
+    // console.error("Error fetching notifications:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -331,3 +366,52 @@ exports.markNotificationAsAllRead = async (req, res) => {
   }
 };
 
+exports.reminderAction = async (req, res) => {
+  const { action, _id, eventType, taskId } = req.body;
+
+  try {
+    // Find notification by ID + eventType + taskId
+    const notification = await UserNotification.findOne({ 
+      _id, 
+      eventType,
+      ...(taskId && { taskId }) // Include taskId if provided
+    });
+
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+
+    if (eventType !== "TASK_REMINDER_DUE") {
+      return res.status(400).json({ message: "Action only allowed for TASK_REMINDER_DUE" });
+    }
+
+    if (action === "skipToday") {
+      const skipUntil = new Date(notification.createdOn || new Date());
+      skipUntil.setDate(skipUntil.getDate() + 1);
+
+      notification.skipUntil = skipUntil;
+      await notification.save();
+
+      return res.status(200).json({
+        message: "Reminder skipped for today",
+        data: notification,
+      });
+    }
+
+    if (action === "skipPermanently") {
+      notification.permanentlySkipped = true;
+      notification.active = false; // hide permanently
+      await notification.save();
+
+      return res.status(200).json({
+        message: "Reminder skipped permanently",
+        data: notification,
+      });
+    }
+
+    return res.status(400).json({ message: "Invalid action" });
+  } catch (error) {
+    console.error("Error in ReminderAction:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

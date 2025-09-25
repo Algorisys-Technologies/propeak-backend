@@ -8,6 +8,7 @@ const { handleNotifications } = require("./utils/notification-service");
 const { addMyNotification } = require("./common/add-my-notifications");
 const rabbitMQ = require("./rabbitmq");
 const config = require("./config/config");
+const userNotificationModel = require("./models/notification-setting/user-notification-model");
 require("dotenv").config();
 
 const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
@@ -76,25 +77,68 @@ async function sendTaskReminderNotifications(setting) {
       return;
     }
 
-    //let tasks = await Task.find({ isDeleted: false }).lean();
+    if (setting.type === "interval") {
+      // Interval logic → no skip checks, always show if due
+      tasks = tasks.map((task) => {
+        if (!task.startDate)
+          return { ...task, reminderDate: null, showReminder: false };
 
-    tasks = tasks.map((task) => {
-      if (!task.startDate)
-        return { ...task, reminderDate: null, showReminder: false };
+        const reminderDate = new Date(
+          new Date(task.startDate).getTime() + reminderOffset
+        );
+        task.reminderDate = reminderDate;
 
-      const reminderDate = new Date(
-        new Date(task.startDate).getTime() + reminderOffset
-      );
-      task.reminderDate = reminderDate;
+        const isCompleted = task.status === "completed";
+        const isReminderDue = now >= reminderDate && !isCompleted;
+        const isEndDatePast =
+          task.endDate && new Date(task.endDate) < now && !isCompleted;
 
-      const isCompleted = task.status === "completed";
-      const isReminderDue = now >= reminderDate && !isCompleted;
-      const isEndDatePast =
-        task.endDate && new Date(task.endDate) < now && !isCompleted;
-
-      task.showReminder = isReminderDue || isEndDatePast;
-      return task;
-    });
+        task.showReminder = isReminderDue || isEndDatePast;
+        return task;
+      });
+    } else {
+      // Fixed-time logic → respect skipUntil & permanentlySkipped
+      const userNotifications = await userNotificationModel.find({
+        eventType: "TASK_REMINDER_DUE",
+        projectId: setting.projectId,
+        userId: setting.userId, // filter by userId if available
+      });
+      
+      tasks = tasks.map((task) => {
+        if (!task.startDate)
+          return { ...task, reminderDate: null, showReminder: false };
+      
+        const reminderDate = new Date(
+          new Date(task.startDate).getTime() + reminderOffset
+        );
+        task.reminderDate = reminderDate;
+      
+        const isCompleted = task.status === "completed";
+        const isReminderDue = now >= reminderDate && !isCompleted;
+        const isEndDatePast =
+          task.endDate && new Date(task.endDate) < now && !isCompleted;
+      
+        // ✅ Check user-specific skip
+        const userNotification = userNotifications.find(
+          (un) =>
+            un.taskId?.toString() === task._id.toString() &&
+            un.userId?.toString() === setting.userId.toString()
+        );
+      
+        const isSkippedToday =
+          userNotification?.skipUntil &&
+          new Date(userNotification.skipUntil) > now;
+      
+        const isPermanentlySkipped = userNotification?.permanentlySkipped;
+      
+        task.showReminder =
+          (isReminderDue || isEndDatePast) &&
+          !isSkippedToday &&
+          !isPermanentlySkipped;
+      
+        return task;
+      });
+    }
 
     //const reminderDueTasks = tasks.filter((t) => t.showReminder);
 
@@ -111,6 +155,15 @@ async function sendTaskReminderNotifications(setting) {
         );
         continue;
       }
+
+      // // Convert Mongoose doc to plain JS object
+      // const plainTask = populatedTask.toObject();
+
+      // // Merge reminderTask fields
+      // const updatedTask = {
+      //   ...plainTask,
+      //   reminderDate: reminderTask.reminderDate, // keep reminderDate
+      // };
 
       const notification = await handleNotifications(
         populatedTask,
@@ -134,6 +187,8 @@ async function initReminderJobs() {
     eventType: "TASK_REMINDER_DUE",
     active: true,
   });
+
+  console.log(settings, "from settings");
 
   settings.forEach((setting) => {
     const plainSetting = setting.toObject ? setting.toObject() : { ...setting };

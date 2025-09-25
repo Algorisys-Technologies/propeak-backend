@@ -45,8 +45,11 @@ exports.tasksFileUpload = async (req, res) => {
     console.error("Error fetching task types:", err);
     return res.json({ error_code: 1, err_desc: "Error fetching task types" });
   }
-  if (!req.files.taskFile) {
-    return res.send({ error: "No files were uploaded." });
+  if (!req.files || !req.files.taskFile) {
+    return res.json({
+      title: "Please choose the file.",
+      success: false,
+    });
   }
 
   const uploadedFile = req.files.taskFile;

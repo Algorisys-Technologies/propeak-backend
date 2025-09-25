@@ -8,11 +8,33 @@ const errors = {
   EDITGROUPERROR: "Error occurred while updating the group",
   DELETEGROUPERROR: "Error occurred while deleting the group",
 };
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 exports.getAllGroups = async (req, res) => {
   try {
     const { companyId } = req.body;
-    const { q } = req.query;
+    if (!companyId) {
+      return res.status(400).json({ error: "Company ID is required." });
+    }
+    const groups = await Group.find({
+      companyId,
+      $or: [{ isDeleted: null }, { isDeleted: false }],
+    });
+
+    return res.status(200).json(groups);
+  } catch (error) {
+    logError("Error fetching groups:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to load groups." });
+  }
+};
+
+exports.getAllMemberGroups = async (req, res) => {
+  try {
+    const { companyId, page = DEFAULT_PAGE } = req.body;
+    const { q = DEFAULT_QUERY } = req.query;
+    const limit = DEFAULT_LIMIT;
 
     const searchFilter = q
     ? { groupName: { $regex: new RegExp(q, "i") } }
@@ -25,12 +47,25 @@ exports.getAllGroups = async (req, res) => {
       companyId,
       $or: [{ isDeleted: null }, { isDeleted: false }],
       ...searchFilter
-    });
+    }).skip(limit * page).limit(limit);
+    const totalCount = await Group.countDocuments(
+      {
+        companyId,
+        $or: [{ isDeleted: null }, { isDeleted: false }],
+        ...searchFilter
+      }
+    );
+    const totalPages = Math.ceil(totalCount / limit);
 
     // console.log(groups, "groups");
 
 
-    return res.status(200).json(groups);
+    return res.json({
+      success: true,
+      data: groups,
+      totalCount,
+      totalPages,
+    })
   } catch (error) {
     logError("Error fetching groups:", error);
     return res
@@ -44,15 +79,23 @@ exports.addGroup = async (req, res) => {
   try {
     const { groupName, groupMembers, companyId } = req.body;
 
-    if (!companyId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Company ID is required." });
-    }
-    if (!groupName || !groupMembers || groupMembers.length === 0) {
-      return res.status(400).json({
+    // if (!companyId) {
+    //   return res
+    //     .status(400)
+    //     .json({ success: false, error: "Company ID is required." });
+    // }
+    // if (!groupName || !groupMembers || groupMembers.filter((m) => m && m.trim() !== "").length === 0) {
+    //   return res.json({
+    //     success: false,
+    //     message: "All fields marked with an asterisk (*) are mandatory",
+    //   });
+    // }
+
+    const validation = validateGroup({ companyId, groupName, groupMembers });
+    if (!validation.valid) {
+        return res.json({
         success: false,
-        error: "Group name and at least one group member are required.",
+        message: validation.error
       });
     }
 
@@ -65,7 +108,7 @@ exports.addGroup = async (req, res) => {
     await newGroup.save();
     cacheManager.clearCachedData("groupsData");
 
-    return res.status(201).json({ success: true, group: newGroup });
+    return res.status(200).json({ success: true, group: newGroup, message: "Group created successfully!" });
   } catch (error) {
     logError("Error adding group:", error);
     return res
@@ -150,13 +193,21 @@ exports.deleteGroup = async (req, res) => {
 //   }
 // };
 exports.editGroup = async (req, res) => {
-  console.log("Edit group request received.");
+  // console.log("Edit group request received.");
   const { id } = req.body; 
-  console.log("Attempting to update group with ID:", id);
+  const { groupName, groupMembers, companyId } = req.body;
+  // console.log("Attempting to update group with ID:", id);
+  const validation = validateGroup({ companyId, groupName, groupMembers });
+    if (!validation.valid) {
+        return res.json({
+        success: false,
+        message: validation.error
+      });
+    }
 
   try {
     const updatedGroup = await Group.findOneAndUpdate(
-      { _id: id, isDeleted: false }, 
+      { _id: id, isDeleted: false, companyId }, 
       req.body,
       { new: true } 
     );
@@ -167,11 +218,26 @@ exports.editGroup = async (req, res) => {
         .json({ success: false, error: "Group not found." });
     }
 
-    return res.status(200).json({ success: true, group: updatedGroup });
+    return res.status(200).json({ success: true, group: updatedGroup, message: "Group updated successfully!" });
   } catch (error) {
-    console.error("Error updating group:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
+};
+
+const validateGroup = ({ companyId, groupName, groupMembers }) => {
+  if (!companyId) {
+    return { valid: false, error: "Company ID is required." };
+  }
+
+  if (
+    !groupName ||
+    !groupMembers ||
+    groupMembers.filter((m) => m && m.trim() !== "").length === 0
+  ) {
+    return { valid: false, error: "All fields marked with an asterisk (*) are mandatory." };
+  }
+
+  return { valid: true };
 };
 
 // const mongoose = require("mongoose");

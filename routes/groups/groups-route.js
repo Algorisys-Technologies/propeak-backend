@@ -16,6 +16,12 @@ router.post(
   groupController.getAllGroups
 );
 
+router.post(
+  "/",
+  //  verifyToken, checkRole,
+  groupController.getAllMemberGroups
+);
+
 // CREATE
 router.post(
   "/addGroup",
