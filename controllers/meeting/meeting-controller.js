@@ -6,6 +6,7 @@ const User = require("../../models/user/user-model");
 const Project = require("../../models/project/project-model");
 const activeClients = new Map();
 const config = require("../../config/config");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 const errors = {
   REGISTER_EMAIL_TAKEN: "Email is unavailable",
@@ -342,8 +343,7 @@ exports.getMeetings = async (req, res) => {
 };
 exports.getAllMeetings = async (req, res) => {
   try {
-    const { companyId, currentPage, projectIdData, userIdData } = req.body;
-    console.log(userIdData, "from projectId")
+    const { companyId, currentPage = DEFAULT_PAGE, projectIdData, userIdData } = req.body;
     let selectedProjectId, companyIdData, selectedUserId = null;
     const projectId = projectIdData;
     const userId = userIdData;
@@ -356,7 +356,7 @@ exports.getAllMeetings = async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(userId)) {
       selectedUserId = new mongoose.Types.ObjectId(userId);
     }
-    const limit = 5
+    const limit = DEFAULT_LIMIT
     const queryConditions = [{ companyId }];
     if (selectedProjectId) {
       queryConditions.push({ projectId: selectedProjectId._id });
@@ -407,7 +407,6 @@ exports.getAllMeetings = async (req, res) => {
       }) / limit
     );
 
-    console.log(totalPages, "from total project")
     return res.status(200).json({
       success: true,
       message: "Meetings fetched successfully",

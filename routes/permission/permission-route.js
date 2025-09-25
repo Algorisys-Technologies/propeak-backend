@@ -6,7 +6,7 @@ const permissionController = require("../../controllers/permission/permission-co
 router.get("/GetPermissions", permissionController.getAllPermissions);
 router.post("/CreatePermission", permissionController.createPermission);
 router.put("/UpdatePermission/:id", permissionController.updatePermission);
-router.delete("/DeletePermission/:id", permissionController.deletePermission);
+router.post("/DeletePermission/:id", permissionController.deletePermission);
 router.post(
   "/GetPermissionsByFeatureId",
   permissionController.getPermissionsByFeatureId

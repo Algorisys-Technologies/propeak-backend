@@ -77,6 +77,9 @@ const UserNotificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
     },
+    // 🔹 NEW FIELDS for reminder skipping
+    skipUntil: { type: Date, default: null },
+    permanentlySkipped: { type: Boolean, default: false },
   },
   { versionKey: false }
 );

@@ -1,11 +1,13 @@
 const ContactModel = require("../../models/contact/contact-model");
 const VFolder = require("../../models/vfolder/vfolder-model");
 const UploadContactConfig = require("../../models/vfolder/upload-contact-config-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 exports.getVFolders = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { q } = req.query;
+    const { q = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.query;
+    const limit = DEFAULT_LIMIT;
 
     const searchFilter = q ? { name: { $regex: new RegExp(q, "i") } } : {};
 
@@ -13,7 +15,7 @@ exports.getVFolders = async (req, res) => {
       companyId,
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       ...searchFilter,
-    });
+    }).skip(page*limit).limit(limit);
 
     const totalVFolder = Math.ceil(
       await VFolder.countDocuments({
@@ -22,10 +24,18 @@ exports.getVFolders = async (req, res) => {
         ...searchFilter,
       })
     );
+
+    const totalPages = Math.ceil(totalVFolder/limit);
+    const getAllvFolders = await VFolder.find({
+      companyId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    }).select("_id name");
     return res.json({
       success: true,
       result: vFolders,
       totalVFolder: totalVFolder,
+      totalPages,
+      getAllvFolders,
     });
   } catch (e) {
     console.log(e);
