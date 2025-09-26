@@ -77,27 +77,6 @@ async function sendTaskReminderNotifications(setting) {
       return;
     }
 
-    if (setting.type === "interval") {
-      // Interval logic → no skip checks, always show if due
-      tasks = tasks.map((task) => {
-        if (!task.startDate)
-          return { ...task, reminderDate: null, showReminder: false };
-
-        const reminderDate = new Date(
-          new Date(task.startDate).getTime() + reminderOffset
-        );
-        task.reminderDate = reminderDate;
-
-        const isCompleted = task.status === "completed";
-        const isReminderDue = now >= reminderDate && !isCompleted;
-        const isEndDatePast =
-          task.endDate && new Date(task.endDate) < now && !isCompleted;
-
-        task.showReminder = isReminderDue || isEndDatePast;
-        return task;
-      });
-    } else {
-      // Fixed-time logic → respect skipUntil & permanentlySkipped
       const userNotifications = await userNotificationModel.find({
         eventType: "TASK_REMINDER_DUE",
         projectId: setting.projectId,
@@ -138,7 +117,6 @@ async function sendTaskReminderNotifications(setting) {
       
         return task;
       });
-    }
 
     //const reminderDueTasks = tasks.filter((t) => t.showReminder);
 
