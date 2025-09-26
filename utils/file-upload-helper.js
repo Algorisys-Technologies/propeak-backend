@@ -19,7 +19,7 @@ async function validateAndSaveFiles(
     ? req.files.uploadFiles
     : [req.files.uploadFiles];
 
-  console.log("uploadedFiles.....", uploadedFiles);
+  console.log("uploadedFiles.....here", uploadedFiles);
 
   for (const uploadedFile of uploadedFiles) {
     const fileExtn = uploadedFile.name.split(".").pop().toUpperCase();
@@ -27,18 +27,19 @@ async function validateAndSaveFiles(
     // Extension check
     if (!VALID_FILE_EXTENSIONS.includes(fileExtn)) continue;
 
+    // const projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
     const projectFolderPath = path.join(
       uploadFolder,
-      companyId,
-      projectId,
-      taskId
+      String(companyId),
+      String(projectId),
+      String(taskId)
     );
     if (!fs.existsSync(projectFolderPath))
       fs.mkdirSync(projectFolderPath, { recursive: true });
 
+    // const targetPath = `${projectFolderPath}/${uploadedFile.name}`;
     const targetPath = path.join(projectFolderPath, uploadedFile.name);
 
-    // Move file temporarily
     await uploadedFile.mv(targetPath);
 
     // Magic-byte validation

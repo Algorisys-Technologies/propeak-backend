@@ -41,7 +41,12 @@ const Holiday = require("../../models/leave/holiday-model");
 const { skip } = require("rxjs-compat/operator/skip");
 let uploadFolder = config.UPLOAD_PATH;
 const { UploadFile } = require("../../models/upload-file/upload-file-model");
-const { DEFAULT_PAGE, DEFAULT_LIMIT, toObjectId, NOW } = require("../../utils/defaultValues");
+const {
+  DEFAULT_PAGE,
+  DEFAULT_LIMIT,
+  toObjectId,
+  NOW,
+} = require("../../utils/defaultValues");
 // const NotificationPreference = require("../../models/notification-setting/notification-preference-model");
 const {
   startOfMonth,
@@ -55,7 +60,6 @@ const { result } = require("lodash");
 const { handleNotifications } = require("../../utils/notification-service");
 const notificationSettingModel = require("../../models/notification-setting/notification-setting-model");
 const { validateAndSaveFiles } = require("../../utils/file-upload-helper");
-
 
 exports.createTask = (req, res) => {
   const { taskData, fileName, projectId, newTaskData } = req.body;
@@ -102,7 +106,6 @@ exports.createTask = (req, res) => {
     ownerEmail,
     publishStatus,
   } = task;
-
 
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
@@ -196,7 +199,7 @@ exports.createTask = (req, res) => {
           model: "user",
         });
 
-if (req.files && req.files.uploadFiles) {
+      if (req.files && req.files.uploadFiles) {
         await validateAndSaveFiles(
           req,
           companyId,
@@ -338,7 +341,6 @@ if (req.files && req.files.uploadFiles) {
                 html: emailText,
               };
 
-
               let taskArr = {
                 subject: mailOptions.subject,
                 url: taskEmailLink,
@@ -395,7 +397,6 @@ if (req.files && req.files.uploadFiles) {
           };
 
           enrichedProducts.push(enrichedProduct);
-
 
           const productTask = new Task({
             title: `Product ${enrichedProduct.product_name}`,
@@ -616,7 +617,6 @@ exports.updateTask = (req, res) => {
               html: emailText,
             };
 
-
             let taskArr = {
               subject: mailOptions.subject,
               url: taskEmailLink,
@@ -674,7 +674,6 @@ exports.updateTask = (req, res) => {
           };
 
           enrichedProducts.push(enrichedProduct);
-
 
           const taskTitle = `Product ${enrichedProduct.product_name}`;
 
@@ -752,7 +751,6 @@ exports.updateTask = (req, res) => {
 exports.autoSaveTask = async (req, res) => {
   try {
     const { _id, projectId, ...taskData } = req.body;
-
 
     if (!Array.isArray(taskData.uploadFiles)) {
       taskData.uploadFiles = [];
@@ -976,7 +974,6 @@ exports.getTasksTable = async (req, res) => {
 
     // Apply search filter if provided
     if (searchFilter) {
-
       const regex = new RegExp(searchFilter, "i");
       condition.title = { $regex: regex };
     }
@@ -2745,7 +2742,6 @@ exports.getTasksStagesByProjectId = async (req, res) => {
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
 
-
     // Find group task stages
     const groupTaskStages = await GroupTaskStage.find({
       title: { $in: taskStagesTitles },
@@ -2753,7 +2749,6 @@ exports.getTasksStagesByProjectId = async (req, res) => {
       groupId: project.group, // ensure correct group
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
-
 
     // Merge both results
     const allTaskStages = [...groupTaskStages, ...globalTaskStages];
@@ -2843,7 +2838,6 @@ exports.updateStage = async (req, res) => {
             subject: ` STAGE_CHANGED - ${newTask.title}`,
             html: emailText,
           };
-
 
           let taskArr = {
             subject: mailOptions.subject,
@@ -3394,10 +3388,7 @@ exports.moveTasksToProject = async (req, res) => {
   }
 
   // Validate taskIds and targetProjectId format
-  if (
-    taskIds.some((id) => !toObjectId(id)) ||
-    !toObjectId(targetProjectId)
-  ) {
+  if (taskIds.some((id) => !toObjectId(id)) || !toObjectId(targetProjectId)) {
     return res.status(400).json({
       success: false,
       msg: "Invalid taskIds or targetProjectId format.",
