@@ -10,6 +10,7 @@ const errors = {
   NOT_AUTHORIZED: "You're not authorized",
 };
 const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, NOW } = require("../../utils/defaultValues");
+const Task = require("../../models/task/task-model");
 
 
 exports.bellNotification = async (req, res) => {
@@ -25,6 +26,27 @@ exports.bellNotification = async (req, res) => {
       });
     }
 
+    // **Step 1: Find all notifications related to tasks**
+    const taskNotifications = await UserNotification.find({
+      companyId,
+      userId,
+      isDeleted: false,
+      eventType: "TASK_REMINDER_DUE",
+      taskId: { $exists: true }, // only task-related notifications
+    });
+
+    // **Step 2: Check task status and update notifications**
+    for (const notif of taskNotifications) {
+      const task = await Task.findById(notif.taskId);
+      if (task && task.status === "completed") {
+        await UserNotification.findByIdAndUpdate(notif._id, {
+          isDeleted: true,
+          active: false,
+        });
+      }
+    }
+
+    // **Step 3: Fetch notifications after updating completed ones**
     const notifications = await UserNotification.find({
       isDeleted: false,
       companyId,
@@ -38,8 +60,7 @@ exports.bellNotification = async (req, res) => {
       .sort({ createdOn: -1 })
       .limit(limit)
       .skip(limit * npage);
-    
-    // total count with skipped also
+
     const totalPages = Math.ceil(
       (await UserNotification.countDocuments({
         isDeleted: false,
@@ -51,7 +72,7 @@ exports.bellNotification = async (req, res) => {
         ],
       })) / limit
     );
-    
+
     const unReadNotification = await UserNotification.countDocuments({
       companyId,
       userId,
@@ -59,8 +80,8 @@ exports.bellNotification = async (req, res) => {
         { read: false },
         { permanentlySkipped: true, read: false }
       ],
-    }).select('read');
-    
+    });
+
     const TaskReminderData = await UserNotification.find({
       isDeleted: false,
       active: true,
@@ -71,12 +92,11 @@ exports.bellNotification = async (req, res) => {
       $or: [
         { skipUntil: { $exists: false } },
         { skipUntil: null },
-        { skipUntil: { $lt: NOW } }
+        { skipUntil: { $lt: new Date() } }
       ]
     })
     .select("_id userId subject message url taskId eventType createdOn skipUntil permanentlySkipped")
     .sort({ createdOn: -1 });
-
 
     return res.status(200).json({
       success: true,
@@ -93,7 +113,7 @@ exports.bellNotification = async (req, res) => {
       message: "Internal server error",
     });
   }
-}
+};
 
 exports.getNotifications = async (req, res) => {
   try {
