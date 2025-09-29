@@ -12,7 +12,7 @@ const errors = {
   NOT_AUTHORIZED: "You're not authorized",
 };
 const { isValidObjectId } = require("mongoose");
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, NOW } = require("../../utils/defaultValues");
 const { updateReminderJobs } = require("../../task-reminder-scheduler");
 
 
@@ -169,7 +169,7 @@ exports.updateNotificationSetting = async (req, res) => {
       mandatory,
       active,
       modifiedBy: userId,
-      modifiedOn: new Date(),
+      modifiedOn: NOW,
     };
 
     // Detect changes
@@ -335,7 +335,7 @@ exports.toggleNotificationActive = async (req, res) => {
       {
         active,
         modifiedBy: req.body.userId,
-        modifiedOn: new Date(),
+        modifiedOn: NOW,
       },
       { new: true }
     );
@@ -578,10 +578,10 @@ exports.updatePreferences = async (req, res) => {
 async function handleNotificationUpdates(oldSetting, newSetting) {
   try {
     // Get today's notifications for this setting
-    const todayStart = new Date();
+    const todayStart = NOW;
     todayStart.setHours(0, 0, 0, 0);
     
-    const todayEnd = new Date();
+    const todayEnd = NOW;
     todayEnd.setHours(23, 59, 59, 999);
 
     const notifications = await UserNotification.find({
