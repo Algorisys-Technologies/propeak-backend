@@ -9,7 +9,6 @@ const { addMyNotification } = require("./common/add-my-notifications");
 const rabbitMQ = require("./rabbitmq");
 const config = require("./config/config");
 const userNotificationModel = require("./models/notification-setting/user-notification-model");
-const { NOW } = require("./utils/defaultValues");
 require("dotenv").config();
 
 const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
@@ -104,7 +103,7 @@ function cancelAllReminderJobs() {
 async function sendTaskReminderNotifications(setting) {
   try {
     console.log("Processing setting:", setting._id, "Type:", setting.type);
-    const now = NOW;
+    const now = new Date();
 
     let tasks = await Task.find({
       isDeleted: false,
@@ -344,10 +343,10 @@ async function initReminderJobs() {
         const [startHour, startMinute] = setting.intervalStart.split(":").map(Number);
         const [endHour, endMinute] = setting.intervalEnd.split(":").map(Number);
 
-        let current = NOW;
+        let current = new Date();
         current.setHours(startHour, startMinute, 0, 0);
 
-        const end = NOW;
+        const end = new Date();
         end.setHours(endHour, endMinute, 0, 0);
 
         let jobCount = 0;

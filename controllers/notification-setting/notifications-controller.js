@@ -92,7 +92,7 @@ exports.bellNotification = async (req, res) => {
       $or: [
         { skipUntil: { $exists: false } },
         { skipUntil: null },
-        { skipUntil: { $lt: NOW } }
+        { skipUntil: { $lt: new Date() } }
       ]
     })
     .select("_id userId subject message url taskId eventType createdOn skipUntil permanentlySkipped")

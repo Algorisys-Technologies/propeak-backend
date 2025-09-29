@@ -7,7 +7,6 @@ const UserNotification = require("../models/notification-setting/user-notificati
 const NotificationPreference = require("../models/notification-setting/notification-preference-model");
 const sendEmail = require("./send-email");
 const Role = require("../models/role/role-model");
-const { NOW } = require("./defaultValues");
 
 module.exports = async function sendNotification(task, eventType) {
   // const TASK_COMPLETED = "TASK_COMPLETED";
@@ -88,19 +87,6 @@ module.exports = async function sendNotification(task, eventType) {
 
   const userIdSet = new Set();
 
-  if (eventType === "TASK_REMINDER_DUE" && task.userId) {
-  // ✅ Only add task.userId if it exists in notifyUserIds
-  for (const setting of settings) {
-    if (
-      Array.isArray(setting.notifyUserIds) &&
-      setting.notifyUserIds.some(
-        (id) => id.toString() === task.userId.toString()
-      )
-    ) {
-      userIdSet.add(task.userId.toString());
-    }
-  }
-} else {
   for (const setting of settings) {
     // Add explicitly mentioned users
     if (Array.isArray(setting.notifyUserIds)) {
@@ -136,43 +122,6 @@ module.exports = async function sendNotification(task, eventType) {
       }
     }
   }
-}
-
-  // for (const setting of settings) {
-  //   // Add explicitly mentioned users
-  //   if (Array.isArray(setting.notifyUserIds)) {
-  //     setting.notifyUserIds.forEach((id) => {
-  //       if (id) userIdSet.add(id.toString());
-  //     });
-  //   }
-
-  //   // Add users from roles
-  //   if (Array.isArray(setting.notifyRoles)) {
-  //     const roleNames = [];
-
-  //     for (const role of setting.notifyRoles) {
-  //       if (typeof role === "object" && role.name) {
-  //         roleNames.push(role.name);
-  //       } else {
-  //         const roleDoc = await Role.findById(role).select("name");
-  //         if (roleDoc?.name) roleNames.push(roleDoc.name);
-  //       }
-  //     }
-
-  //     if (roleNames.length) {
-  //       const roleUsers = await User.find({
-  //         role: { $in: roleNames },
-  //         companyId: task.companyId,
-  //         isDeleted: false,
-  //         isActive: true,
-  //       })
-  //         .select("_id")
-  //         .lean();
-
-  //       roleUsers.forEach((u) => userIdSet.add(u._id.toString()));
-  //     }
-  //   }
-  // }
 
   const userIds = Array.from(userIdSet);
 
@@ -350,7 +299,7 @@ module.exports = async function sendNotification(task, eventType) {
       inApp: channels.includes("inapp"),
       notifyRoleNames: roleNames,
       muteEvents: mutedEvents,
-      createdOn: NOW,
+      createdOn: new Date(),
       createdBy: task.modifiedBy || task.createdBy,
       ...(eventType === "TASK_REMINDER_DUE" && {
         reminderType: setting?.type || 'fixed',
