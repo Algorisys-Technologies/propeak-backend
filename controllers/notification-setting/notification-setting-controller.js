@@ -12,7 +12,7 @@ const errors = {
   NOT_AUTHORIZED: "You're not authorized",
 };
 const { isValidObjectId } = require("mongoose");
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, NOW } = require("../../utils/defaultValues");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 const { updateReminderJobs } = require("../../task-reminder-scheduler");
 
 
@@ -103,7 +103,7 @@ exports.createNotificationSetting = async (req, res) => {
       data: savedSetting,
     });
   } catch (error) {
-    console.error("Error creating notification setting:", error);
+    logError(error.stack || error.message, "updateReminderJobs");
     res.status(500).json({
       success: false,
       message: "Failed to create notification setting",
@@ -115,7 +115,6 @@ exports.createNotificationSetting = async (req, res) => {
 exports.updateNotificationSetting = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("Updating notification setting for ID:", id);
 
     const {
       companyId,
@@ -169,7 +168,7 @@ exports.updateNotificationSetting = async (req, res) => {
       mandatory,
       active,
       modifiedBy: userId,
-      modifiedOn: NOW,
+      modifiedOn: new Date(),
     };
 
     // Detect changes
@@ -216,7 +215,6 @@ exports.updateNotificationSetting = async (req, res) => {
 
     // 🔹 HANDLE NOTIFICATION UPDATES FOR TASK_REMINDER_DUE
     if (eventType === "TASK_REMINDER_DUE" && (typeChanged || timingChanged)) {
-      console.log("Processing notification updates for setting change...");
       
       // Update scheduler jobs
       await updateReminderJobs();
@@ -231,7 +229,7 @@ exports.updateNotificationSetting = async (req, res) => {
       data: updatedSetting,
     });
   } catch (error) {
-    console.error("Error updating notification setting:", error);
+    logError(error.stack || error.message, "updateNotificationSetting");
     res.status(500).json({
       success: false,
       message: "Failed to update notification setting",
@@ -335,7 +333,7 @@ exports.toggleNotificationActive = async (req, res) => {
       {
         active,
         modifiedBy: req.body.userId,
-        modifiedOn: NOW,
+        modifiedOn: new Date(),
       },
       { new: true }
     );
@@ -578,10 +576,10 @@ exports.updatePreferences = async (req, res) => {
 async function handleNotificationUpdates(oldSetting, newSetting) {
   try {
     // Get today's notifications for this setting
-    const todayStart = NOW;
+    const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     
-    const todayEnd = NOW;
+    const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
     const notifications = await UserNotification.find({
@@ -591,7 +589,6 @@ async function handleNotificationUpdates(oldSetting, newSetting) {
       createdOn: { $gte: todayStart, $lte: todayEnd }
     });
 
-    console.log(`Found ${notifications.length} notifications to process`);
 
     // Scenario 1: Fixed Time Change (11:00 AM → 2:30 PM)
     if (oldSetting.type === 'fixed' && newSetting.type === 'fixed' && oldSetting.reminderTime !== newSetting.reminderTime) {
@@ -611,13 +608,12 @@ async function handleNotificationUpdates(oldSetting, newSetting) {
     }
 
   } catch (error) {
-    console.error("Error handling notification updates:", error);
+    logError(error.stack || error.message, "handleNOtificationUpdates");
   }
 }
 
 // Scenario 1: Fixed Time Change
 async function handleFixedTimeChange(notifications, oldSetting, newSetting) {
-  console.log("Handling fixed time change scenario");
   
   const [oldHour, oldMinute] = oldSetting.reminderTime.split(':').map(Number);
 
@@ -636,7 +632,6 @@ async function handleFixedTimeChange(notifications, oldSetting, newSetting) {
     }
   }
 
-  console.log(`Deleted ${updatedCount} notifications from ${oldSetting.reminderTime} to ${newSetting.reminderTime}`);
 }
 
 
@@ -650,12 +645,10 @@ async function handleIntervalToFixedChange(notifications) {
   });
   
 
-  console.log(`Deleted ${result.modifiedCount} interval notifications after switching to fixed time`);
 }
 
 // Scenario 3: Fixed to Interval Change
 async function handleFixedToIntervalChange(notifications) {
-  console.log("Handling fixed to interval change scenario");
   
   // Mark all fixed notifications as deleted
   const result = await UserNotification.deleteMany(
@@ -665,12 +658,10 @@ async function handleFixedToIntervalChange(notifications) {
     }
   );
 
-  console.log(`Deleted ${result.modifiedCount} fixed notifications after switching to interval time`);
 }
 
 // Scenario 4: Interval Timing Change
 async function handleIntervalTimingChange(notifications, oldSetting, newSetting) {
-  console.log("Handling interval timing change scenario");
   
   const [newStartHour, newStartMinute] = newSetting.intervalStart.split(':').map(Number);
   const [newEndHour, newEndMinute] = newSetting.intervalEnd.split(':').map(Number);
@@ -686,7 +677,6 @@ async function handleIntervalTimingChange(notifications, oldSetting, newSetting)
     }
   }
 
-  console.log(`Updated interval notifications, deleted ${deletedCount}`);
 }
 
 // Utility functions
