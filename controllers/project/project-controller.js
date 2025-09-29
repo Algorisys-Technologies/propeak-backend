@@ -331,6 +331,14 @@ exports.createProject = async (req, res) => {
     }
   }
 
+  const userid = req.body.userid;
+  const uniqueProjectUsers = Array.from(
+    new Set([...(req.body.projectUsers || []), userid])
+  );
+  const uniqueNotifyUsers = Array.from(
+    new Set([...(req.body.notifyUsers || []), userid])
+  );
+
   let newProject = new Project({
     _id: req.body._id,
     title: req.body.title,
@@ -340,10 +348,13 @@ exports.createProject = async (req, res) => {
     projectStageId: req.body.projectStageId,
     status: req.body.status,
     taskStages: req.body.taskStages?.map((taskStageTitle) => taskStageTitle),
-    notifyUsers: req.body.notifyUsers?.map((userId) => userId),
-    projectUsers: req.body.projectUsers?.map((userId) => userId),
+    // notifyUsers: req.body.notifyUsers?.map((userId) => userId),
+    // projectUsers: req.body.projectUsers?.map((userId) => userId),
+    notifyUsers: uniqueNotifyUsers,
+    projectUsers: uniqueProjectUsers,
     tag: req.body.tag,
-    userid: req.body.userid,
+    // userid: req.body.userid,
+    userid: userid,
     // group:  req.body.group?.map((groupId) =>  groupId),
     companyId: req.body.companyId,
     userGroups: req.body.userGroups,
