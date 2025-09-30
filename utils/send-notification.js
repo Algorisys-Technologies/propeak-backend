@@ -301,6 +301,10 @@ module.exports = async function sendNotification(task, eventType) {
       muteEvents: mutedEvents,
       createdOn: new Date(),
       createdBy: task.modifiedBy || task.createdBy,
+      ...(eventType === "TASK_REMINDER_DUE" && {
+        reminderType: setting?.type || 'fixed',
+        notificationSettingId: setting?._id
+      })
     });
   }
 
