@@ -33,17 +33,25 @@ exports.bellNotification = async (req, res) => {
       isDeleted: false,
       eventType: "TASK_REMINDER_DUE",
       taskId: { $exists: true }, // only task-related notifications
-    });
+    }).select("_id taskId");
 
-    // **Step 2: Check task status and update notifications**
-    for (const notif of taskNotifications) {
-      const task = await Task.findById(notif.taskId);
-      if (task && task.status === "completed") {
-        await UserNotification.findByIdAndUpdate(notif._id, {
-          isDeleted: true,
-          active: false,
-        });
-      }
+    const taskIds = taskNotifications.map((notif) => notif.taskId);
+
+    // Fetch only completed tasks from DB
+    const completedTasks = await Task.find({
+      _id: { $in: taskIds },
+      status: "completed",
+    }).select("_id"); // only need _id
+
+    const completedTaskIds = completedTasks.map((t) => t._id);
+
+    if (completedTaskIds.length > 0) {
+      // Bulk delete notifications for completed tasks
+      await UserNotification.deleteMany(
+        {
+          taskId: { $in: completedTaskIds },
+        },
+      );
     }
 
     // **Step 3: Fetch notifications after updating completed ones**
@@ -107,7 +115,10 @@ exports.bellNotification = async (req, res) => {
       TaskReminderData,
     });
   } catch (error) {
-    console.error("Error fetching notifications:", error);
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "bellNotification")
     return res.status(500).json({
       success: false,
       message: "Internal server error",

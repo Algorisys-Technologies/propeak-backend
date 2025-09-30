@@ -73,7 +73,10 @@ async function updateReminderJobs() {
     await initReminderJobs();
   
   } catch (error) {
-    logError(error.stack || error.message, "updateReminderJobs");
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "updateReminderJobs");
   }
 }
 
@@ -112,14 +115,7 @@ async function sendTaskReminderNotifications(setting) {
       return;
     }
 
-    // Process tasks based on setting type
-    if (setting.type === "interval") {
-      // Enhanced Interval logic → show next reminder if not skipped
-      tasks = await processIntervalTasks(tasks, setting, now);
-    } else {
-      // Fixed-time logic → respect skipUntil & permanentlySkipped
-      tasks = await processFixedTasks(tasks, setting, now);
-    }
+    tasks = await processTasksByType(tasks, setting, now);
 
     const reminderDueTasks = tasks.filter((t) => t.showReminder && t.projectId);
 
@@ -129,7 +125,6 @@ async function sendTaskReminderNotifications(setting) {
         .populate({ path: "createdBy", select: "name", model: "user" });
 
       if (!populatedTask?.projectId || !populatedTask.projectId._id) {
-        console.warn(`Skipping reminder for task ${populatedTask?._id} - projectId not found`);
         continue;
       }
 
@@ -159,17 +154,20 @@ async function sendTaskReminderNotifications(setting) {
       }
     }
   } catch (error) {
-    logError(error.stack || error.message, "sendTaskReminderNotifications");
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "sendTaskReminderNotifications");
   }
 }
 
-// Enhanced interval task processing
-async function processIntervalTasks(tasks, setting, now) {
+async function processTasksByType(tasks, setting, now) {
+  // Fetch notifications based on event type
   const userNotifications = await userNotificationModel.find({
     eventType: "TASK_REMINDER_DUE",
     projectId: setting.projectId,
     isDeleted: false,
-    reminderType: "interval"
+    reminderType: setting.type // "interval" or "fixed"
   });
 
   return tasks.map((task) => {
@@ -182,55 +180,32 @@ async function processIntervalTasks(tasks, setting, now) {
     const isReminderDue = now >= reminderDate && !isCompleted;
     const isEndDatePast = task.endDate && new Date(task.endDate) < now && !isCompleted;
 
-    // Check if this task has any skip settings
+    // Get notifications related to this task
     const taskUserNotifications = userNotifications.filter(
       (un) => un.taskId?.toString() === task._id.toString()
     );
 
-    // Check if any user has active skip settings for this task
-    const hasActiveSkip = taskUserNotifications.some(un => 
-      (un.skipUntil && new Date(un.skipUntil) > now) || 
-      un.permanentlySkipped
-    );
+    let showReminder = false;
 
-    // For interval: show reminder if due AND not skipped by all users
-    // But don't check for recent duplicates - allow next interval reminder
-    task.showReminder = (isReminderDue || isEndDatePast) && !hasActiveSkip;
-    
-    return task;
-  });
-}
-
-// Fixed task processing (unchanged)
-async function processFixedTasks(tasks, setting, now) {
-  const userNotifications = await userNotificationModel.find({
-    eventType: "TASK_REMINDER_DUE",
-    projectId: setting.projectId,
-    isDeleted: false,
-    reminderType: "fixed"
-  });
-
-  return tasks.map((task) => {
-    if (!task.startDate) return { ...task, reminderDate: null, showReminder: false };
-
-    const reminderDate = new Date(new Date(task.startDate).getTime() + reminderOffset);
-    task.reminderDate = reminderDate;
-
-    const isCompleted = task.status === "completed";
-    const isReminderDue = now >= reminderDate && !isCompleted;
-    const isEndDatePast = task.endDate && new Date(task.endDate) < now && !isCompleted;
-
-    const taskUserNotifications = userNotifications.filter(
-      (un) => un.taskId?.toString() === task._id.toString()
-    );
-
-    const allUsersSkipped = taskUserNotifications.length > 0 && 
-      taskUserNotifications.every(un => 
+    if (setting.type === "interval") {
+      // Interval → hide reminder if any user has skipped
+      const hasActiveSkip = taskUserNotifications.some(un => 
         (un.skipUntil && new Date(un.skipUntil) > now) || 
         un.permanentlySkipped
       );
+      showReminder = (isReminderDue || isEndDatePast) && !hasActiveSkip;
 
-    task.showReminder = (isReminderDue || isEndDatePast) && !allUsersSkipped;
+    } else if (setting.type === "fixed") {
+      // Fixed → hide reminder only if all users skipped
+      const allUsersSkipped = taskUserNotifications.length > 0 && 
+        taskUserNotifications.every(un => 
+          (un.skipUntil && new Date(un.skipUntil) > now) || 
+          un.permanentlySkipped
+        );
+      showReminder = (isReminderDue || isEndDatePast) && !allUsersSkipped;
+    }
+
+    task.showReminder = showReminder;
     return task;
   });
 }
@@ -361,7 +336,10 @@ async function initReminderJobs() {
     });
 
   } catch (error) {
-    logError(err.stack || err.message, "initReminderJobs")
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "initReminderJobs")
   }
 }
 
@@ -377,7 +355,10 @@ mongoose
   .then(() => {
     initReminderJobs();
   })
-  .catch((err) =>  logError(err.stack || err.message, "mongoDB error"));
+  .catch((err) =>  logError({
+    message: err.message,
+    stack: err.stack
+  }, "mongoDB error"));
 
 // const schedule = require("node-schedule");
 // const Task = require("./models/task/task-model");
