@@ -11,7 +11,8 @@ async function validateAndSaveFiles(
   projectId,
   taskId,
   uploadFolder,
-  userId
+  createdBy,
+  status,
 ) {
   if (!req.files || !req.files.uploadFiles) return;
 
@@ -68,10 +69,13 @@ async function validateAndSaveFiles(
       taskId,
       projectId,
       companyId,
-      createdBy: userId,
+      createdBy,
+      status,
       createdOn: new Date(),
       isDeleted: false,
     });
+
+    console.log(uploadFileDoc, "from uploadFileDoc")
 
     const savedDoc = await uploadFileDoc.save();
 
