@@ -74,9 +74,6 @@ async function validateAndSaveFiles(
       createdOn: new Date(),
       isDeleted: false,
     });
-
-    console.log(uploadFileDoc, "from uploadFileDoc")
-
     const savedDoc = await uploadFileDoc.save();
 
     // Push file info to task's uploadFiles array

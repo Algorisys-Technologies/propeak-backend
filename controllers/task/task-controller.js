@@ -107,8 +107,6 @@ exports.createTask = (req, res) => {
     publishStatus,
   } = task;
 
-  console.log(task, "from task")
-
   let assignedUsers = [];
   if (!multiUsers || multiUsers.length === 0) {
     assignedUsers = [{ id: userId }];
