@@ -1415,15 +1415,19 @@ exports.deleteUploadFile = (req, res) => {
               });
             })
             .catch((error) => {
-              res
-                .status(500)
-                .json({ error: "Project update failed", details: error });
+              logError({
+                message: error.message,
+                stack: error.stack
+              }, "deleteUploadFile");
+              res.json({ success: false, message: "Project update failed", });
             });
         })
         .catch((error) => {
-          res
-            .status(500)
-            .json({ error: "UploadFile delete failed", details: error });
+          logError({
+            message: error.message,
+            stack: error.stack
+          }, "deleteUploadFile");
+          res.json({ success: false, message: "UploadFile delete failed", });
         });
     });
   });
