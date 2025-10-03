@@ -206,7 +206,8 @@ exports.createTask = (req, res) => {
           projectId,
           taskId,
           uploadFolder,
-          userId
+          createdBy,
+          task.status,
         );
       }
 

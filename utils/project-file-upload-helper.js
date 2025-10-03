@@ -14,6 +14,7 @@ async function uploadProjectFiles({
   uploadFolder,
   userId,
   _id = undefined,
+  status,
 }) {
   if (!files || !files.uploadFile) {
     throw new Error("No files were uploaded.");
@@ -89,6 +90,7 @@ async function uploadProjectFiles({
       companyId,
       projectId,
       taskId,
+      status,
     };
 
     const newUploadFile = new UploadFile(uploadFileData);

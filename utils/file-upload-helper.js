@@ -11,7 +11,8 @@ async function validateAndSaveFiles(
   projectId,
   taskId,
   uploadFolder,
-  userId
+  createdBy,
+  status,
 ) {
   if (!req.files || !req.files.uploadFiles) return;
 
@@ -68,11 +69,11 @@ async function validateAndSaveFiles(
       taskId,
       projectId,
       companyId,
-      createdBy: userId,
+      createdBy,
+      status,
       createdOn: new Date(),
       isDeleted: false,
     });
-
     const savedDoc = await uploadFileDoc.save();
 
     // Push file info to task's uploadFiles array

@@ -997,7 +997,6 @@ exports.uploadTaskFieldsConfig = (req, res) => {
   });
 };
 exports.getUploadFileByProjectId = async (req, res) => {
-  console.log(req.body, "request bodys ?");
   try {
     const { projectId, taskId, currentPage = 1 } = req.body;
     const limit = 5;
@@ -1015,6 +1014,7 @@ exports.getUploadFileByProjectId = async (req, res) => {
 
     let query = taskId ? { taskId } : { projectId, taskId: null };
     const uploadFiles = await UploadFile.find(query)
+      .populate("createdBy", "name")
       .skip(limit * currentPage)
       .limit(limit);
     const totalDocuments = await UploadFile.countDocuments(query);
@@ -1340,7 +1340,6 @@ exports.postUploadFile = async (req, res) => {
 // };
 
 exports.deleteUploadFile = (req, res) => {
-  console.log(req.body, "delete...");
   const data = req.body;
 
   if (!data.updatedFile || !data.updatedFile.fileName) {
@@ -1360,11 +1359,9 @@ exports.deleteUploadFile = (req, res) => {
 
   filePathParts.push(data.updatedFile.fileName);
   const fileToBeDeleted = path.join(...filePathParts);
-  console.log(`Attempting to delete file at: ${fileToBeDeleted}`);
 
   fs.access(fileToBeDeleted, fs.constants.F_OK, (err) => {
     if (err) {
-      console.log(`File not found: ${fileToBeDeleted}`);
       // return res.status(404).json({ error: "File not found." });
     }
 
@@ -1375,22 +1372,16 @@ exports.deleteUploadFile = (req, res) => {
         //   .status(500)
         //   .json({ error: "Error deleting file", details: err });
       }
-      console.log(data.updatedFile.fileName + " deleted successfully");
 
       // Delete the UploadFile document after successful deletion
       UploadFile.deleteOne({ _id: data.updatedFile._id })
         .then(async (deleteResult) => {
           if (deleteResult.deletedCount === 0) {
-            console.log("Document not found in database, could not delete.");
             return res
               .status(404)
               .json({ error: "File not found in database" });
           }
 
-          console.log(
-            "Document deleted successfully from database:",
-            deleteResult
-          );
 
           if (data.updatedFile.taskId) {
             let result = await Task.findOneAndUpdate(
@@ -1424,17 +1415,19 @@ exports.deleteUploadFile = (req, res) => {
               });
             })
             .catch((error) => {
-              console.log("Project update failed:", error);
-              res
-                .status(500)
-                .json({ error: "Project update failed", details: error });
+              logError({
+                message: error.message,
+                stack: error.stack
+              }, "deleteUploadFile");
+              res.json({ success: false, message: "Project update failed", });
             });
         })
         .catch((error) => {
-          console.log("UploadFile delete failed:", error);
-          res
-            .status(500)
-            .json({ error: "UploadFile delete failed", details: error });
+          logError({
+            message: error.message,
+            stack: error.stack
+          }, "deleteUploadFile");
+          res.json({ success: false, message: "UploadFile delete failed", });
         });
     });
   });
@@ -1539,7 +1532,7 @@ exports.deleteUploadFile = (req, res) => {
 
 exports.postUploadFileByProjectId = async (req, res) => {
   try {
-    const { companyId, projectId, taskId, userId, _id } = req.body;
+    const { companyId, projectId, taskId, userId, _id, status } = req.body;
 
     const uploadedFilesData = await uploadProjectFiles({
       files: req.files,
@@ -1549,6 +1542,7 @@ exports.postUploadFileByProjectId = async (req, res) => {
       uploadFolder,
       userId,
       _id,
+      status,
     });
 
     res.send({ success: true, uploadedFiles: uploadedFilesData });
