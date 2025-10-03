@@ -1,4 +1,8 @@
 const Feature = require("../../models/feature/feature-model");
+const permissionModel = require("../../models/permission/permission-model");
+const rolePermissionModel = require("../../models/role-permission/role-permission-model");
+const roleModel = require("../../models/role/role-model");
+const userModel = require("../../models/user/user-model");
 const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 // Get Feature by ID
@@ -43,8 +47,30 @@ exports.getAllFeatures = async (req, res) => {
 };
 
 exports.GetAllFeatures = async (req, res) => {
+  const { userId } = req.query;
+
+  // Get the user with their role
+  const user = await userModel.findOne({ _id: userId }).select("role");
+
+  // Use the user's role (not user._id)
+  const role = await roleModel.findOne({ name: user.role }).select("_id");
+
+  // Get role permissions
+  const rolePermissions = await rolePermissionModel.find({ roleId: role._id }).select("permissionId")
+
+  // Get permissions based on rolePermissions
+  const permissions = await permissionModel.find({ 
+    _id: { $in: rolePermissions.map(rp => rp.permissionId) }  // use permissionId if stored
+  }).select("featureId");
+
+  let features;
   try {
-    const features = await Feature.find();
+      features = await Feature.find({ 
+        _id: { $in: permissions.map(p => p.featureId) } 
+      });
+    if(user.role === "ADMIN" || user.role === "Admin"){
+      features = await Feature.find();
+    }
     res.json(features);
   } catch (error) {
     console.error("Error getting features:", error);
