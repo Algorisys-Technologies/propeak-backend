@@ -3001,9 +3001,14 @@ exports.getKanbanTasks = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .populate("userId")
-      .populate("createdBy")
-      .populate("subtasks")
+      .populate({ path: "createdBy", select: "_id name email"})
+      .populate({
+        path: "subtasks",
+        populate: { path: "userId", select: "name" }
+      })
       .lean();
+      
+
 
     const totalPages = Math.ceil(
       (await Task.countDocuments({

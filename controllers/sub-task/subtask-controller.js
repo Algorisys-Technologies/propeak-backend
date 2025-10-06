@@ -58,7 +58,7 @@ exports.createSubTask = async (req, res) => {
       taskId: req.body.taskId,
       title: req.body.title,
       completed: false,
-      dateOfCompletion: "",
+      dateOfCompletion: "", 
       isDeleted: false,
       storyPoint: "",
       sequence: "",
@@ -68,7 +68,6 @@ exports.createSubTask = async (req, res) => {
       newSubTask.userId = req.body.userId;
     }
 
-    console.log("newSubTasksss", newSubTask);
 
     const result = await SubTask.create(newSubTask);
     await Task.findOneAndUpdate(
@@ -411,7 +410,7 @@ exports.updateSubTaskCompleted = (req, res) => {
 
 exports.toggleSubTask = async (req, res) => {
   try {
-    await SubTask.findOneAndUpdate(
+    const result = await SubTask.findOneAndUpdate(
       { _id: req.body.subTaskId },
       { completed: req.body.completed }
     );
