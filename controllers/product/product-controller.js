@@ -3,13 +3,18 @@ const ProductCategory = require("../../models/product/product-category-model");
 const Product = require("../../models/product/product-model");
 const xlsx = require("xlsx");
 const Task = require("../../models/task/task-model");
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+const {
+  DEFAULT_PAGE,
+  DEFAULT_QUERY,
+  DEFAULT_LIMIT,
+} = require("../../utils/defaultValues");
 
 exports.list = async function (req, res) {
   try {
     const page = req.query.page ? req.query.page : DEFAULT_PAGE;
     const q = req.query.q || DEFAULT_QUERY;
-    const regex = new RegExp(q, "i");
+    //const regex = new RegExp(q, "i");
+    const regex = new RegExp(q);
 
     const limit = DEFAULT_LIMIT;
     const products = await Product.find({
@@ -25,12 +30,17 @@ exports.list = async function (req, res) {
       }).countDocuments()) / limit
     );
     const totalProduct = Math.ceil(
-      (await Product.find({
+      await Product.find({
         name: { $regex: regex },
         companyId: req.params.companyId,
-      }).countDocuments())
-    )
-    res.json({ success: true, result: products, totalPages: totalPages, totalProduct: totalProduct });
+      }).countDocuments()
+    );
+    res.json({
+      success: true,
+      result: products,
+      totalPages: totalPages,
+      totalProduct: totalProduct,
+    });
   } catch (error) {
     res.json({
       message: "Failed Listing Products",

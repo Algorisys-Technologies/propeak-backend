@@ -92,17 +92,16 @@ const errors = {
 exports.getAllAccounts = async (req, res) => {
   const { companyId, page, query } = req.body;
 
-
-  const regex = new RegExp(query, "i");
+  //const regex = new RegExp(query, "i");
+  const regex = new RegExp(query);
   let limit;
 
-  if(page >=0 ){
-    limit = 10
+  if (page >= 0) {
+    limit = 10;
+  } else {
+    limit = 0;
   }
-  else{
-    limit = 0
-  }
- 
+
   if (!companyId) {
     return res
       .status(400)
@@ -123,20 +122,27 @@ exports.getAllAccounts = async (req, res) => {
   };
 
   const accounts = await Account.find(queryFilter)
-  .skip(limit * page)
-  .limit(limit)
-  .populate("vfolderId");
+    .skip(limit * page)
+    .limit(limit)
+    .populate("vfolderId");
 
   const totalCount = await Account.countDocuments(queryFilter);
 
-  const totalPages = Math.ceil(await Account.countDocuments(queryFilter)/ limit)
+  const totalPages = Math.ceil(
+    (await Account.countDocuments(queryFilter)) / limit
+  );
   if (!accounts || accounts.length === 0) {
     return res
       .status(404)
-      .json({ success: false,data: [], totalPages:0, msg: "No accounts found for this company." });
+      .json({
+        success: false,
+        data: [],
+        totalPages: 0,
+        msg: "No accounts found for this company.",
+      });
   }
 
-  res.json({data: accounts, totalPages, totalCount});
+  res.json({ data: accounts, totalPages, totalCount });
 };
 
 // Get Account By ID (includes company ID validation)
@@ -218,10 +224,10 @@ exports.createAccount = async (req, res) => {
     console.error("1Error occurred while creating account:", err);
     // console.error("1Error:", errorResponse.errmsg);
     return res.json({
-        success: false,
-        message: "Error adding account. Please try again later.",
-        // message: err
-      });
+      success: false,
+      message: "Error adding account. Please try again later.",
+      // message: err
+    });
   }
 };
 
@@ -232,7 +238,7 @@ exports.updateAccount = async (req, res) => {
   try {
     // const { id } = req.params;
     const updatedAccount = await Account.findOneAndUpdate(
-      { _id: id, isDeleted: false }, 
+      { _id: id, isDeleted: false },
       req.body,
       { new: true }
     );
@@ -243,7 +249,11 @@ exports.updateAccount = async (req, res) => {
         .json({ success: false, error: "Account not found." });
     }
 
-    return res.json({ success: true, account: updatedAccount, message: "Updated successful!" });
+    return res.json({
+      success: true,
+      account: updatedAccount,
+      message: "Updated successful!",
+    });
   } catch (error) {
     console.error("Error updating accounts:", error);
     return res.status(500).json({ success: false, error: error.message });
@@ -257,7 +267,7 @@ exports.deleteAccount = async (req, res) => {
     const result = await Account.findByIdAndUpdate(
       accountId,
       { isDeleted: true },
-      { new: true } 
+      { new: true }
     );
 
     if (!result) {

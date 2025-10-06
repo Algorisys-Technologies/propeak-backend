@@ -9,7 +9,11 @@ const { getQueueMessageCount } = require("../../rabbitmq/index");
 const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
 const { normalizeAddress } = require("../../utils/address");
 const Account = require("../../models/account/account-model");
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+const {
+  DEFAULT_PAGE,
+  DEFAULT_QUERY,
+  DEFAULT_LIMIT,
+} = require("../../utils/defaultValues");
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
   ADDCONTACTERROR: "Error occurred while adding the contact",
@@ -72,7 +76,8 @@ exports.getAllContact = async (req, res) => {
     // Build OR conditions only if q exists
     const orConditions = [];
     if (q) {
-      const regex = new RegExp(q, "i");
+      //const regex = new RegExp(q, "i");
+      const regex = new RegExp(q);
       if (/^\d+$/.test(q)) {
         // Input is only numbers → search phone
         orConditions.push({ phone: { $regex: regex } });
@@ -100,7 +105,7 @@ exports.getAllContact = async (req, res) => {
         { companyId },
         { account_id: accountId },
         { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
-        ...(vfolderId ? [{ vfolderId }] : [])
+        ...(vfolderId ? [{ vfolderId }] : []),
       ],
     };
 
@@ -141,7 +146,6 @@ exports.getAllContact = async (req, res) => {
     });
   }
 };
-
 
 // exports.getAllContact = async (req, res) => {
 //   try {
@@ -546,11 +550,17 @@ exports.createContact = async (req, res) => {
         .send("All fields marked with an asterisk (*) are mandatory.");
     }
 
-    if(contactData.createProject === "true"){
-      if(!contactData.projectTypeId || !contactData.projectStageId || !contactData.userId || !contactData.projectOwnerId || !contactData.notifyUserId){
+    if (contactData.createProject === "true") {
+      if (
+        !contactData.projectTypeId ||
+        !contactData.projectStageId ||
+        !contactData.userId ||
+        !contactData.projectOwnerId ||
+        !contactData.notifyUserId
+      ) {
         return res
-        .status(400)
-        .send("All fields marked with an asterisk (*) are mandatory.");
+          .status(400)
+          .send("All fields marked with an asterisk (*) are mandatory.");
       }
     }
 
@@ -581,8 +591,7 @@ exports.createContact = async (req, res) => {
       // );
       return res.json({
         success: true,
-        message:
-          "Contact created successfully.",
+        message: "Contact created successfully.",
         result: savedContact,
       });
     }

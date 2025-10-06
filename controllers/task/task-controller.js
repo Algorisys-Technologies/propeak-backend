@@ -207,7 +207,7 @@ exports.createTask = (req, res) => {
           taskId,
           uploadFolder,
           createdBy,
-          task.status,
+          task.status
         );
       }
 
@@ -975,7 +975,8 @@ exports.getTasksTable = async (req, res) => {
 
     // Apply search filter if provided
     if (searchFilter) {
-      const regex = new RegExp(searchFilter, "i");
+      //const regex = new RegExp(searchFilter, "i");
+      const regex = new RegExp(searchFilter);
       condition.title = { $regex: regex };
     }
 
@@ -2915,7 +2916,8 @@ exports.getKanbanTasks = async (req, res) => {
     };
 
     if (searchFilter) {
-      const regex = new RegExp(searchFilter, "i");
+      //const regex = new RegExp(searchFilter, "i");
+      const regex = new RegExp(searchFilter);
       whereCondition.$or = [
         { title: { $regex: regex } },
         { description: { $regex: regex } },

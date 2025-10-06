@@ -49,8 +49,11 @@ const errors = {
   LOGIN_GENERAL_ERROR_DELETE: "An error has occured while deleting user",
   NOT_AUTHORIZED: "Your are not authorized",
 };
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
-
+const {
+  DEFAULT_PAGE,
+  DEFAULT_QUERY,
+  DEFAULT_LIMIT,
+} = require("../../utils/defaultValues");
 
 exports.getUser = (req, res) => {
   //res.setHeader(ACCESS_TOKEN, req.token);
@@ -131,37 +134,37 @@ exports.getUser = (req, res) => {
 //   }
 // };
 
-exports.selectUsers = async(req, res) => {
-  try{
+exports.selectUsers = async (req, res) => {
+  try {
     const { companyId } = req.body;
     const users = await User.find({
       isDeleted: false,
       companyId,
     }).select("_id name email");
     return res.status(200).json(users);
-  }catch(err){
+  } catch (err) {
     return res.status(500).json({
       success: false,
       msg: `Something went wrong. ${err.message}`,
     });
   }
-}
+};
 
-exports.selectUsersLocation = async(req, res) => {
-  try{
+exports.selectUsersLocation = async (req, res) => {
+  try {
     const { companyId } = req.body;
     const users = await User.find({
       isDeleted: false,
       companyId,
     }).select("_id name email currentLocation");
     return res.status(200).json(users);
-  }catch(err){
+  } catch (err) {
     return res.status(500).json({
       success: false,
       msg: `Something went wrong. ${err.message}`,
     });
   }
-}
+};
 
 exports.getUsers = async (req, res) => {
   try {
@@ -170,7 +173,7 @@ exports.getUsers = async (req, res) => {
     const limit = DEFAULT_LIMIT;
 
     const orConditions = [];
-    
+
     if (q) {
       const regex = new RegExp(q, "i");
 
@@ -282,16 +285,25 @@ exports.postAddUser = async (req, res) => {
     const companyId = req.body.companyId;
     const company = await Company.findById(companyId);
 
-    if(req.body.name == "" || req.body.email == "" || req.body.password == "" || req.body.dob == ""){
+    if (
+      req.body.name == "" ||
+      req.body.email == "" ||
+      req.body.password == "" ||
+      req.body.dob == ""
+    ) {
       return res
         .status(400)
         .send("All fields marked with an asterisk (*) are mandatory.");
     }
 
-    const isUserExists = await User.findOne({email: req.body.email, companyId, isDeleted: false})
+    const isUserExists = await User.findOne({
+      email: req.body.email,
+      companyId,
+      isDeleted: false,
+    });
 
-    if(isUserExists){
-      return res.json({success: false, message: "User Already Exists" })
+    if (isUserExists) {
+      return res.json({ success: false, message: "User Already Exists" });
     }
     console.log(companyId, "companyId from the API");
     console.log(company, "Retrieved company object");
@@ -306,7 +318,10 @@ exports.postAddUser = async (req, res) => {
     let hashedPassword = await bcrypt.hash(password, 10);
 
     console.log("hashedPassword", hashedPassword);
-    console.log(req.body.passportIssueDate, " passport issues date..............")
+    console.log(
+      req.body.passportIssueDate,
+      " passport issues date.............."
+    );
     const newUser = new User({
       name: req.body.name,
       role: req.body.role,
@@ -337,7 +352,7 @@ exports.postAddUser = async (req, res) => {
       createdOn: new Date(),
       modifiedBy: req.body.createdBy || "",
       modifiedOn: new Date(),
-      isGeoTrackingEnabled: req.body.isGeoTrackingEnabled
+      isGeoTrackingEnabled: req.body.isGeoTrackingEnabled,
     });
 
     const role = await Role.findOne({ name: req.body.role });
@@ -462,13 +477,11 @@ exports.postAddUser = async (req, res) => {
     });
   } catch (error) {
     console.error("Error adding user:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: errors.REGISTER_GENERAL_ERROR,
-        err: errors.REGISTER_GENERAL_ERROR,
-      });
+    res.status(500).json({
+      success: false,
+      message: errors.REGISTER_GENERAL_ERROR,
+      err: errors.REGISTER_GENERAL_ERROR,
+    });
   }
 };
 
@@ -477,7 +490,12 @@ exports.updateUser = async (req, res) => {
     const updatedUser = req.body;
     console.log(updatedUser, "updatedUser.................");
 
-    if(req.body.name == "" || req.body.email == "" || req.body.password == "" || req.body.dob == ""){
+    if (
+      req.body.name == "" ||
+      req.body.email == "" ||
+      req.body.password == "" ||
+      req.body.dob == ""
+    ) {
       return res
         .status(400)
         .send("All fields marked with an asterisk (*) are mandatory.");
@@ -655,8 +673,8 @@ exports.checkUser = async (req, res) => {
   try {
     console.log("BODY", req.body);
     const user = await User.findOne({ email: req.body.email })
-    .select('_id email companyId isActive')
-    .lean();
+      .select("_id email companyId isActive")
+      .lean();
     if (user) {
       return res.json({ success: true, user: user });
     } else {
