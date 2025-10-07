@@ -489,10 +489,11 @@ exports.projectFileUpload = async (req, res) => {
   }
   async function getProjectStageIdByTitle(statusTitle, companyId, groupId) {
     let projectStage;
+    const trimmedTitle = statusTitle.trim(); // ✅ remove extra spaces
     try {
       if (groupId) {
         projectStage = await GroupProjectStage.findOne({
-          title: statusTitle,
+          title: trimmedTitle,
           companyId: companyId,
           groupId,
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
@@ -500,14 +501,14 @@ exports.projectFileUpload = async (req, res) => {
 
         if (!projectStage) {
           projectStage = await ProjectStage.findOne({
-            title: statusTitle,
+            title: trimmedTitle,
             companyId: companyId,
             $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
           });
         }
       } else {
         projectStage = await ProjectStage.findOne({
-          title: statusTitle,
+          title: trimmedTitle,
           companyId: companyId,
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         });
@@ -949,8 +950,9 @@ exports.projectFileUpload = async (req, res) => {
             }
           } else {
             res.json({
-              title: "Duplicate company created!",
-              description: "some project have duplicate project title",
+              title: "Duplicate projects found!",
+              description:
+                "Some projects have duplicate titles and were not created.",
             });
           }
         }
@@ -1382,7 +1384,6 @@ exports.deleteUploadFile = (req, res) => {
               .json({ error: "File not found in database" });
           }
 
-
           if (data.updatedFile.taskId) {
             let result = await Task.findOneAndUpdate(
               { _id: data.updatedFile.taskId },
@@ -1415,19 +1416,25 @@ exports.deleteUploadFile = (req, res) => {
               });
             })
             .catch((error) => {
-              logError({
-                message: error.message,
-                stack: error.stack
-              }, "deleteUploadFile");
-              res.json({ success: false, message: "Project update failed", });
+              logError(
+                {
+                  message: error.message,
+                  stack: error.stack,
+                },
+                "deleteUploadFile"
+              );
+              res.json({ success: false, message: "Project update failed" });
             });
         })
         .catch((error) => {
-          logError({
-            message: error.message,
-            stack: error.stack
-          }, "deleteUploadFile");
-          res.json({ success: false, message: "UploadFile delete failed", });
+          logError(
+            {
+              message: error.message,
+              stack: error.stack,
+            },
+            "deleteUploadFile"
+          );
+          res.json({ success: false, message: "UploadFile delete failed" });
         });
     });
   });
