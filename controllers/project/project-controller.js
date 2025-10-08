@@ -3448,8 +3448,32 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       });
     }
 
+    // if (stageId && stageId !== "ALL" && stageId !== "null") {
+    //   projectWhereCondition.projectStageId = stageId;
+    // }
+
     if (stageId && stageId !== "ALL" && stageId !== "null") {
-      projectWhereCondition.projectStageId = stageId;
+      projectWhereCondition.$and.push({
+        $or: [
+          {
+            group: groupObjectId,
+            projectStageId: stageId,
+          },
+          {
+            references: {
+              $elemMatch: {
+                groupId: groupObjectId,
+                stageId: stageId,
+              },
+            },
+          },
+        ],
+      });
+    } else {
+      // No stage filter: include all projects in the group or referenced in the group
+      projectWhereCondition.$and.push({
+        $or: [{ group: groupObjectId }, { referenceGroupIds: groupObjectId }],
+      });
     }
 
     if (userId !== "ALL") {
@@ -4834,8 +4858,6 @@ exports.moveOrReference = async (req, res) => {
   const { projectIds, targetGroupId, targetStageId, action, modifiedBy } =
     req.body;
 
-  console.log("targetStageId...", targetStageId);
-
   if (!Array.isArray(projectIds) || projectIds.length === 0) {
     return res
       .status(400)
@@ -4865,18 +4887,32 @@ exports.moveOrReference = async (req, res) => {
         }
       );
     } else if (action === "reference") {
-      // ✅ Add to referenceGroupIds (no duplicates)
+      // ✅ Add reference without overwriting the project's stage
       await Project.updateMany(
         { _id: { $in: projectIds } },
         {
-          $addToSet: { referenceGroupIds: targetGroupId },
+          $addToSet: {
+            referenceGroupIds: targetGroupId,
+            references: { groupId: targetGroupId, stageId: targetStageId },
+          },
           $set: {
-            ...(targetStageId ? { projectStageId: targetStageId } : {}),
             modifiedBy,
             modifiedOn: new Date(),
           },
         }
       );
+      // // ✅ Add to referenceGroupIds (no duplicates)
+      // await Project.updateMany(
+      //   { _id: { $in: projectIds } },
+      //   {
+      //     $addToSet: { referenceGroupIds: targetGroupId },
+      //     $set: {
+      //       ...(targetStageId ? { projectStageId: targetStageId } : {}),
+      //       modifiedBy,
+      //       modifiedOn: new Date(),
+      //     },
+      //   }
+      // );
     }
 
     return res.json({
