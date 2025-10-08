@@ -4858,8 +4858,6 @@ exports.moveOrReference = async (req, res) => {
   const { projectIds, targetGroupId, targetStageId, action, modifiedBy } =
     req.body;
 
-  console.log("targetStageId...", targetStageId);
-
   if (!Array.isArray(projectIds) || projectIds.length === 0) {
     return res
       .status(400)
