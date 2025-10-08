@@ -4,7 +4,7 @@ const router = express.Router();
 
 var subTaskController = require("../../controllers/sub-task/subtask-controller");
 
-router.get("/:projectId", subTaskController.getAllsubTasks);
+router.post("/getAllSubTask", subTaskController.getAllsubTasks);
 
 // CREATE
 router.post("/create", subTaskController.createSubTask);

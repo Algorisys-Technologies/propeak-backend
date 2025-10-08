@@ -19,40 +19,61 @@ const errors = {
   DELETE_SUBTASK_ERROR: "Error occurred while deleting the SubTask",
 };
 
-exports.getAllsubTasks = (req, res) => {
-  logInfo("getAllsubTasks");
-  Project.aggregate([
-    {
-      $match: {
-        _id: mongoose.Types.ObjectId(projectId),
-        $or: [{ isDeleted: false }, { isDeleted: null }],
-      },
-    },
-    { $unwind: "$tasks" },
-    {
-      $match: {
-        $or: [{ "tasks.isDeleted": false }, { "tasks.isDeleted": null }],
-      },
-    },
-    { $project: { "tasks.subtasks": 1 } },
-  ])
-    .then((result) => {
-      let subTaskresult = result[0].tasks.subtasks.filter((m) => {
-        if (m.isDeleted !== true) {
-          return m;
-        }
-      });
-      logInfo("getAllsubTasks before response");
-      res.json(subTaskresult);
+exports.getAllsubTasks = async(req, res) => {
+  // logInfo("getAllsubTasks");
+  // Project.aggregate([
+  //   {
+  //     $match: {
+  //       _id: mongoose.Types.ObjectId(projectId),
+  //       $or: [{ isDeleted: false }, { isDeleted: null }],
+  //     },
+  //   },
+  //   { $unwind: "$tasks" },
+  //   {
+  //     $match: {
+  //       $or: [{ "tasks.isDeleted": false }, { "tasks.isDeleted": null }],
+  //     },
+  //   },
+  //   { $project: { "tasks.subtasks": 1 } },
+  // ])
+  //   .then((result) => {
+  //     let subTaskresult = result[0].tasks.subtasks.filter((m) => {
+  //       if (m.isDeleted !== true) {
+  //         return m;
+  //       }
+  //     });
+  //     logInfo("getAllsubTasks before response");
+  //     res.json(subTaskresult);
+  //   })
+  //   .catch((err) => {
+  //     res.json({ err: errors.MESSAGE_DOESNT_EXIST });
+  //   });
+
+
+  try{
+    const {taskId} = req.body;
+    if(!taskId){
+      return res.json({success: true, message: "Task Id required!"});
+    }
+    const data = await SubTask.find({
+      taskId,
+      isDeleted: false,
+    }).populate("userId", "name");
+    const totalSubTask = await SubTask.countDocuments({
+      taskId,
+      isDeleted: false,
     })
-    .catch((err) => {
-      res.json({ err: errors.MESSAGE_DOESNT_EXIST });
-    });
+    return res.json({subtask: data, totalSubtask: totalSubTask})
+  }catch(err){
+    logError({
+      message: err.message,
+      stack: err.stack
+    }, "getAllsubTasks");
+  }
 };
 
 exports.createSubTask = async (req, res) => {
   logInfo(req.body, "createSubTask req.body");
-  //console.log("createSubTask req.body", req.body);
   try {
     let newSubTask = {
       taskId: req.body.taskId,
@@ -157,7 +178,6 @@ exports.createSubTask = async (req, res) => {
 
 exports.updateSubTask = async (req, res) => {
   logInfo(req.body, "updateSubTask req.body");
-  console.log("updateSubTask req.body", req.body);
 
   try {
     const {
@@ -175,29 +195,23 @@ exports.updateSubTask = async (req, res) => {
     // Validate subTaskId
     if (!subTaskId) {
       // Change here to match the request body
-      console.log("Error: Subtask ID is missing in the request body.");
       return res
-        .status(400)
-        .json({ success: false, msg: "Subtask ID is required" });
+        .json({ success: false, message: "Subtask ID is required" });
     }
 
     // Validate that subTaskId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(subTaskId)) {
       // Change here to match the request body
-      console.log("Error: Invalid Subtask ID format");
       return res
-        .status(400)
         .json({ success: false, msg: "Invalid Subtask ID format" });
     }
 
     const subtaskToUpdate = await SubTask.findById(subTaskId);
     if (!subtaskToUpdate) {
-      console.log("Error: Subtask not found");
       return res.status(404).json({ success: false, msg: "Subtask not found" });
     }
 
     // Update the subtask
-    console.log("Attempting to update subtask with ID:", subTaskId);
     const updatedSubTask = await SubTask.findOneAndUpdate(
       { _id: subTaskId },
       {
@@ -214,11 +228,7 @@ exports.updateSubTask = async (req, res) => {
 
     // Check if the update was successful
     if (!updatedSubTask) {
-      console.log(
-        "Error: Subtask not updated (no changes or subtask not found)"
-      );
       return res
-        .status(404)
         .json({ success: false, msg: "Subtask not found or no changes made" });
     }
 
@@ -426,9 +436,12 @@ exports.toggleSubTask = async (req, res) => {
 };
 
 exports.deleteSubTask = async (req, res) => {
-  console.log("In delete subTask controller");
   try {
-    const result = await SubTask.findOneAndDelete({ _id: req.body.subTaskId });
+    const result = await SubTask.findOneAndDelete(
+      { _id: req.body.subTaskId },
+      { $set: { isDeleted: true } },
+      { new: true } 
+    );
 
     await Task.findOneAndUpdate(
       { _id: req.body.taskId },
@@ -440,7 +453,10 @@ exports.deleteSubTask = async (req, res) => {
       result: result,
     });
   } catch (e) {
-    console.log("err", e);
-    return res.json({ success: false, message: e });
+    logError({
+      message: e.message,
+      stack: e.stack
+    }, "deleteSubTask");
+    return res.json({ success: false, message: "Failed to delete subtask" });
   }
 };
