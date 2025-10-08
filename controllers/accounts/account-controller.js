@@ -27,14 +27,11 @@ const errors = {
 //     const limit = parseInt(req.query.limit) || 10;
 //     const skip = (page - 1) * limit;
 
-//     // Log pagination details
-//     console.log(`Page: ${page}, Limit: ${limit}, Skip: ${skip}`);
-
 //     // Fetch cached data
 //     let cachedData = await cacheManager.getCachedData("categoryData");
 
 //     if (cachedData) {
-//       console.log("Cached data found:", cachedData);
+
 //       return res.json(cachedData);  // Return cached data if available
 //     }
 
@@ -44,11 +41,8 @@ const errors = {
 //       Account.countDocuments({ companyId }).exec(),
 //     ]);
 
-//     console.log(`Accounts fetched: ${accounts.length}`);
-
 //     // Set the fetched accounts into cache
 //     await cacheManager.setCachedData("categoryData", { accounts, totalCount });
-//     console.log("Data has been cached");
 
 //     // Send response
 //     res.json({
@@ -65,16 +59,15 @@ const errors = {
 
 // Fetch all accounts associated with the user's company
 // exports.getAllAccounts = async (req, res) => {
-//   console.log("is this coming here ????")
+
 //   try {
 //     const { companyId } = req.body;
-//     console.log(companyId);
-//     console.log("company id ", companyId);
+
 //     const accounts = await Account.find({
 //       companyId: companyId,
 //       isDeleted: false,
 //     });
-//     console.log(accounts, "accounts")
+
 //     if (!accounts || accounts.length === 0) {
 //       return res
 //         .status(404)
@@ -132,14 +125,12 @@ exports.getAllAccounts = async (req, res) => {
     (await Account.countDocuments(queryFilter)) / limit
   );
   if (!accounts || accounts.length === 0) {
-    return res
-      .status(404)
-      .json({
-        success: false,
-        data: [],
-        totalPages: 0,
-        msg: "No accounts found for this company.",
-      });
+    return res.status(404).json({
+      success: false,
+      data: [],
+      totalPages: 0,
+      msg: "No accounts found for this company.",
+    });
   }
 
   res.json({ data: accounts, totalPages, totalCount });
@@ -171,9 +162,8 @@ exports.getAccountById = async (req, res) => {
 
 // // Create Account with the associated company ID
 // exports.createAccount = async (req, res) => {
-//   console.log("create accounts.......................")
+
 //   try {
-//     console.log("Request body:", req.body);
 
 //     const newAccount = new Account({
 //       ...req.body,
@@ -181,7 +171,6 @@ exports.getAccountById = async (req, res) => {
 //     });
 
 //     const result = await newAccount.save();
-//     console.log("Account created successfully:", result);
 
 //     res.json({
 //       success: true,
@@ -195,8 +184,6 @@ exports.getAccountById = async (req, res) => {
 // };
 // Create Account with the associated company ID
 exports.createAccount = async (req, res) => {
-  console.log("Creating account...");
-
   try {
     const { companyId, ...accountData } = req.body;
 
@@ -213,7 +200,6 @@ exports.createAccount = async (req, res) => {
     });
 
     const result = await newAccount.save();
-    console.log("Account created successfully:", result);
 
     return res.json({
       success: true,
@@ -232,9 +218,8 @@ exports.createAccount = async (req, res) => {
 };
 
 exports.updateAccount = async (req, res) => {
-  console.log("is accounts UPDATE coming");
   const { id } = req.body;
-  console.log("Attempting to delete company with ID:", id);
+
   try {
     // const { id } = req.params;
     const updatedAccount = await Account.findOneAndUpdate(

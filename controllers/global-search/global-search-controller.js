@@ -23,7 +23,6 @@ exports.searchByTasksAndProjects = async (req, res) => {
 
     //const searchQuery = new RegExp(searchText, "i");
     const searchQuery = new RegExp(searchText);
-    // console.log("Using regex query:", searchQuery);
 
     // Build task query
     const taskQuery = {
@@ -158,7 +157,6 @@ exports.searchByTasksAndProjects = async (req, res) => {
 //     const limit = 5;
 
 //     const searchQuery = new RegExp(searchText, "i");
-//     console.log("Using regex query:", searchQuery);
 
 //     // Build task query
 //     const taskQuery = {
@@ -189,7 +187,6 @@ exports.searchByTasksAndProjects = async (req, res) => {
 //     const projects = await Project.find(projectQuery)
 //       .skip(limit * page)
 //       .limit(limit);
-//     console.log("Projects found:", projects.length, projects);
 
 //     // Count total tasks and projects
 //     const totalTasks = await Task.countDocuments(taskQuery);

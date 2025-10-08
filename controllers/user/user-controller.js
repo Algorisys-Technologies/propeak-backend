@@ -119,8 +119,6 @@ exports.getUser = (req, res) => {
 //       companyId: companyId, // Filter users by companyId
 //     });
 
-//     // console.log(users, "users");
-
 //     if (users.length === 0) {
 //       return res
 //         .status(404)
@@ -305,8 +303,7 @@ exports.postAddUser = async (req, res) => {
     if (isUserExists) {
       return res.json({ success: false, message: "User Already Exists" });
     }
-    console.log(companyId, "companyId from the API");
-    console.log(company, "Retrieved company object");
+
     if (!company || company.numberOfUsers <= 0) {
       return res.json({
         success: false,
@@ -317,11 +314,6 @@ exports.postAddUser = async (req, res) => {
     const password = req.body.password;
     let hashedPassword = await bcrypt.hash(password, 10);
 
-    console.log("hashedPassword", hashedPassword);
-    console.log(
-      req.body.passportIssueDate,
-      " passport issues date.............."
-    );
     const newUser = new User({
       name: req.body.name,
       role: req.body.role,
@@ -488,7 +480,6 @@ exports.postAddUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const updatedUser = req.body;
-    console.log(updatedUser, "updatedUser.................");
 
     if (
       req.body.name == "" ||
@@ -597,7 +588,7 @@ exports.deleteUser = async (req, res) => {
       { $set: { isDeleted: true } },
       { new: true } // Returns the updated document
     );
-    console.log(user, "user....");
+
     // If the user is not found
     if (!user) {
       return res.json({
@@ -671,7 +662,6 @@ exports.getProfilePicture = (req, res) => {
 
 exports.checkUser = async (req, res) => {
   try {
-    console.log("BODY", req.body);
     const user = await User.findOne({ email: req.body.email })
       .select("_id email companyId isActive")
       .lean();
@@ -791,7 +781,7 @@ exports.checkUser = async (req, res) => {
 
 // // exports.getUsers = async (req, res) => {
 // //   var cachedData = await cacheManager.getCachedData("usersData");
-// //   console.log("cachedData", cachedData);
+
 // //   if (!!cachedData) {
 // //     if (cachedData.length > 0) {
 // //       res.json(cachedData);
@@ -836,7 +826,7 @@ exports.checkUser = async (req, res) => {
 // //     }
 // //   ) //.sort({name: 1})
 // //     .then((result) => {
-// //       // console.log("result", result);
+
 // //       cacheManager.setCachedData("usersData", result);
 // //       res.json(result);
 // //     })
@@ -853,9 +843,6 @@ exports.checkUser = async (req, res) => {
 //   const userRole = req.userInfo.userRole.toLowerCase();
 //   const userCompanyId = req.userInfo.companyId;
 
-//   console.log("User Role:", userRole); // Log the user's role
-//   console.log("User Company ID:", userCompanyId); // Log the user's company ID
-
 //   try {
 //     let query;
 
@@ -863,16 +850,16 @@ exports.checkUser = async (req, res) => {
 //     if (userRole === "admin" || userRole === "support") {
 //       // Admin and support can see all users
 //       query = { isDeleted: false };
-//       //console.log("Query for Admin/Support:", query);
+
 //     } else if (userRole === "owner" || userRole === "user") {
 //       // Owner or user can see only users from their own company
 //       query = {
 //         isDeleted: false,
 //         companyId: userCompanyId,
 //       };
-//       //console.log("Query for Owner/User:", query);
+
 //     } else {
-//       console.log("Access denied for role:", userRole);
+
 //       return res.status(403).json({ success: false, msg: "Access denied." });
 //     }
 
@@ -881,9 +868,9 @@ exports.checkUser = async (req, res) => {
 
 //     // Check for cached data based on the cache key
 //     // var cachedData = await cacheManager.getCachedData(cacheKey);
-//     // console.log("Cached Data:", cachedData); // Log cached data
+
 //     // if (!!cachedData && cachedData.length > 0) {
-//     //   console.log("Returning cached data.");
+
 //     //   return res.json(cachedData);
 //     // }
 
@@ -917,11 +904,8 @@ exports.checkUser = async (req, res) => {
 //       modifiedOn: 1,
 //     });
 
-//     // console.log("Query Result:", result); // Log the result from the database
-
 //     // Cache and return results, using the specific cache key
 //     cacheManager.setCachedData(cacheKey, result);
-//     console.log("Cached data set successfully.");
 
 //     return res.json(result);
 //   } catch (err) {
@@ -937,7 +921,7 @@ exports.checkUser = async (req, res) => {
 //   try {
 //     //res.setHeader(ACCESS_TOKEN, req.token);
 //     let userRole = req.userInfo.userRole.toLowerCase();
-//     // console.log('req.body',req.body);
+
 //     let accessCheck = access.checkEntitlements(userRole);
 //     if (accessCheck === false) {
 //       res.json({
@@ -987,7 +971,7 @@ exports.checkUser = async (req, res) => {
 //       modifiedBy: req.body.modifiedBy,
 //       modifiedOn: req.body.modifiedOn,
 //     });
-//     console.log("newUser", newUser);
+
 //     newUser
 //       .save()
 //       .then((result) => {
@@ -1011,11 +995,11 @@ exports.checkUser = async (req, res) => {
 //         rabbitMQ
 //           .sendMessageToQueue(mailOptions, "message_queue", "msgRoute")
 //           .then((resp) => {
-//             console.log(resp);
+
 //             logInfo("user add mail message sent to the message_queue:" + resp);
 //             addMyNotification(userArr);
 //           });
-//         // console.log('result', result)
+
 //         cacheManager.clearCachedData("usersData");
 //         let userIdToken = req.userInfo.userName;
 //         let fields = [];
@@ -1072,7 +1056,7 @@ exports.checkUser = async (req, res) => {
 //           userRole: result.role,
 //         })
 //           .then((result1) => {
-//             //  console.log("result1",result1);
+
 //             var defaultAppLevelAccessRight = [];
 //             for (let i = 0; i < result1.length; i++) {
 //               let newAccessRight = {
@@ -1087,10 +1071,10 @@ exports.checkUser = async (req, res) => {
 //               defaultAppLevelAccessRight.push(newAccessRight);
 //             }
 //             if (defaultAppLevelAccessRight.length > 0) {
-//               // console.log("defaultAppLevelAccessRight",defaultAppLevelAccessRight);
+
 //               AppLevelAccessRight.insertMany(defaultAppLevelAccessRight)
 //                 .then((result2) => {
-//                   // console.log("result2",result2);
+
 //                   logInfo(result2.length, "setUserAccessRights result");
 
 //                   res.json({
@@ -1144,7 +1128,6 @@ exports.checkUser = async (req, res) => {
 //                   userId: result._id,
 //                 };
 
-//                 console.log(result2[0].projectUsers.length);
 //                 if (result2[0].projectUsers.length > 0) {
 //                   result2[0].projectUsers.push(projectuser);
 //                   try {
@@ -1266,12 +1249,11 @@ exports.checkUser = async (req, res) => {
 //                 lean: true,
 //               }
 //             ).then((result) => {
-//               // console.log("result",result);
 
 //               DefaultAppLevelAccessRight.find({
 //                 userRole: updatedUser.role,
 //               }).then((result1) => {
-//                 //  console.log("result1",result1);
+
 //                 var defaultAppLevelAccessRight = [];
 //                 for (let i = 0; i < result1.length; i++) {
 //                   let newAccessRight = {
@@ -1335,7 +1317,7 @@ exports.checkUser = async (req, res) => {
 // //     });
 // //     return;
 // //   }
-// //   // console.log("req.body",req.body.id);
+
 // //   let userId = req.body.id;
 
 // //   User.findOneAndUpdate(

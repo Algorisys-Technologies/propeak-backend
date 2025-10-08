@@ -281,7 +281,7 @@ exports.getProjectDataByProjectId = (req, res) => {
 // CREATE
 exports.createProject = async (req, res) => {
   logInfo(req.body, "createProject req.body");
-  // console.log("createProject req.body...", req.body);
+
   let userName = req.body.userName;
   const { title, companyId, status, taskStages, group } = req.body;
   //const existingProject = await Project.findOne({ title, companyId });
@@ -297,8 +297,6 @@ exports.createProject = async (req, res) => {
   }
 
   const existingProject = await Project.findOne(projectQuery);
-
-  // console.log(existingProject, "existingProject");
 
   // const existingProject = await Project.findOne({ title, companyId });
   if (existingProject) {
@@ -419,8 +417,6 @@ exports.createProject = async (req, res) => {
           subject: ` PROJECT_CREATED - ${newTask.title}`,
           html: emailText,
         };
-
-        console.log(mailOptions, "from mailOptions");
 
         let taskArr = {
           subject: mailOptions.subject,
@@ -821,7 +817,7 @@ exports.updateProject = async (req, res) => {
 exports.updateProjectField = async (req, res) => {
   logInfo("updateProjectField");
   logInfo(req.body, "req.body in update fields...here...");
-  console.log("req.body in update fields...", req.body.customFieldValues);
+
   const { _id, title, companyId, status } = req.body;
 
   const existingProject = await Project.findOne({
@@ -830,7 +826,6 @@ exports.updateProjectField = async (req, res) => {
     _id: { $ne: _id },
   });
 
-  console.log(existingProject, "existingProject..............");
   // if (existingProject) {
   //   const projectUsers = await User.find(
   //     { _id: { $in: existingProject.projectUsers } },
@@ -877,7 +872,6 @@ exports.updateProjectField = async (req, res) => {
     accountId: req.body.accountId,
   });
 
-  console.log(updatedProject, "from update Project");
   Project.findOneAndUpdate(
     {
       _id: req.body._id,
@@ -1361,7 +1355,6 @@ exports.getUserProject = (req, res) => {
   }
 };
 exports.archiveProject = async (req, res) => {
-  console.log("Un archive project code ?");
   try {
     const { projectId } = req.body;
 
@@ -1388,7 +1381,7 @@ exports.archiveProject = async (req, res) => {
     );
 
     const eventType = "PROJECT_ARCHIVED";
-    // console.log(project, "from project archived");
+
     const notification = await handleNotifications(project, eventType);
 
     // if (emailOwner.length > 0 || email.length > 0) {
@@ -1409,8 +1402,6 @@ exports.archiveProject = async (req, res) => {
           // .replace("#projectId#", newTask.projectId._id)
           .replace("#newTaskId#", newTask._id);
 
-        // console.log(emailText, "from mailOptions")
-
         let emailText = `
             Hi, <br/><br/>
             A project has been <strong>Archived</strong>. <br/><br/>
@@ -1430,8 +1421,6 @@ exports.archiveProject = async (req, res) => {
             subject: ` PROJECT_ARCHIVED - ${newTask.title}`,
             html: emailText,
           };
-
-          console.log(mailOptions, "from mailOptions");
 
           let taskArr = {
             subject: mailOptions.subject,
@@ -1498,7 +1487,6 @@ exports.addCustomTaskField = async (req, res) => {
       companyId,
     } = req.body;
 
-    console.log(req.body, "from req.body custom field");
     if (!projectId && !groupId) {
       return res
         .status(400)
@@ -1564,14 +1552,13 @@ exports.addCustomTaskField = async (req, res) => {
       select: "title",
     });
 
-    // console.log(savedFieldWithProject, "from new filed");
     try {
       const eventType = "CUSTOM_FIELD_CREATED";
       const notification = await handleNotifications(
         savedFieldWithProject,
         eventType
       );
-      // console.log(notification, "from notification")
+
       const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
         try {
           // let updatedDescription = newTask.description
@@ -1619,8 +1606,6 @@ exports.addCustomTaskField = async (req, res) => {
               html: emailText,
             };
 
-            // console.log(mailOptions, "from mailOptions")
-
             let taskArr = {
               subject: mailOptions.subject,
               url: taskEmailLink,
@@ -1647,7 +1632,6 @@ exports.addCustomTaskField = async (req, res) => {
       if (notification.length > 0) {
         for (const channel of notification) {
           const { emails } = channel;
-          // console.log(emails, "from emails")
 
           for (const email of emails) {
             await auditTaskAndSendMail(savedFieldWithProject, [], email);
@@ -1751,7 +1735,6 @@ exports.updateCustomTaskField = async (req, res) => {
   try {
     const { key, label, type, level, isMandatory, companyId } = req.body;
     const customFieldId = req.params.customFieldId;
-    console.log("test the custom field", customFieldId);
 
     // Check for required fields (excluding project ID as it shouldn't be updated)
     if (!key || !label || !type || !level) {
@@ -2220,8 +2203,6 @@ exports.getKanbanProjects = async (req, res) => {
 //       startDateFilter,
 //     } = req.body;
 
-//     console.log("req.body...", req.body, "req.query", req.query);
-
 //     if (!stageId || stageId === "null" || stageId === "ALL") {
 //       return res.status(400).json({
 //         success: false,
@@ -2261,8 +2242,6 @@ exports.getKanbanProjects = async (req, res) => {
 //         },
 //       ];
 //     }
-
-//     // console.log("projectWhereCondition...", projectWhereCondition);
 
 //     if (userId !== "ALL") {
 //       projectWhereCondition.projectUsers = { $in: [userId] };
@@ -3147,8 +3126,6 @@ exports.getProjectKanbanDataByGroupId = async (req, res) => {
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     }).sort({ sequence: "asc" });
 
-    console.log("projectStages...", projectStages);
-
     const isUsingGlobalStages = projectStages.length === 0;
 
     if (isUsingGlobalStages) {
@@ -3685,8 +3662,6 @@ exports.updateStage = async (req, res) => {
             html: emailText,
           };
 
-          // console.log(mailOptions, "from mailOptions")
-
           let taskArr = {
             subject: mailOptions.subject,
             url: taskEmailLink,
@@ -3875,7 +3850,7 @@ exports.getProjectTableForGroup = async (req, res) => {
       groupId,
       archive,
     } = req.body;
-    // console.log(pagination, "from pagination");
+
     let sortOption = {};
 
     if (sort === "titleAsc") {
@@ -4109,10 +4084,8 @@ exports.getProjectTable = async (req, res) => {
       startDate,
       archive,
     } = req.body;
-    // console.log(pagination, "from pagination");
-    let sortOption = {};
 
-    console.log(searchFilter, "from searchfilter");
+    let sortOption = {};
 
     if (sort === "titleAsc") {
       sortOption = { title: 1 };
@@ -4289,8 +4262,6 @@ exports.getProjectTable = async (req, res) => {
       })
       .sort(sortOption)
       .lean();
-
-    console.log(projects, "from search Filter");
 
     res.json({
       success: true,
@@ -4481,7 +4452,7 @@ exports.getProjectExhibitionTable = async (req, res) => {
       startDate,
       archive,
     } = req.body;
-    // console.log(pagination, "from pagination");
+
     let sortOption = {};
 
     if (sort === "titleAsc") {
@@ -4835,8 +4806,6 @@ exports.getProjectsExhibitionCalendar = async (req, res) => {
 exports.moveOrReference = async (req, res) => {
   const { projectIds, targetGroupId, targetStageId, action, modifiedBy } =
     req.body;
-
-  console.log("targetStageId...", targetStageId);
 
   if (!Array.isArray(projectIds) || projectIds.length === 0) {
     return res

@@ -103,8 +103,6 @@ exports.getIntegrationSettings = async (req, res) => {
 //       keyname,
 //     } = req.body;
 
-//     console.log("keyname", keyname);
-
 //     // Ensure all required parameters are present
 //     if (!companyId || !provider || !crmKey || !crmKeyId || !keyname) {
 //       return res.status(400).json({
@@ -368,8 +366,6 @@ exports.updateIntegrationSettings = async (req, res) => {
 //           message: `Unsupported integration provider: ${provider}`,
 //         });
 //       }
-
-//       console.log("settings", settings);
 
 //       const newIntegrationSettings = new IntegrationSetting({
 //         companyId,

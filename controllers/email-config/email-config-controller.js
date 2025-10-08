@@ -149,7 +149,7 @@ exports.getEmailConfigById = async (req, res) => {
 };
 
 // exports.createEmailConfig = async (req, res) => {
-//   console.log(req.body, "request data coming..................");
+
 //   try {
 //     const {
 //       companyId,
@@ -198,10 +198,7 @@ exports.getEmailConfigById = async (req, res) => {
 //       userId,
 //     });
 
-//     console.log(newEmailConfig, "newEmailConfig............");
-
 //     const result = await newEmailConfig.save();
-//     console.log(result, "result..........");
 
 //     res.json({
 //       success: true,
@@ -269,7 +266,6 @@ exports.createEmailConfig = async (req, res) => {
 
 // // Update EmailConfig
 // exports.updateEmailConfig = async (req, res) => {
-//   console.log(req.body, "request data coming..................");
 
 //   const {
 //     id,
@@ -331,8 +327,6 @@ exports.createEmailConfig = async (req, res) => {
 //         msg: "Email configuration does not exist or has been deleted.",
 //       });
 //     }
-
-//     console.log(updatedEmailConfig, "updatedEmailConfig............");
 
 //     res.json({
 //       success: true,
@@ -408,16 +402,15 @@ exports.updateEmailConfig = async (req, res) => {
 };
 
 exports.deleteEmailConfig = async (req, res) => {
-  console.log("is it coming here ??????");
   try {
     const emailConfigId = req.params.id;
-    console.log(emailConfigId, "emailConfigId...........");
+
     const deletedConfig = await EmailConfig.findByIdAndUpdate(
       emailConfigId,
       { isDeleted: true },
       { new: true }
     );
-    console.log(deletedConfig, "deletedConfig..........");
+
     if (!deletedConfig) {
       return res
         .status(404)

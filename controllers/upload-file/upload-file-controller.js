@@ -70,7 +70,7 @@ exports.tasksFileUpload = async (req, res) => {
         if (err) {
           return res.send({ error: "File Not Saved." });
         }
-        console.log("File saved successfully, parsing file...");
+
         parseFile(projectPath, req.files.taskFile.name, companyId);
       }
     );
@@ -87,7 +87,7 @@ exports.tasksFileUpload = async (req, res) => {
         title: statusTitle,
         companyId: companyId,
       });
-      console.log(taskStage, "taskStage...........");
+
       return taskStage ? taskStage._id.toString() : null;
     } catch (err) {
       console.error("Error fetching taskStage ID:", err);
@@ -406,7 +406,7 @@ exports.projectFileUpload = async (req, res) => {
         if (err) {
           return res.send({ error: "File Not Saved." });
         }
-        console.log("File saved successfully, parsing file...");
+
         parseFile(projectPath, req.files.projectFile.name, companyId);
       }
     );
@@ -417,12 +417,6 @@ exports.projectFileUpload = async (req, res) => {
     });
   }
   async function getProjectTypeIdByTitle(projectType, companyId) {
-    console.log(
-      "Searching for projectType with name:",
-      projectType,
-      "and companyId:",
-      companyId
-    );
     try {
       const projectTypeData = await ProjectType.findOne({
         projectType: projectType.trim(),
@@ -431,16 +425,9 @@ exports.projectFileUpload = async (req, res) => {
       });
 
       if (!projectTypeData) {
-        console.log(
-          "No projectType found matching name:",
-          projectType,
-          "and companyId:",
-          companyId
-        );
         return null;
       }
 
-      console.log(projectTypeData, "projectType found");
       return projectTypeData._id;
     } catch (err) {
       console.error("Error fetching projectType ID:", err);
@@ -448,8 +435,6 @@ exports.projectFileUpload = async (req, res) => {
     }
   }
   async function getUserIdsByGroupName(groupName, companyId) {
-    console.log(`Searching for group: ${groupName}, companyId: ${companyId}`);
-
     try {
       const groupData = await Group.findOne({
         groupName: groupName.trim(),
@@ -466,14 +451,10 @@ exports.projectFileUpload = async (req, res) => {
         return [];
       }
 
-      console.log(
-        `Group found: ${groupData.groupName}, Members:`,
-        groupData.groupMembers
-      );
       // const data =  groupData.id.map(
       //   (id) => new mongoose.Types.ObjectId(id)
       // );
-      // console.log(data, "from groupdata")
+
       return groupData.id;
     } catch (err) {
       console.error("Error fetching group members:", err);
@@ -513,7 +494,7 @@ exports.projectFileUpload = async (req, res) => {
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         });
       }
-      // console.log(projectStage, "projectStage...........");
+
       return projectStage ? projectStage._id.toString() : null;
     } catch (err) {
       console.error("Error fetching projectStage ID:", err);
@@ -537,10 +518,6 @@ exports.projectFileUpload = async (req, res) => {
 
   async function getGroupMasterIdByName(groupName, companyId) {
     try {
-      console.log(
-        `Searching for GroupMaster: ${groupName}, companyId: ${companyId}`
-      );
-
       const groupMasterData = await GroupMaster.findOne({
         name: groupName.trim(),
         companyId: companyId.trim(),
@@ -551,9 +528,6 @@ exports.projectFileUpload = async (req, res) => {
         return null;
       }
 
-      console.log(
-        `GroupMaster found: ${groupMasterData.name}, ID: ${groupMasterData._id}`
-      );
       return groupMasterData._id; // Return the ObjectId
     } catch (err) {
       console.error("Error fetching GroupMaster ID:", err);
@@ -576,8 +550,6 @@ exports.projectFileUpload = async (req, res) => {
             console.error("Error parsing file:", err);
             return res.json({ error_code: 1, err_desc: err, data: null });
           }
-          console.log(userId, "what is the userId is coming here ???");
-          console.log("Parsed JSON Data:", result);
 
           let mapArray = {
             title: "title",
@@ -672,10 +644,10 @@ exports.projectFileUpload = async (req, res) => {
               }
               return dateStr;
             };
-            // console.log(project.userGroups, "from projects users groups")
+
             // if (Array.isArray(project.userGroups)) {
             //   project.userGroups = project.userGroups.map((userGroup) => {});
-            //   console.log(project.userGroups, "from user group")
+
             // } else {
             //   console.warn(
             //     "userGroups is not an array, defaulting to empty array"
@@ -854,8 +826,6 @@ exports.projectFileUpload = async (req, res) => {
               }
             }
 
-            console.log(project.projectStageId, "from project.projectStageId ");
-
             project.projectType = project.projectType || "Issue Tracker";
 
             if (!hasValidFields) {
@@ -990,7 +960,6 @@ exports.uploadTaskFieldsConfig = (req, res) => {
       return res.send({ error: "File Not Saved." });
     }
 
-    console.log("File saved successfully:", filePath);
     res.json({
       success: true,
       msg: "File uploaded and saved successfully.",
@@ -1055,14 +1024,13 @@ exports.getUploadFileByProjectId = async (req, res) => {
 // };
 
 exports.uploadFileGetByProjectId = (req, res) => {
-  console.log("IS IT COMING HERE ?????????????");
   // let userRole = req.userInfo.userRole.toLowerCase();
   // let accessCheck = access.checkEntitlementsForUserRole(userRole);
   // if (accessCheck === false) {
   //   res.json({ err: errors.NOT_AUTHORIZED });
   //   return;
   // }
-  console.log("req bosy data ", req.body);
+
   if (taskId) {
     UploadFile.find({ taskId: taskId })
       .then((result) => {
@@ -1111,8 +1079,6 @@ exports.uploadFileGetByProjectId = (req, res) => {
 };
 
 exports.postUploadFile = async (req, res) => {
-  console.log(req.body);
-  console.log(req.files.uploadFile, "files");
   const companyId = req.body.companyId;
   const projectId = req.body.projectId;
 
@@ -1455,8 +1421,6 @@ exports.deleteUploadFile = (req, res) => {
 //       ? req.files.uploadFile
 //       : [req.files.uploadFile];
 
-//     console.log("files...", files);
-
 //     const uploadedFilesData = [];
 
 //     for (const uploadedFile of files) {
@@ -1590,8 +1554,6 @@ exports.downloadUploadFile = (req, res) => {
 };
 
 exports.downloadProjectUploadFile = (req, res) => {
-  console.log("downloadprojectfile....");
-
   const data = req.params;
   const abpath = path.join(uploadFolder, data.projectId, data.filename);
 
@@ -1635,7 +1597,6 @@ exports.viewUploadFile = (req, res) => {
 };
 
 exports.viewUploadFileByProjectId = (req, res) => {
-  console.log("view......");
   const data = req.params;
   const abpath = path.join(
     uploadFolder + "/" + data.projectId + "/" + "/",
