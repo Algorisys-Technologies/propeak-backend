@@ -9,6 +9,7 @@ const { getQueueMessageCount } = require("../../rabbitmq/index");
 const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
 const { normalizeAddress } = require("../../utils/address");
 const Account = require("../../models/account/account-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
   ADDCONTACTERROR: "Error occurred while adding the contact",
@@ -20,7 +21,7 @@ const errors = {
 exports.getContacts = async (req, res) => {
   try {
     const { companyId, accountId } = req.body;
-    console.log(companyId, accountId, "is it coming ??????");
+    // console.log(companyId, accountId, "is it coming ??????");
     if (!companyId) {
       return res
         .status(400)
@@ -46,85 +47,101 @@ exports.getContacts = async (req, res) => {
 };
 
 exports.getAllContact = async (req, res) => {
-  const { companyId, currentPage, query, accountId } = req.body;
+  try {
+    const { companyId, currentPage = DEFAULT_PAGE, accountId } = req.body;
+    const { q = DEFAULT_QUERY, folderId = DEFAULT_QUERY } = req.query;
 
-  const regex = new RegExp(query, "i");
-  console.log(regex, "from contact-controller");
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        contacts: [],
+        totalPages: 0,
+        currentPage: 0,
+        msg: "Company ID is required.",
+      });
+    }
 
-  let vfolderId = null;
-  if (mongoose.Types.ObjectId.isValid(query)) {
-    vfolderId = new mongoose.Types.ObjectId(query);
-  }
-  const limit = 5;
-  if (!companyId) {
-    return res.status(400).json({
+    const limit = DEFAULT_LIMIT;
+
+    // Determine folderId if valid
+    let vfolderId = null;
+    if (folderId && mongoose.Types.ObjectId.isValid(folderId)) {
+      vfolderId = new mongoose.Types.ObjectId(folderId);
+    }
+
+    // Build OR conditions only if q exists
+    const orConditions = [];
+    if (q) {
+      const regex = new RegExp(q, "i");
+      if (/^\d+$/.test(q)) {
+        // Input is only numbers → search phone
+        orConditions.push({ phone: { $regex: regex } });
+      } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q)) {
+        // Input looks like an email → search email
+        orConditions.push({ email: { $regex: regex } });
+      } else {
+        // Otherwise → search name fields
+        orConditions.push(
+          { first_name: { $regex: regex } },
+          { last_name: { $regex: regex } }
+        );
+      }
+    }
+
+    // // Add folder filter if selected
+    // if (vfolderId) {
+    //   orConditions.push({ vfolderId });
+    // }
+
+    // Build the final query
+    const queryConditions = {
+      $and: [
+        orConditions.length > 0 ? { $or: orConditions } : {}, // only apply if conditions exist
+        { companyId },
+        { account_id: accountId },
+        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
+        ...(vfolderId ? [{ vfolderId }] : [])
+      ],
+    };
+
+    // Fetch contacts with pagination
+    const contacts = await Contact.find(queryConditions)
+      .skip(limit * currentPage)
+      .limit(limit);
+
+    const totalDocs = await Contact.countDocuments(queryConditions);
+    const totalPages = Math.ceil(totalDocs / limit);
+
+    if (!contacts || contacts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        contacts: [],
+        totalPages: 0,
+        currentPage: 0,
+        totalContact: 0,
+        msg: "No contacts found for this company.",
+      });
+    }
+
+    res.json({
+      contacts,
+      totalPages,
+      currentPage,
+      totalContact: totalDocs,
+    });
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    res.status(500).json({
       success: false,
       contacts: [],
       totalPages: 0,
       currentPage: 0,
-      msg: "Company ID is required.",
+      totalContact: 0,
+      msg: "Server error while fetching contacts.",
     });
   }
-  console.log("in contacts");
-
-  const orConditions = [
-    { first_name: { $regex: regex } },
-    { last_name: { $regex: regex } },
-    { phone: { $regex: regex } },
-    { email: { $regex: regex } },
-    { title: { $regex: regex } },
-  ];
-
-  if (vfolderId) {
-    orConditions.push({ vfolderId });
-  }
-
-  const contacts = await Contact.find({
-    $and: [
-      { $or: orConditions },
-      { companyId },
-      { account_id: accountId },
-      { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
-    ],
-  })
-    .skip(limit * currentPage)
-    .limit(limit);
-
-  const totalPages = Math.ceil(
-    (await Contact.countDocuments({
-      account_id: accountId,
-      $and: [
-        { $or: orConditions },
-        { companyId },
-        { account_id: accountId },
-        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
-      ],
-    })) / limit
-  );
-
-  const totalContact = Math.ceil(
-    await Contact.countDocuments({
-      account_id: accountId,
-      $and: [
-        { $or: orConditions },
-        { companyId },
-        { account_id: accountId },
-        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
-      ],
-    })
-  );
-  if (!contacts || contacts.length === 0) {
-    return res.status(404).json({
-      success: false,
-      contacts: [],
-      totalPages: 0,
-      currentPage: 0,
-      msg: "No contacts found for this company.",
-    });
-  }
-
-  res.json({ contacts, totalPages, currentPage, totalContact });
 };
+
 
 // exports.getAllContact = async (req, res) => {
 //   try {

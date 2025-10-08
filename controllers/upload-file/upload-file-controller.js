@@ -26,6 +26,9 @@ const GroupProjectStage = require("../../models/project-stages/group-project-sta
 const { dateFnsLocalizer } = require("react-big-calendar");
 const Product = require("../../models/product/product-model");
 const projectType = require("../../models/project-types/project-types-model");
+const {
+  uploadProjectFiles,
+} = require("../../utils/project-file-upload-helper");
 const errors = {
   NOT_AUTHORIZED: "Your are not authorized",
 };
@@ -42,8 +45,11 @@ exports.tasksFileUpload = async (req, res) => {
     console.error("Error fetching task types:", err);
     return res.json({ error_code: 1, err_desc: "Error fetching task types" });
   }
-  if (!req.files.taskFile) {
-    return res.send({ error: "No files were uploaded." });
+  if (!req.files || !req.files.taskFile) {
+    return res.json({
+      title: "Please choose the file.",
+      success: false,
+    });
   }
 
   const uploadedFile = req.files.taskFile;
@@ -381,7 +387,6 @@ exports.projectFileUpload = async (req, res) => {
       success: false,
     });
   }
-  
 
   const uploadedFile = req.files.projectFile;
   const fileUploaded = uploadedFile.name.split(".");
@@ -493,7 +498,7 @@ exports.projectFileUpload = async (req, res) => {
           $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         });
 
-        if(!projectStage){
+        if (!projectStage) {
           projectStage = await ProjectStage.findOne({
             title: statusTitle,
             companyId: companyId,
@@ -848,7 +853,7 @@ exports.projectFileUpload = async (req, res) => {
               }
             }
 
-            console.log(project.projectStageId, "from project.projectStageId ")
+            console.log(project.projectStageId, "from project.projectStageId ");
 
             project.projectType = project.projectType || "Issue Tracker";
 
@@ -992,7 +997,6 @@ exports.uploadTaskFieldsConfig = (req, res) => {
   });
 };
 exports.getUploadFileByProjectId = async (req, res) => {
-  console.log(req.body, "request bodys ?");
   try {
     const { projectId, taskId, currentPage = 1 } = req.body;
     const limit = 5;
@@ -1010,6 +1014,7 @@ exports.getUploadFileByProjectId = async (req, res) => {
 
     let query = taskId ? { taskId } : { projectId, taskId: null };
     const uploadFiles = await UploadFile.find(query)
+      .populate("createdBy", "name")
       .skip(limit * currentPage)
       .limit(limit);
     const totalDocuments = await UploadFile.countDocuments(query);
@@ -1335,7 +1340,6 @@ exports.postUploadFile = async (req, res) => {
 // };
 
 exports.deleteUploadFile = (req, res) => {
-  console.log(req.body, "delete...");
   const data = req.body;
 
   if (!data.updatedFile || !data.updatedFile.fileName) {
@@ -1355,11 +1359,9 @@ exports.deleteUploadFile = (req, res) => {
 
   filePathParts.push(data.updatedFile.fileName);
   const fileToBeDeleted = path.join(...filePathParts);
-  console.log(`Attempting to delete file at: ${fileToBeDeleted}`);
 
   fs.access(fileToBeDeleted, fs.constants.F_OK, (err) => {
     if (err) {
-      console.log(`File not found: ${fileToBeDeleted}`);
       // return res.status(404).json({ error: "File not found." });
     }
 
@@ -1370,22 +1372,16 @@ exports.deleteUploadFile = (req, res) => {
         //   .status(500)
         //   .json({ error: "Error deleting file", details: err });
       }
-      console.log(data.updatedFile.fileName + " deleted successfully");
 
       // Delete the UploadFile document after successful deletion
       UploadFile.deleteOne({ _id: data.updatedFile._id })
         .then(async (deleteResult) => {
           if (deleteResult.deletedCount === 0) {
-            console.log("Document not found in database, could not delete.");
             return res
               .status(404)
               .json({ error: "File not found in database" });
           }
 
-          console.log(
-            "Document deleted successfully from database:",
-            deleteResult
-          );
 
           if (data.updatedFile.taskId) {
             let result = await Task.findOneAndUpdate(
@@ -1419,105 +1415,142 @@ exports.deleteUploadFile = (req, res) => {
               });
             })
             .catch((error) => {
-              console.log("Project update failed:", error);
-              res
-                .status(500)
-                .json({ error: "Project update failed", details: error });
+              logError({
+                message: error.message,
+                stack: error.stack
+              }, "deleteUploadFile");
+              res.json({ success: false, message: "Project update failed", });
             });
         })
         .catch((error) => {
-          console.log("UploadFile delete failed:", error);
-          res
-            .status(500)
-            .json({ error: "UploadFile delete failed", details: error });
+          logError({
+            message: error.message,
+            stack: error.stack
+          }, "deleteUploadFile");
+          res.json({ success: false, message: "UploadFile delete failed", });
         });
     });
   });
 };
 
+// exports.postUploadFileByProjectId = async (req, res) => {
+//   try {
+//     const companyId = req.body.companyId;
+//     const projectId = req.body.projectId;
+//     const taskId = req.body.taskId || null;
+
+//     if (!req.files || !req.files.uploadFile) {
+//       return res.status(400).send({ error: "No files were uploaded." });
+//     }
+
+//     // Ensure files is always an array
+//     const files = Array.isArray(req.files.uploadFile)
+//       ? req.files.uploadFile
+//       : [req.files.uploadFile];
+
+//     console.log("files...", files);
+
+//     const uploadedFilesData = [];
+
+//     for (const uploadedFile of files) {
+//       const fileName = uploadedFile.name;
+//       const fileUploaded = fileName.split(".");
+//       const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+
+//       const validFileExtn = [
+//         "PDF",
+//         "DOCX",
+//         "PNG",
+//         "JPEG",
+//         "JPG",
+//         "TXT",
+//         "PPT",
+//         "XLSX",
+//         "XLS",
+//         "PPTX",
+//       ];
+
+//       if (!validFileExtn.includes(fileExtn)) {
+//         uploadedFilesData.push({
+//           fileName,
+//           success: false,
+//           error: `File format not supported!`,
+//         });
+//         continue;
+//       }
+
+//       let projectFolderPath;
+//       if (taskId) {
+//         projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
+//       } else {
+//         projectFolderPath = `${uploadFolder}/${companyId}/${projectId}`;
+//       }
+
+//       if (!fs.existsSync(projectFolderPath)) {
+//         fs.mkdirSync(projectFolderPath, { recursive: true });
+//       }
+
+//       // Move file
+//       await uploadedFile.mv(`${projectFolderPath}/${fileName}`);
+
+//       // Save to database
+//       let uploadFileData = {
+//         _id: req.body._id,
+//         fileName,
+//         isDeleted: false,
+//         createdBy: req.body.userId,
+//         createdOn: new Date(),
+//         companyId,
+//         projectId,
+//         taskId,
+//       };
+
+//       const newUploadFile = new UploadFile(uploadFileData);
+//       const result = await newUploadFile.save();
+
+//       if (taskId) {
+//         await Task.findOneAndUpdate(
+//           { _id: taskId },
+//           { $push: { uploadFiles: result._id } }
+//         );
+//       } else {
+//         await Project.findOneAndUpdate(
+//           { _id: projectId },
+//           { $push: { uploadFiles: result._id } }
+//         );
+//       }
+
+//       uploadedFilesData.push({ fileName, success: true, id: result._id });
+//     }
+
+//     res.send({ success: true, uploadedFiles: uploadedFilesData });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send({ error: "Something went wrong" });
+//   }
+// };
+
 exports.postUploadFileByProjectId = async (req, res) => {
-  console.log(req.body);
-  console.log(req.files.uploadFile, "files");
-  const companyId = req.body.companyId;
-  const projectId = req.body.projectId;
-  const taskId = req.body.taskId || null;
-
-  let uploadFile = {
-    _id: req.body._id,
-    fileName: req.body.fileName,
-    isDeleted: false,
-    createdBy: req.body.userId,
-    createdOn: new Date(),
-    companyId: companyId,
-    projectId: projectId,
-    taskId: taskId,
-  };
-
-  const newuploadfile = new UploadFile(uploadFile);
-  const result = await newuploadfile.save();
-
-  if (taskId) {
-    await Task.findOneAndUpdate(
-      { _id: taskId },
-      { $push: { uploadFiles: result._id } }
-    );
-  } else {
-    await Project.findOneAndUpdate(
-      { _id: projectId },
-      { $push: { uploadFiles: result._id } }
-    );
-  }
-
   try {
-    if (!req.files.uploadFile) {
-      res.send({ error: "No files were uploaded." });
-      return;
-    }
+    const { companyId, projectId, taskId, userId, _id, status } = req.body;
 
-    const fileName = req.body.fileName;
-    const uploadedFile = req.files.uploadFile;
-    const fileUploaded = uploadedFile.name.split(".");
-    const fileExtn = fileUploaded[fileUploaded.length - 1].toUpperCase();
+    const uploadedFilesData = await uploadProjectFiles({
+      files: req.files,
+      companyId,
+      projectId,
+      taskId: taskId || null,
+      uploadFolder,
+      userId,
+      _id,
+      status,
+    });
 
-    const validFileExtn = [
-      "PDF",
-      "DOCX",
-      "PNG",
-      "JPEG",
-      "JPG",
-      "TXT",
-      "PPT",
-      "XLSX",
-      "XLS",
-      "PPTX",
-    ];
-
-    if (validFileExtn.includes(fileExtn)) {
-      let projectFolderPath;
-      if (taskId) {
-        projectFolderPath = `${uploadFolder}/${companyId}/${projectId}/${taskId}`;
-      } else {
-        projectFolderPath = `${uploadFolder}/${companyId}/${projectId}`;
-      }
-
-      if (!fs.existsSync(projectFolderPath)) {
-        fs.mkdirSync(projectFolderPath, { recursive: true });
-      }
-
-      uploadedFile.mv(`${projectFolderPath}/${fileName}`, function (err) {
-        if (err) {
-          console.log(err);
-          res.send({ error: "File Not Saved." });
-        }
-      });
-    } else {
-      res.send({
-        error:
-          "File format not supported!(Formats supported are: 'PDF', 'DOCX', 'PNG', 'JPEG', 'JPG', 'TXT', 'PPT', 'XLSX', 'XLS', 'PPTX')",
-      });
-    }
+    res.send({ success: true, uploadedFiles: uploadedFilesData });
   } catch (err) {
-    console.log(err);
+    console.error("Upload error:", err);
+    res
+      .status(err.message === "No files were uploaded." ? 400 : 500)
+      .send({ error: err.message || "Something went wrong" });
   }
 };
 

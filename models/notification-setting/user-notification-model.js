@@ -72,10 +72,22 @@ const UserNotificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
     },
-    modifiedOn: Date,
+    modifiedOn: { type: Date, default: null },
     modifiedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
+    },
+    // 🔹 NEW FIELDS for reminder skipping
+    skipUntil: { type: Date, default: null },
+    permanentlySkipped: { type: Boolean, default: false },
+    reminderType: {
+      type: String,
+      enum: ["fixed", "interval", null],
+      default: null
+    },
+    notificationSettingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "NotificationSetting",
     },
   },
   { versionKey: false }

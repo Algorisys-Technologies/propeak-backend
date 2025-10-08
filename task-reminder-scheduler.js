@@ -8,6 +8,8 @@ const { handleNotifications } = require("./utils/notification-service");
 const { addMyNotification } = require("./common/add-my-notifications");
 const rabbitMQ = require("./rabbitmq");
 const config = require("./config/config");
+const userNotificationModel = require("./models/notification-setting/user-notification-model");
+const { logError } = require("./common/logger");
 require("dotenv").config();
 
 const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
@@ -58,10 +60,49 @@ const auditTaskAndSendMail = async (newTask, emailOwner, email) => {
 };
 
 const reminderOffset = 10 * 24 * 60 * 60 * 1000; // 10 days
+const activeJobs = new Map();
+
+// Update all reminder jobs when settings change
+async function updateReminderJobs() {
+  try {
+    
+    // Cancel all existing jobs
+    cancelAllReminderJobs();
+    
+    // Reinitialize with current settings
+    await initReminderJobs();
+  
+  } catch (error) {
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "updateReminderJobs");
+  }
+}
+
+function cancelAllReminderJobs() {
+  let cancelledCount = 0;
+  
+  // Cancel jobs in activeJobs Map
+  for (const [jobName, job] of activeJobs) {
+    job.cancel();
+    activeJobs.delete(jobName);
+    cancelledCount++;
+  }
+  
+  // Also cancel jobs in schedule.scheduledJobs
+  const scheduledJobs = schedule.scheduledJobs;
+  for (const jobName in scheduledJobs) {
+    if (jobName.includes('TASK_REMINDER_DUE')) {
+      scheduledJobs[jobName].cancel();
+      cancelledCount++;
+    }
+  }
+  
+}
 
 async function sendTaskReminderNotifications(setting) {
   try {
-    console.log("setting", setting);
     const now = new Date();
 
     let tasks = await Task.find({
@@ -70,33 +111,11 @@ async function sendTaskReminderNotifications(setting) {
       ...(setting.taskStageId ? { taskStageId: setting.taskStageId } : {}),
     }).lean();
 
-    // If no tasks found, skip
     if (!tasks || tasks.length === 0) {
-      console.log(`No tasks found for project ${setting.projectId}`);
       return;
     }
 
-    //let tasks = await Task.find({ isDeleted: false }).lean();
-
-    tasks = tasks.map((task) => {
-      if (!task.startDate)
-        return { ...task, reminderDate: null, showReminder: false };
-
-      const reminderDate = new Date(
-        new Date(task.startDate).getTime() + reminderOffset
-      );
-      task.reminderDate = reminderDate;
-
-      const isCompleted = task.status === "completed";
-      const isReminderDue = now >= reminderDate && !isCompleted;
-      const isEndDatePast =
-        task.endDate && new Date(task.endDate) < now && !isCompleted;
-
-      task.showReminder = isReminderDue || isEndDatePast;
-      return task;
-    });
-
-    //const reminderDueTasks = tasks.filter((t) => t.showReminder);
+    tasks = await processTasksByType(tasks, setting, now);
 
     const reminderDueTasks = tasks.filter((t) => t.showReminder && t.projectId);
 
@@ -106,15 +125,26 @@ async function sendTaskReminderNotifications(setting) {
         .populate({ path: "createdBy", select: "name", model: "user" });
 
       if (!populatedTask?.projectId || !populatedTask.projectId._id) {
-        console.warn(
-          `Skipping reminder for task ${populatedTask?._id} - projectId not found`
-        );
+        continue;
+      }
+
+      const notificationTime = calculateNotificationTime(setting, now);
+      
+      // Enhanced duplicate check for interval reminders
+      const shouldCreateNotification = await shouldCreateReminderNotification(
+        populatedTask, 
+        setting, 
+        notificationTime, 
+        now
+      );
+
+      if (!shouldCreateNotification) {
         continue;
       }
 
       const notification = await handleNotifications(
         populatedTask,
-        "TASK_REMINDER_DUE"
+        "TASK_REMINDER_DUE",
       );
 
       for (const channel of notification) {
@@ -124,74 +154,211 @@ async function sendTaskReminderNotifications(setting) {
       }
     }
   } catch (error) {
-    console.error("Error in sending task reminder notifications:", error);
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "sendTaskReminderNotifications");
   }
+}
+
+async function processTasksByType(tasks, setting, now) {
+  // Fetch notifications based on event type
+  const userNotifications = await userNotificationModel.find({
+    eventType: "TASK_REMINDER_DUE",
+    projectId: setting.projectId,
+    isDeleted: false,
+    reminderType: setting.type // "interval" or "fixed"
+  });
+
+  return tasks.map((task) => {
+    if (!task.startDate) return { ...task, reminderDate: null, showReminder: false };
+
+    const reminderDate = new Date(new Date(task.startDate).getTime() + reminderOffset);
+    task.reminderDate = reminderDate;
+
+    const isCompleted = task.status === "completed";
+    const isReminderDue = now >= reminderDate && !isCompleted;
+    const isEndDatePast = task.endDate && new Date(task.endDate) < now && !isCompleted;
+
+    // Get notifications related to this task
+    const taskUserNotifications = userNotifications.filter(
+      (un) => un.taskId?.toString() === task._id.toString()
+    );
+
+    let showReminder = false;
+
+    if (setting.type === "interval") {
+      // Interval → hide reminder if any user has skipped
+      const hasActiveSkip = taskUserNotifications.some(un => 
+        (un.skipUntil && new Date(un.skipUntil) > now) || 
+        un.permanentlySkipped
+      );
+      showReminder = (isReminderDue || isEndDatePast) && !hasActiveSkip;
+
+    } else if (setting.type === "fixed") {
+      // Fixed → hide reminder only if all users skipped
+      const allUsersSkipped = taskUserNotifications.length > 0 && 
+        taskUserNotifications.every(un => 
+          (un.skipUntil && new Date(un.skipUntil) > now) || 
+          un.permanentlySkipped
+        );
+      showReminder = (isReminderDue || isEndDatePast) && !allUsersSkipped;
+    }
+
+    task.showReminder = showReminder;
+    return task;
+  });
+}
+
+// Enhanced notification creation check
+async function shouldCreateReminderNotification(task, setting, notificationTime, now) {
+  if (setting.type === "interval") {
+    // For interval reminders: ONLY check skip status, NO duplicate checking
+    const existingSkips = await userNotificationModel.find({
+      taskId: task._id,
+      eventType: "TASK_REMINDER_DUE",
+      projectId: setting.projectId,
+      isDeleted: false,
+      $or: [
+        { skipUntil: { $gt: now } }, // Active skip
+        { permanentlySkipped: true } // Permanent skip
+      ]
+    });
+
+    // If any active skip exists, don't create notification
+    if (existingSkips.length > 0) {
+      return false;
+    }
+
+    // ✅ REMOVED: No interval window duplicate check
+    // Interval reminders will be created at each interval time
+    return true;
+    
+  } else {
+    // For fixed time: keep the duplicate check (30-minute window)
+    const existingNotification = await userNotificationModel.findOne({
+      taskId: task._id,
+      eventType: "TASK_REMINDER_DUE",
+      projectId: setting.projectId,
+      isDeleted: false,
+      createdOn: {
+        $gte: new Date(notificationTime.getTime() - 30 * 60 * 1000),
+        $lte: new Date(notificationTime.getTime() + 30 * 60 * 1000)
+      }
+    });
+
+    if (existingNotification) {
+      return false;
+    }
+
+    return true;
+  }
+}
+
+function calculateNotificationTime(setting, currentTime) {
+  if (setting.type === 'fixed' && setting.reminderTime) {
+    const [hour, minute] = setting.reminderTime.split(":").map(Number);
+    const notificationTime = new Date(currentTime);
+    notificationTime.setHours(hour, minute, 0, 0);
+    return notificationTime;
+  }
+  return currentTime;
 }
 
 // --- Dynamic scheduling ---
 async function initReminderJobs() {
-  const settings = await NotificationSetting.find({
-    eventType: "TASK_REMINDER_DUE",
-    active: true,
-  });
+  try {
+    const settings = await NotificationSetting.find({
+      eventType: "TASK_REMINDER_DUE",
+      active: true,
+      isDeleted: false
+    });
 
-  settings.forEach((setting) => {
-    // Fixed time reminders
-    if (setting.type === "fixed" && setting.reminderTime) {
-      const [hour, minute] = setting.reminderTime.split(":").map(Number);
-      schedule.scheduleJob(
-        `${setting._id}-fixed`,
-        { hour, minute, tz: "Asia/Kolkata" },
-        () => sendTaskReminderNotifications(setting)
-      );
-    }
-
-    // Interval reminders
-    if (
-      setting.type === "interval" &&
-      setting.intervalStart &&
-      setting.intervalEnd &&
-      setting.intervalMinutes
-    ) {
-      const [startHour, startMinute] = setting.intervalStart
-        .split(":")
-        .map(Number);
-      const [endHour, endMinute] = setting.intervalEnd.split(":").map(Number);
-
-      let current = new Date();
-      current.setHours(startHour, startMinute, 0, 0);
-
-      const end = new Date();
-      end.setHours(endHour, endMinute, 0, 0);
-
-      while (current <= end) {
-        const jobTime = new Date(current);
-
-        schedule.scheduleJob(
-          `${setting._id}-${jobTime.getHours()}-${jobTime.getMinutes()}`,
-          {
-            hour: jobTime.getHours(),
-            minute: jobTime.getMinutes(),
-            tz: "Asia/Kolkata",
-          },
+    settings.forEach((setting) => {
+      // Fixed time reminders
+      if (setting.type === "fixed" && setting.reminderTime) {
+        const [hour, minute] = setting.reminderTime.split(":").map(Number);
+        const jobName = `TASK_REMINDER_DUE-${setting._id}-fixed`;
+        
+        
+        const job = schedule.scheduleJob(
+          jobName,
+          { hour, minute, tz: "Asia/Kolkata" },
           () => sendTaskReminderNotifications(setting)
         );
-
-        current = new Date(current.getTime() + setting.intervalMinutes * 60000);
+        
+        if (job) {
+          activeJobs.set(jobName, job);
+        }
       }
-    }
-  });
 
-  console.log("Dynamic TASK_REMINDER_DUE jobs scheduled.");
+      // Interval reminders
+      if (
+        setting.type === "interval" &&
+        setting.intervalStart &&
+        setting.intervalEnd &&
+        setting.intervalMinutes
+      ) {
+        const [startHour, startMinute] = setting.intervalStart.split(":").map(Number);
+        const [endHour, endMinute] = setting.intervalEnd.split(":").map(Number);
+
+        let current = new Date();
+        current.setHours(startHour, startMinute, 0, 0);
+
+        const end = new Date();
+        end.setHours(endHour, endMinute, 0, 0);
+
+        let jobCount = 0;
+
+        while (current <= end) {
+          const jobTime = new Date(current);
+          const jobName = `TASK_REMINDER_DUE-${setting._id}-${jobTime.getHours().toString().padStart(2, '0')}-${jobTime.getMinutes().toString().padStart(2, '0')}`;
+
+          const job = schedule.scheduleJob(
+            jobName,
+            {
+              hour: jobTime.getHours(),
+              minute: jobTime.getMinutes(),
+              tz: "Asia/Kolkata",
+            },
+            () => sendTaskReminderNotifications(setting)
+          );
+          
+          if (job) {
+            activeJobs.set(jobName, job);
+            jobCount++;
+          }
+
+          current = new Date(current.getTime() + setting.intervalMinutes * 60000);
+        }
+
+      }
+    });
+
+  } catch (error) {
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "initReminderJobs")
+  }
 }
+
+// Export the update function for use in your notification settings controller
+module.exports = {
+  updateReminderJobs,
+  sendTaskReminderNotifications,
+  initReminderJobs
+};
 
 mongoose
   .connect(process.env.DB, { socketTimeoutMS: 0 })
   .then(() => {
-    console.log("Connected to MongoDB.");
     initReminderJobs();
   })
-  .catch((err) => console.error("Failed to connect to MongoDB:", err));
+  .catch((err) =>  logError({
+    message: err.message,
+    stack: err.stack
+  }, "mongoDB error"));
 
 // const schedule = require("node-schedule");
 // const Task = require("./models/task/task-model");

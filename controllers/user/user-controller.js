@@ -49,6 +49,8 @@ const errors = {
   LOGIN_GENERAL_ERROR_DELETE: "An error has occured while deleting user",
   NOT_AUTHORIZED: "Your are not authorized",
 };
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+
 
 exports.getUser = (req, res) => {
   //res.setHeader(ACCESS_TOKEN, req.token);
@@ -145,32 +147,66 @@ exports.selectUsers = async(req, res) => {
   }
 }
 
+exports.selectUsersLocation = async(req, res) => {
+  try{
+    const { companyId } = req.body;
+    const users = await User.find({
+      isDeleted: false,
+      companyId,
+    }).select("_id name email currentLocation");
+    return res.status(200).json(users);
+  }catch(err){
+    return res.status(500).json({
+      success: false,
+      msg: `Something went wrong. ${err.message}`,
+    });
+  }
+}
+
 exports.getUsers = async (req, res) => {
   try {
-    const { companyId } = req.body;
-    const { q } = req.query;
+    const { companyId, page = DEFAULT_PAGE } = req.body;
+    const { q = DEFAULT_QUERY } = req.query;
+    const limit = DEFAULT_LIMIT;
 
-    const searchFilter = q
-    ? {  $or: [
-      { role: { $regex: new RegExp(q, "i") } },
-      { name: { $regex: new RegExp(q, "i") } },
-      { email: { $regex: new RegExp(q, "i") } },
-    ], }
-    : {};
-    // Check if companyId is provided
-    let query;
+    const orConditions = [];
     
-    if (!companyId) {
-      query = {
-        isDeleted: false,
-        ...searchFilter
-      };
+    if (q) {
+      const regex = new RegExp(q, "i");
+
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q)) {
+        // Email input → search email
+        orConditions.push({ email: { $regex: regex } });
+      } else {
+        // Otherwise → search name and role
+        orConditions.push(
+          { name: { $regex: regex } },
+          { role: { $regex: regex } }
+        );
+      }
     }
-    else{
-       query = { isDeleted: false, companyId, ...searchFilter };
-    }
+
+    const searchFilter = orConditions.length > 0 ? { $or: orConditions } : {};
+
+    const query = {
+      isDeleted: false,
+      ...(companyId ? { companyId } : {}),
+      ...searchFilter,
+    };
+
     const result = await User.find(query)
-    return res.status(200).json(result);
+      .skip(limit * page)
+      .limit(limit);
+
+    const totalCount = await User.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return res.json({
+      success: true,
+      data: result,
+      totalCount,
+      totalPages,
+    });
   } catch (err) {
     console.error("Error fetching users:", err);
     return res.status(500).json({

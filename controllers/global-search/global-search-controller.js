@@ -5,15 +5,16 @@ const { logError, logInfo } = require("../../common/logger");
 const Account = require("../../models/account/account-model");
 const Contact = require("../../models/contact/contact-model");
 const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
 
 exports.searchByTasksAndProjects = async (req, res) => {
   try {
-    const { companyId, searchText, page } = req.body;
+    const { companyId, searchText = DEFAULT_QUERY, page = DEFAULT_PAGE } = req.body;
 
-    const limit = 5;
+    const limit = DEFAULT_LIMIT;
 
     const searchQuery = new RegExp(searchText, "i");
-    console.log("Using regex query:", searchQuery);
+    // console.log("Using regex query:", searchQuery);
 
     // Build task query
     const taskQuery = {

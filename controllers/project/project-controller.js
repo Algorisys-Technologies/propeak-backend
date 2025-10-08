@@ -331,6 +331,14 @@ exports.createProject = async (req, res) => {
     }
   }
 
+  const userid = req.body.userid;
+  const uniqueProjectUsers = Array.from(
+    new Set([...(req.body.projectUsers || []), userid])
+  );
+  const uniqueNotifyUsers = Array.from(
+    new Set([...(req.body.notifyUsers || []), userid])
+  );
+
   let newProject = new Project({
     _id: req.body._id,
     title: req.body.title,
@@ -340,10 +348,13 @@ exports.createProject = async (req, res) => {
     projectStageId: req.body.projectStageId,
     status: req.body.status,
     taskStages: req.body.taskStages?.map((taskStageTitle) => taskStageTitle),
-    notifyUsers: req.body.notifyUsers?.map((userId) => userId),
-    projectUsers: req.body.projectUsers?.map((userId) => userId),
+    // notifyUsers: req.body.notifyUsers?.map((userId) => userId),
+    // projectUsers: req.body.projectUsers?.map((userId) => userId),
+    notifyUsers: uniqueNotifyUsers,
+    projectUsers: uniqueProjectUsers,
     tag: req.body.tag,
-    userid: req.body.userid,
+    // userid: req.body.userid,
+    userid: userid,
     // group:  req.body.group?.map((groupId) =>  groupId),
     companyId: req.body.companyId,
     userGroups: req.body.userGroups,
@@ -866,7 +877,7 @@ exports.updateProjectField = async (req, res) => {
     accountId: req.body.accountId,
   });
 
-  console.log(updatedProject, "from update Project")
+  console.log(updatedProject, "from update Project");
   Project.findOneAndUpdate(
     {
       _id: req.body._id,
@@ -1494,7 +1505,9 @@ exports.addCustomTaskField = async (req, res) => {
         .json({ message: "Either projectId or groupId is required" });
     }
     if (!key || !label || !type || !level) {
-      return res.status(200).json({ success: false, message: "Missing required fields" });
+      return res
+        .status(200)
+        .json({ success: false, message: "Missing required fields" });
     }
     // const existingField = await CustomTaskField.findOne({
     //   key,
@@ -1645,9 +1658,11 @@ exports.addCustomTaskField = async (req, res) => {
       console.warn("Notification failed", notifyErr);
     }
 
-    res
-      .status(201)
-      .json({ success: true, message: "Custom field created successfully", data: newField });
+    res.status(201).json({
+      success: true,
+      message: "Custom field created successfully",
+      data: newField,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
@@ -1736,7 +1751,7 @@ exports.updateCustomTaskField = async (req, res) => {
   try {
     const { key, label, type, level, isMandatory, companyId } = req.body;
     const customFieldId = req.params.customFieldId;
-    console.log("test the custom field", customFieldId)
+    console.log("test the custom field", customFieldId);
 
     // Check for required fields (excluding project ID as it shouldn't be updated)
     if (!key || !label || !type || !level) {
@@ -1756,7 +1771,9 @@ exports.updateCustomTaskField = async (req, res) => {
     if (existingField.key !== key) {
       const duplicateField = await CustomTaskField.findOne({ key });
       if (duplicateField) {
-        return res.status(200).json({ success: false,  message: "Key already exists" });
+        return res
+          .status(200)
+          .json({ success: false, message: "Key already exists" });
       }
     }
 
@@ -1800,7 +1817,9 @@ exports.deleteCustomTaskField = async (req, res) => {
       return res.status(404).json({ message: "Custom field not found" });
     }
 
-    res.status(200).json({ success: true, message: "Custom field deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Custom field deleted successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
@@ -3380,30 +3399,81 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
       });
     }
 
+    // const projectWhereCondition = {
+    //   group: groupObjectId,
+    //   $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    //   companyId,
+    //   archive,
+    //   projectType: { $ne: "Exhibition" },
+    // };
+
+    // if (searchFilter) {
+    //   const regex = new RegExp(searchFilter, "i");
+    //   projectWhereCondition.$and = [
+    //     { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
+    //     {
+    //       $or: [
+    //         { title: { $regex: regex } },
+    //         { description: { $regex: regex } },
+    //         { tag: { $regex: regex } },
+    //       ],
+    //     },
+    //   ];
+    // }
+
     const projectWhereCondition = {
-      group: groupObjectId,
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       companyId,
       archive,
       projectType: { $ne: "Exhibition" },
-    };
-
-    if (searchFilter) {
-      const regex = new RegExp(searchFilter, "i");
-      projectWhereCondition.$and = [
+      $and: [
         { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
         {
           $or: [
-            { title: { $regex: regex } },
-            { description: { $regex: regex } },
-            { tag: { $regex: regex } },
+            { group: groupObjectId },
+            { referenceGroupIds: { $in: [groupObjectId] } },
           ],
         },
-      ];
+      ],
+    };
+
+    // merge search filter instead of overwriting
+    if (searchFilter) {
+      const regex = new RegExp(searchFilter, "i");
+      projectWhereCondition.$and.push({
+        $or: [
+          { title: { $regex: regex } },
+          { description: { $regex: regex } },
+          { tag: { $regex: regex } },
+        ],
+      });
     }
 
+    // if (stageId && stageId !== "ALL" && stageId !== "null") {
+    //   projectWhereCondition.projectStageId = stageId;
+    // }
+
     if (stageId && stageId !== "ALL" && stageId !== "null") {
-      projectWhereCondition.projectStageId = stageId;
+      projectWhereCondition.$and.push({
+        $or: [
+          {
+            group: groupObjectId,
+            projectStageId: stageId,
+          },
+          {
+            references: {
+              $elemMatch: {
+                groupId: groupObjectId,
+                stageId: stageId,
+              },
+            },
+          },
+        ],
+      });
+    } else {
+      // No stage filter: include all projects in the group or referenced in the group
+      projectWhereCondition.$and.push({
+        $or: [{ group: groupObjectId }, { referenceGroupIds: groupObjectId }],
+      });
     }
 
     if (userId !== "ALL") {
@@ -3889,8 +3959,15 @@ exports.getProjectTableForGroup = async (req, res) => {
       archive,
     };
 
+    // if (groupId && mongoose.Types.ObjectId.isValid(groupId)) {
+    //   condition.group = new mongoose.Types.ObjectId(groupId);
+    // }
+
     if (groupId && mongoose.Types.ObjectId.isValid(groupId)) {
-      condition.group = new mongoose.Types.ObjectId(groupId);
+      condition.$or = [
+        { group: new mongoose.Types.ObjectId(groupId) },
+        { referenceGroupIds: new mongoose.Types.ObjectId(groupId) },
+      ];
     }
 
     // Apply search filter if provided
@@ -4773,6 +4850,80 @@ exports.getProjectsExhibitionCalendar = async (req, res) => {
       success: false,
       msg: "Server error occurred while retrieving project calendar data",
       error: error.message,
+    });
+  }
+};
+
+exports.moveOrReference = async (req, res) => {
+  const { projectIds, targetGroupId, targetStageId, action, modifiedBy } =
+    req.body;
+
+  if (!Array.isArray(projectIds) || projectIds.length === 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "No projects selected." });
+  }
+  if (!targetGroupId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Target group is required." });
+  }
+  if (!["move", "reference"].includes(action)) {
+    return res.status(400).json({ success: false, message: "Invalid action." });
+  }
+
+  try {
+    if (action === "move") {
+      // ✅ Replace main group
+      await Project.updateMany(
+        { _id: { $in: projectIds } },
+        {
+          $set: {
+            group: targetGroupId,
+            ...(targetStageId ? { projectStageId: targetStageId } : {}),
+            modifiedBy,
+            modifiedOn: new Date(),
+          },
+        }
+      );
+    } else if (action === "reference") {
+      // ✅ Add reference without overwriting the project's stage
+      await Project.updateMany(
+        { _id: { $in: projectIds } },
+        {
+          $addToSet: {
+            referenceGroupIds: targetGroupId,
+            references: { groupId: targetGroupId, stageId: targetStageId },
+          },
+          $set: {
+            modifiedBy,
+            modifiedOn: new Date(),
+          },
+        }
+      );
+      // // ✅ Add to referenceGroupIds (no duplicates)
+      // await Project.updateMany(
+      //   { _id: { $in: projectIds } },
+      //   {
+      //     $addToSet: { referenceGroupIds: targetGroupId },
+      //     $set: {
+      //       ...(targetStageId ? { projectStageId: targetStageId } : {}),
+      //       modifiedBy,
+      //       modifiedOn: new Date(),
+      //     },
+      //   }
+      // );
+    }
+
+    return res.json({
+      success: true,
+      message: "Projects updated successfully",
+    });
+  } catch (err) {
+    console.error("Error in moveOrReference:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 };

@@ -8,6 +8,6 @@ router.get("/GetSystemRoles/:companyId", roleController.getSystemRoles);
 router.get("/GetRoles/:companyId", roleController.getRolesByCompanyId);
 router.post("/CreateRole", roleController.createRole);
 router.put("/UpdateRole/:id", roleController.updateRole);
-router.delete("/DeleteRole/:id", roleController.deleteRole);
+router.post("/DeleteRole/:id", roleController.deleteRole);
 
 module.exports = router;

@@ -13,10 +13,10 @@ const UploadFileSchema = new mongoose.Schema({
       type:Date
   },
   createdBy: {
-    type: String
+    type: mongoose.Schema.Types.ObjectId, // Change from String to ObjectId
+    ref: "user" // Reference to User model
   },
   projectId: {
-
     type: mongoose.Schema.Types.ObjectId,
     ref: "project"
   },
@@ -27,6 +27,9 @@ const UploadFileSchema = new mongoose.Schema({
   companyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "company"
+  },
+  status: {
+    type: String,
   }
 }, { versionKey: false });
 

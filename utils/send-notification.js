@@ -43,8 +43,7 @@ module.exports = async function sendNotification(task, eventType) {
     task.projectId?._id ||
     eventType === "TASK_ASSIGNED" ||
     eventType === "STAGE_CHANGED" ||
-    eventType === "TASK_CREATED" ||
-    eventType === "TASK_REMINDER_DUE"
+    eventType === "TASK_CREATED" 
   ) {
     const settings = await NotificationSetting.find({
       projectId: task.projectId._id,
@@ -58,6 +57,11 @@ module.exports = async function sendNotification(task, eventType) {
     const selected = exactMatch || fallbackMatch;
     condition.taskStageId = selected ? selected.taskStageId : task.taskStageId;
   }
+
+
+  // if(eventType === "TASK_REMINDER_DUE" && task.projectId?._id){
+  //   condition.notifyUserIds = { $in: [task.userId] };
+  // }
 
   // if (task._id && eventType === "TASK_ASSIGNED") {
   //   console.log(eventType, "from trst")
@@ -164,7 +168,7 @@ module.exports = async function sendNotification(task, eventType) {
     );
 
     const channels = setting?.channel || [];
-    console.log(channels, "from channels");
+    // console.log(channels, "from channels");
 
     // Extract notify role names
     const roleNames = [];
@@ -297,6 +301,10 @@ module.exports = async function sendNotification(task, eventType) {
       muteEvents: mutedEvents,
       createdOn: new Date(),
       createdBy: task.modifiedBy || task.createdBy,
+      ...(eventType === "TASK_REMINDER_DUE" && {
+        reminderType: setting?.type || 'fixed',
+        notificationSettingId: setting?._id
+      })
     });
   }
 
@@ -307,3 +315,55 @@ module.exports = async function sendNotification(task, eventType) {
     console.log("No notifications to store.");
   }
 };
+
+
+// if (eventType === "TASK_REMINDER_DUE" && task.userId) {
+//   // ✅ Only add task.userId if it exists in notifyUserIds
+//   for (const setting of settings) {
+//     if (
+//       Array.isArray(setting.notifyUserIds) &&
+//       setting.notifyUserIds.some(
+//         (id) => id.toString() === task.userId.toString()
+//       )
+//     ) {
+//       userIdSet.add(task.userId.toString());
+//     }
+//   }
+// } else {
+//   // 🔄 Existing logic for all other events
+//   for (const setting of settings) {
+//     // Add explicitly mentioned users
+//     if (Array.isArray(setting.notifyUserIds)) {
+//       setting.notifyUserIds.forEach((id) => {
+//         if (id) userIdSet.add(id.toString());
+//       });
+//     }
+
+//     // Add users from roles
+//     if (Array.isArray(setting.notifyRoles)) {
+//       const roleNames = [];
+
+//       for (const role of setting.notifyRoles) {
+//         if (typeof role === "object" && role.name) {
+//           roleNames.push(role.name);
+//         } else {
+//           const roleDoc = await Role.findById(role).select("name");
+//           if (roleDoc?.name) roleNames.push(roleDoc.name);
+//         }
+//       }
+
+//       if (roleNames.length) {
+//         const roleUsers = await User.find({
+//           role: { $in: roleNames },
+//           companyId: task.companyId,
+//           isDeleted: false,
+//           isActive: true,
+//         })
+//           .select("_id")
+//           .lean();
+
+//         roleUsers.forEach((u) => userIdSet.add(u._id.toString()));
+//       }
+//     }
+//   }
+// }

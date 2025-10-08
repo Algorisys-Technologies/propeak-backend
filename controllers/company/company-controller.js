@@ -2,10 +2,11 @@ const mongoose = require("mongoose");
 const Company = require("../../models/company/company-model.js");
 const userModel = require("../../models/user/user-model.js");
 const { companyCode } = require("../../config/config.js");
+const { logError } = require("../../common/logger.js");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, toObjectId } = require("../../utils/defaultValues");
 
 // Create a Company
 exports.createCompany = async (req, res) => {
-  // console.log("company.........................")
   try {
     const {
       companyName,
@@ -18,7 +19,6 @@ exports.createCompany = async (req, res) => {
       logo,
       geoTrackingTime,
     } = req.body;
-    // console.log(req.body, "request body response ");
     // Validate required fields
     if (!companyName || !companyCode) {
       return res.status(400).json({
@@ -55,16 +55,20 @@ exports.createCompany = async (req, res) => {
     await newCompany.save();
     return res.status(201).json({ success: true, company: newCompany });
   } catch (error) {
-    console.error("Error creating company:", error);
+    logError(error.stack || error.message, "createCompany");
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 // Get all Companies
 exports.getAllCompanies = async (req, res) => {
-  const query = req.query.q;
   try {
-    const result = await Company.aggregate([
+    const query = req.query.q || DEFAULT_QUERY;
+    const page = parseInt(req.query.page, 10) || DEFAULT_PAGE;
+    const limit = DEFAULT_LIMIT;
+    const skip = page * limit;
+
+    const pipeline = [
       {
         $match: {
           isDeleted: false,
@@ -103,41 +107,55 @@ exports.getAllCompanies = async (req, res) => {
           companyName: 1,
           companyCode: 1,
           userCount: 1,
+          numberOfUsers: 1,
           createdAt: 1,
         },
       },
-    ]);
+      { $skip: skip },
+      { $limit: limit },
+    ];
 
-    if (result.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "No companies found." });
+    const result = await Company.aggregate(pipeline);
+
+    // Count total documents with same filter (without skip/limit)
+    const totalCount = await Company.countDocuments({
+      isDeleted: false,
+      ...(query && { companyName: { $regex: query, $options: "i" } }),
+    });
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    if (!result.length) {
+      return res.status(404).json({ success: false, error: "No companies found." });
     }
 
-    return res.status(200).json({ success: true, companies: result });
+    return res.json({
+      success: true,
+      companies: result,
+      totalCount,
+      totalPages,
+    });
   } catch (error) {
-    console.error("Error fetching companies:", error);
-    return res
-      .status(500)
-      .json({ success: false, error: "Failed to load companies." });
+    logError(error.stack || error.message, "getAllCompanies");
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load companies.",
+    });
   }
 };
 
 exports.getCompanyById = async (req, res) => {
   try {
     const { id: companyId } = req.params;
-    console.log(req.params, "Request Params"); // Log incoming params
-    console.log(companyId, "companyId");
 
     // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(companyId)) {
+    if (!toObjectId(companyId)) {
       return res
         .status(400)
         .json({ success: false, error: "Invalid Company ID." });
     }
 
     const company = await Company.findOne({ _id: companyId, isDeleted: false });
-    console.log(company, "company....");
 
     if (!company) {
       return res
@@ -147,7 +165,7 @@ exports.getCompanyById = async (req, res) => {
 
     return res.status(200).json({ success: true, companies: [company] });
   } catch (error) {
-    console.error("Error fetching company:", error);
+    logError(error.stack || error.message, "getCompanyById");
     return res
       .status(500)
       .json({ success: false, error: "Failed to load company." });
@@ -156,9 +174,7 @@ exports.getCompanyById = async (req, res) => {
 
 // Update a Company
 exports.updateCompany = async (req, res) => {
-  console.log("is companies UPDATE coming");
   const { id } = req.body;
-  console.log("Attempting to delete company with ID:", id);
   try {
     // const { id } = req.params;
     const updatedCompany = await Company.findOneAndUpdate(
@@ -175,15 +191,13 @@ exports.updateCompany = async (req, res) => {
 
     return res.status(200).json({ success: true, company: updatedCompany });
   } catch (error) {
-    console.error("Error updating company:", error);
+    logError(error.stack || error.message, "updateCompany");
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 exports.deleteCompany = async (req, res) => {
-  console.log("is companies delete coming");
   const { id } = req.body;
-  console.log("Attempting to delete company with ID:", id);
 
   try {
     const deletedCompany = await Company.findOneAndUpdate(
@@ -192,7 +206,6 @@ exports.deleteCompany = async (req, res) => {
       { new: true }
     );
 
-    console.log(deletedCompany, "deletedCompany............");
 
     if (!deletedCompany) {
       return res
@@ -201,7 +214,7 @@ exports.deleteCompany = async (req, res) => {
     }
     return res.status(204).send();
   } catch (error) {
-    console.error("Error deleting company:", error);
+    logError(error.stack || error.message, "deleteCompany");
     return res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -245,7 +258,7 @@ exports.getCompaniesByEmail = async (req, res) => {
 
     return res.status(200).json({ success: true, companies });
   } catch (error) {
-    console.error("Error fetching companies by email:", error);
+    logError(error.stack || error.message, "getCompaniesByEmail");
     return res
       .status(500)
       .json({ success: false, error: "Failed to load companies." });

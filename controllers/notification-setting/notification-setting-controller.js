@@ -12,6 +12,9 @@ const errors = {
   NOT_AUTHORIZED: "You're not authorized",
 };
 const { isValidObjectId } = require("mongoose");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+const { updateReminderJobs } = require("../../task-reminder-scheduler");
+
 
 exports.createNotificationSetting = async (req, res) => {
   try {
@@ -100,7 +103,10 @@ exports.createNotificationSetting = async (req, res) => {
       data: savedSetting,
     });
   } catch (error) {
-    console.error("Error creating notification setting:", error);
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "createNotificationSetting"); 
     res.status(500).json({
       success: false,
       message: "Failed to create notification setting",
@@ -112,7 +118,6 @@ exports.createNotificationSetting = async (req, res) => {
 exports.updateNotificationSetting = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("Updating notification setting for ID:", id);
 
     const {
       companyId,
@@ -146,6 +151,15 @@ exports.updateNotificationSetting = async (req, res) => {
       });
     }
 
+    // Get current setting before update
+    const currentSetting = await NotificationSetting.findById(id);
+    if (!currentSetting) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification setting not found",
+      });
+    }
+
     const updateData = {
       companyId,
       projectId,
@@ -160,20 +174,32 @@ exports.updateNotificationSetting = async (req, res) => {
       modifiedOn: new Date(),
     };
 
-    // Handle TASK_REMINDER_DUE extra fields
+    // Detect changes
+    let typeChanged = false;
+    let timingChanged = false;
+
     if (eventType === "TASK_REMINDER_DUE") {
       updateData.type = type || "fixed";
+
+      typeChanged = currentSetting.type !== updateData.type;
 
       if (updateData.type === "fixed") {
         updateData.reminderTime = reminderTime || null;
         updateData.intervalStart = null;
         updateData.intervalEnd = null;
         updateData.intervalMinutes = null;
+        
+        timingChanged = currentSetting.reminderTime !== updateData.reminderTime;
       } else if (updateData.type === "interval") {
         updateData.intervalStart = intervalStart || null;
         updateData.intervalEnd = intervalEnd || null;
         updateData.intervalMinutes = Number(intervalMinutes) || null;
         updateData.reminderTime = null;
+
+        timingChanged = 
+          currentSetting.intervalStart !== updateData.intervalStart ||
+          currentSetting.intervalEnd !== updateData.intervalEnd ||
+          currentSetting.intervalMinutes !== updateData.intervalMinutes;
       }
     }
 
@@ -190,13 +216,26 @@ exports.updateNotificationSetting = async (req, res) => {
       });
     }
 
+    // 🔹 HANDLE NOTIFICATION UPDATES FOR TASK_REMINDER_DUE
+    if (eventType === "TASK_REMINDER_DUE" && (typeChanged || timingChanged)) {
+      
+      // Update scheduler jobs
+      await updateReminderJobs();
+      
+      // Update existing notifications based on scenario
+      await handleNotificationUpdates(currentSetting, updatedSetting);
+    }
+
     res.status(200).json({
       success: true,
       message: "Notification setting updated successfully",
       data: updatedSetting,
     });
   } catch (error) {
-    console.error("Error updating notification setting:", error);
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "updateNotificationSetting");    
     res.status(500).json({
       success: false,
       message: "Failed to update notification setting",
@@ -305,6 +344,20 @@ exports.toggleNotificationActive = async (req, res) => {
       { new: true }
     );
 
+    if (updatedSetting?._id) {
+      await UserNotification.updateMany(
+        { notificationSettingId: updatedSetting._id },
+        {
+          $set: {
+            active: updatedSetting.active,           // true or false
+            isDeleted: !updatedSetting.active,       // opposite of active
+            modifiedBy: req.body.userId,
+            modifiedOn: new Date(),
+          }
+        }
+      );
+    }
+
     if (!updatedSetting) {
       return res.status(404).json({
         success: false,
@@ -331,8 +384,11 @@ exports.toggleNotificationActive = async (req, res) => {
 
 exports.getNotificationSettings = async (req, res) => {
   try {
-    const { companyId } = req.body;
-    const query = req.query.query;
+    const { companyId, userId } = req.body;
+    const query = req.query.query || DEFAULT_QUERY;
+    const page = parseInt(req.query.page) || DEFAULT_PAGE;
+    // const page = req.query.page ? req.query.page : 0;
+    const limit = DEFAULT_LIMIT;
     if (!companyId) {
       return res.status(400).json({
         success: false,
@@ -343,6 +399,7 @@ exports.getNotificationSettings = async (req, res) => {
     const filter = {
       companyId,
       isDeleted: false,
+      // notifyUserIds: { $in: [userId] },
     };
     if (query) {
       filter.projectId = query;
@@ -367,12 +424,17 @@ exports.getNotificationSettings = async (req, res) => {
       .populate({
         path: "notifyUserIds",
         select: "name email",
-      });
+      })
+      .skip(page * limit)
+      .limit(limit)
 
+    const totalDocuments = await NotificationSetting.countDocuments(filter);
+    const totalPages = Math.ceil(totalDocuments / limit);
     res.status(200).json({
       success: true,
       message: "Notification settings fetched successfully",
       data: settings,
+      totalPages,
     });
   } catch (error) {
     console.error("Error fetching notification settings:", error);
@@ -400,6 +462,12 @@ exports.deleteNotificationSetting = async (req, res) => {
       { isDeleted: true },
       { new: true }
     );
+
+    if (deletedSetting?._id) {
+      await UserNotification.deleteMany(
+        { notificationSettingId: deletedSetting._id }
+      );
+    }
 
     if (!deletedSetting) {
       return res.status(404).json({
@@ -498,7 +566,7 @@ exports.updatePreferences = async (req, res) => {
     }
 
     // Update the document
-    await UserNotificationModel.updateOne(
+    await UserNotification.updateOne(
       { _id: preferencesId, userId },
       {
         $set: {
@@ -517,3 +585,127 @@ exports.updatePreferences = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// Handle notification updates for all scenarios
+async function handleNotificationUpdates(oldSetting, newSetting) {
+  try {
+    // Get today's notifications for this setting
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const notifications = await UserNotification.find({
+      notificationSettingId: oldSetting._id,
+      eventType: "TASK_REMINDER_DUE",
+      isDeleted: false,
+      createdOn: { $gte: todayStart, $lte: todayEnd }
+    });
+
+
+    // Scenario 1: Fixed Time Change (11:00 AM → 2:30 PM)
+    if (oldSetting.type === 'fixed' && newSetting.type === 'fixed' && oldSetting.reminderTime !== newSetting.reminderTime) {
+      await handleNotificationChange(notifications, { oldSetting, newSetting, checkTimeRange: true });
+    }
+    // Scenario 2: Interval to Fixed Change
+    else if (oldSetting.type === 'interval' && newSetting.type === 'fixed') {
+      await handleNotificationChange(notifications, { reminderType: 'interval' });
+    }
+    // Scenario 3: Fixed to Interval Change
+    else if (oldSetting.type === 'fixed' && newSetting.type === 'interval') {
+      await handleNotificationChange(notifications, { reminderType: 'fixed' });
+    }
+    // Scenario 4: Interval Timing Change
+    else if (oldSetting.type === 'interval' && newSetting.type === 'interval') {
+      await handleNotificationChange(notifications, { oldSetting, newSetting, checkTimeRange: true });
+    }
+
+  } catch (error) {
+    logError({ message: error.message, stack: error.stack }, "handleNOtificationUpdates");
+  }
+}
+
+async function handleNotificationChange(notifications, options = {}) {
+  const { oldSetting, newSetting, reminderType, checkTimeRange = false } = options;
+
+  const ids = notifications.map(n => n._id);
+
+  // Case 1: Delete by type (interval → fixed or fixed → interval)
+  if (reminderType) {
+    const result = await UserNotification.deleteMany({
+      _id: { $in: ids },
+      reminderType,
+    });
+    return;
+  }
+
+  // Case 2: Check time range (fixed → fixed or interval timing change)
+  if (checkTimeRange && oldSetting && newSetting) {
+    let deletedCount = 0;
+
+    const [newStartHour, newStartMinute] = newSetting.intervalStart?.split(':').map(Number) || [];
+    const [newEndHour, newEndMinute] = newSetting.intervalEnd?.split(':').map(Number) || [];
+    const [oldHour, oldMinute] = oldSetting.reminderTime?.split(':').map(Number) || [];
+
+    for (const notification of notifications) {
+      const notifTime = new Date(notification.createdOn);
+      const now = new Date();
+
+      // Fixed → Fixed (compare full date + time)
+      if (oldSetting.type === 'fixed' && newSetting.type === 'fixed') {
+        if (
+          notifTime.getFullYear() === now.getFullYear() &&
+          notifTime.getMonth() === now.getMonth() &&
+          notifTime.getDate() === now.getDate() &&
+          notifTime.getHours() === oldHour &&
+          notifTime.getMinutes() === oldMinute
+        ) {
+          await UserNotification.deleteOne({ _id: notification._id });
+          deletedCount++;
+        }
+      }
+      // Interval timing change
+      else if (oldSetting.type === 'interval' && newSetting.type === 'interval') {
+        const newTime = recalculateIntervalTime(notification.createdOn, oldSetting, newSetting);
+        if (newTime && isTimeInRange(newTime, newStartHour, newStartMinute, newEndHour, newEndMinute)) {
+          await UserNotification.deleteOne({ _id: notification._id });
+          deletedCount++;
+        }
+      }
+    }
+  }
+}
+
+// Reuse your utility functions
+function recalculateIntervalTime(originalTime, oldSetting, newSetting) {
+  const originalDate = new Date(originalTime);
+  
+  const [oldStartHour, oldStartMinute] = oldSetting.intervalStart.split(':').map(Number);
+  const [newStartHour, newStartMinute] = newSetting.intervalStart.split(':').map(Number);
+  
+  const oldStartTime = new Date(originalDate);
+  oldStartTime.setHours(oldStartHour, oldStartMinute, 0, 0);
+
+  const minutesFromOldStart = (originalDate - oldStartTime) / (60 * 1000);
+  const intervalIndex = Math.round(minutesFromOldStart / oldSetting.intervalMinutes);
+
+  const newStartTime = new Date(originalDate);
+  newStartTime.setHours(newStartHour, newStartMinute, 0, 0);
+
+  return new Date(newStartTime.getTime() + intervalIndex * newSetting.intervalMinutes * 60 * 1000);
+}
+
+function isTimeInRange(time, startHour, startMinute, endHour, endMinute) {
+  const checkTime = new Date(time).getTime();
+
+  const startTime = new Date(time);
+  startTime.setHours(startHour, startMinute, 0, 0);
+  const startMillis = startTime.getTime();
+
+  const endTime = new Date(time);
+  endTime.setHours(endHour, endMinute, 0, 0);
+  const endMillis = endTime.getTime();
+
+  return checkTime >= startMillis && checkTime <= endMillis;
+}
