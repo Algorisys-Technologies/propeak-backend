@@ -27,14 +27,11 @@ const errors = {
 //     const limit = parseInt(req.query.limit) || 10;
 //     const skip = (page - 1) * limit;
 
-//     // Log pagination details
-//     console.log(`Page: ${page}, Limit: ${limit}, Skip: ${skip}`);
-
 //     // Fetch cached data
 //     let cachedData = await cacheManager.getCachedData("categoryData");
 
 //     if (cachedData) {
-//       console.log("Cached data found:", cachedData);
+
 //       return res.json(cachedData);  // Return cached data if available
 //     }
 
@@ -44,11 +41,8 @@ const errors = {
 //       Account.countDocuments({ companyId }).exec(),
 //     ]);
 
-//     console.log(`Accounts fetched: ${accounts.length}`);
-
 //     // Set the fetched accounts into cache
 //     await cacheManager.setCachedData("categoryData", { accounts, totalCount });
-//     console.log("Data has been cached");
 
 //     // Send response
 //     res.json({
@@ -65,16 +59,15 @@ const errors = {
 
 // Fetch all accounts associated with the user's company
 // exports.getAllAccounts = async (req, res) => {
-//   console.log("is this coming here ????")
+
 //   try {
 //     const { companyId } = req.body;
-//     console.log(companyId);
-//     console.log("company id ", companyId);
+
 //     const accounts = await Account.find({
 //       companyId: companyId,
 //       isDeleted: false,
 //     });
-//     console.log(accounts, "accounts")
+
 //     if (!accounts || accounts.length === 0) {
 //       return res
 //         .status(404)
@@ -92,17 +85,16 @@ const errors = {
 exports.getAllAccounts = async (req, res) => {
   const { companyId, page, query } = req.body;
 
-
-  const regex = new RegExp(query, "i");
+  //const regex = new RegExp(query, "i");
+  const regex = new RegExp(query);
   let limit;
 
-  if(page >=0 ){
-    limit = 10
+  if (page >= 0) {
+    limit = 10;
+  } else {
+    limit = 0;
   }
-  else{
-    limit = 0
-  }
- 
+
   if (!companyId) {
     return res
       .status(400)
@@ -123,20 +115,25 @@ exports.getAllAccounts = async (req, res) => {
   };
 
   const accounts = await Account.find(queryFilter)
-  .skip(limit * page)
-  .limit(limit)
-  .populate("vfolderId");
+    .skip(limit * page)
+    .limit(limit)
+    .populate("vfolderId");
 
   const totalCount = await Account.countDocuments(queryFilter);
 
-  const totalPages = Math.ceil(await Account.countDocuments(queryFilter)/ limit)
+  const totalPages = Math.ceil(
+    (await Account.countDocuments(queryFilter)) / limit
+  );
   if (!accounts || accounts.length === 0) {
-    return res
-      .status(404)
-      .json({ success: false,data: [], totalPages:0, msg: "No accounts found for this company." });
+    return res.status(404).json({
+      success: false,
+      data: [],
+      totalPages: 0,
+      msg: "No accounts found for this company.",
+    });
   }
 
-  res.json({data: accounts, totalPages, totalCount});
+  res.json({ data: accounts, totalPages, totalCount });
 };
 
 // Get Account By ID (includes company ID validation)
@@ -165,9 +162,8 @@ exports.getAccountById = async (req, res) => {
 
 // // Create Account with the associated company ID
 // exports.createAccount = async (req, res) => {
-//   console.log("create accounts.......................")
+
 //   try {
-//     console.log("Request body:", req.body);
 
 //     const newAccount = new Account({
 //       ...req.body,
@@ -175,7 +171,6 @@ exports.getAccountById = async (req, res) => {
 //     });
 
 //     const result = await newAccount.save();
-//     console.log("Account created successfully:", result);
 
 //     res.json({
 //       success: true,
@@ -189,8 +184,6 @@ exports.getAccountById = async (req, res) => {
 // };
 // Create Account with the associated company ID
 exports.createAccount = async (req, res) => {
-  console.log("Creating account...");
-
   try {
     const { companyId, ...accountData } = req.body;
 
@@ -207,7 +200,6 @@ exports.createAccount = async (req, res) => {
     });
 
     const result = await newAccount.save();
-    console.log("Account created successfully:", result);
 
     return res.json({
       success: true,
@@ -218,21 +210,20 @@ exports.createAccount = async (req, res) => {
     console.error("1Error occurred while creating account:", err);
     // console.error("1Error:", errorResponse.errmsg);
     return res.json({
-        success: false,
-        message: "Error adding account. Please try again later.",
-        // message: err
-      });
+      success: false,
+      message: "Error adding account. Please try again later.",
+      // message: err
+    });
   }
 };
 
 exports.updateAccount = async (req, res) => {
-  console.log("is accounts UPDATE coming");
   const { id } = req.body;
-  console.log("Attempting to delete company with ID:", id);
+
   try {
     // const { id } = req.params;
     const updatedAccount = await Account.findOneAndUpdate(
-      { _id: id, isDeleted: false }, 
+      { _id: id, isDeleted: false },
       req.body,
       { new: true }
     );
@@ -243,7 +234,11 @@ exports.updateAccount = async (req, res) => {
         .json({ success: false, error: "Account not found." });
     }
 
-    return res.json({ success: true, account: updatedAccount, message: "Updated successful!" });
+    return res.json({
+      success: true,
+      account: updatedAccount,
+      message: "Updated successful!",
+    });
   } catch (error) {
     console.error("Error updating accounts:", error);
     return res.status(500).json({ success: false, error: error.message });
@@ -257,7 +252,7 @@ exports.deleteAccount = async (req, res) => {
     const result = await Account.findByIdAndUpdate(
       accountId,
       { isDeleted: true },
-      { new: true } 
+      { new: true }
     );
 
     if (!result) {

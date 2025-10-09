@@ -9,7 +9,11 @@ const { getQueueMessageCount } = require("../../rabbitmq/index");
 const UploadRepositoryFile = require("../../models/global-level-repository/global-level-repository-model");
 const { normalizeAddress } = require("../../utils/address");
 const Account = require("../../models/account/account-model");
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT } = require("../../utils/defaultValues");
+const {
+  DEFAULT_PAGE,
+  DEFAULT_QUERY,
+  DEFAULT_LIMIT,
+} = require("../../utils/defaultValues");
 const errors = {
   CONTACT_DOESNT_EXIST: "Contact does not exist",
   ADDCONTACTERROR: "Error occurred while adding the contact",
@@ -21,7 +25,7 @@ const errors = {
 exports.getContacts = async (req, res) => {
   try {
     const { companyId, accountId } = req.body;
-    // console.log(companyId, accountId, "is it coming ??????");
+
     if (!companyId) {
       return res
         .status(400)
@@ -72,7 +76,8 @@ exports.getAllContact = async (req, res) => {
     // Build OR conditions only if q exists
     const orConditions = [];
     if (q) {
-      const regex = new RegExp(q, "i");
+      //const regex = new RegExp(q, "i");
+      const regex = new RegExp(q);
       if (/^\d+$/.test(q)) {
         // Input is only numbers → search phone
         orConditions.push({ phone: { $regex: regex } });
@@ -100,7 +105,7 @@ exports.getAllContact = async (req, res) => {
         { companyId },
         { account_id: accountId },
         { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
-        ...(vfolderId ? [{ vfolderId }] : [])
+        ...(vfolderId ? [{ vfolderId }] : []),
       ],
     };
 
@@ -142,11 +147,10 @@ exports.getAllContact = async (req, res) => {
   }
 };
 
-
 // exports.getAllContact = async (req, res) => {
 //   try {
 //     const { companyId } = req.body;
-//     console.log(companyId, "companyId")
+
 //     // Validate companyId
 //     if (!companyId) {
 //       return res.status(400).json({ error: 'Company ID is required.' });
@@ -155,20 +159,18 @@ exports.getAllContact = async (req, res) => {
 //     const cachedData = await cacheManager.getCachedData("contactData");
 
 //     if (cachedData) {
-//       console.log("Returning cached data");
+
 //       return res.json(cachedData);
 //     }
 
 //     // Fetch contacts based on companyId
 //     const result = await Contact.find({ companyId });
-//     console.log("Data fetched from database:", result);
 
 //     // Filter out deleted contacts if needed
 //     const filteredResult = result.filter(contact => !contact.isDeleted);
 
 //     // Cache the filtered result
 //     cacheManager.setCachedData("contactData", filteredResult);
-//     console.log("Data has been cached");
 
 //     res.json(filteredResult);
 //   } catch (err) {
@@ -180,7 +182,6 @@ exports.getAllContact = async (req, res) => {
 exports.getContactFile = async (req, res) => {
   try {
     const { file_name } = req.body;
-    console.log(file_name, "file_name");
   } catch (err) {
     console.error("Error occurred:", err);
     res
@@ -232,11 +233,10 @@ exports.updateVisitingCardsStatus = async (req, res) => {
 // Create Contact
 // exports.createContact = async (req, res) => {
 //   try {
-//     console.log("Request body:", req.body);
+
 //     const newContact = new Contact(req.body);
 //     const result = await newContact.save();
 //     cacheManager.clearCachedData("contactData");
-//     console.log("Contact created successfully:", result);
 
 //     logInfo(result, "createContact result");
 //     res.json({
@@ -324,8 +324,6 @@ exports.convertToAccount = async (req, res) => {
 };
 
 exports.createMultipleContacts = async (req, res) => {
-  console.log("Creating contactsssss...");
-
   try {
     const { contacts, companyId } = req.body;
 
@@ -473,8 +471,6 @@ exports.createMultipleContacts = async (req, res) => {
       fileName: { $in: contacts.map((contact) => contact.file_name) },
     });
 
-    //console.log(checkUploadFiles, "checkUploadFiles");
-
     if (checkUploadFiles.length > 0) {
       for (const uploadFile of checkUploadFiles) {
         // Find the corresponding contact
@@ -482,24 +478,18 @@ exports.createMultipleContacts = async (req, res) => {
           file_name: uploadFile.fileName, // Match the file_name
         });
 
-        //console.log(checkContact, "checkContact");
-
         if (checkContact) {
           // Update UploadRepositoryFile title with the found contact's ID
           const data = await UploadRepositoryFile.updateOne(
             { _id: uploadFile._id },
             { title: checkContact.title }
           );
-
-          // console.log("Updated UploadRepositoryFile:", data);
         }
       }
     }
 
-    //console.log("contact created successfully:", newContacts);
-    //console.log(companyId, activeClients);
     const users = activeClients.get(companyId);
-    //console.log("live users", users);
+
     users?.forEach((user) => {
       user.send(
         JSON.stringify({
@@ -524,8 +514,6 @@ exports.createMultipleContacts = async (req, res) => {
 };
 
 exports.createContact = async (req, res) => {
-  console.log("Creating contactsssss...");
-
   try {
     const { companyId, ...contactData } = req.body;
 
@@ -546,11 +534,17 @@ exports.createContact = async (req, res) => {
         .send("All fields marked with an asterisk (*) are mandatory.");
     }
 
-    if(contactData.createProject === "true"){
-      if(!contactData.projectTypeId || !contactData.projectStageId || !contactData.userId || !contactData.projectOwnerId || !contactData.notifyUserId){
+    if (contactData.createProject === "true") {
+      if (
+        !contactData.projectTypeId ||
+        !contactData.projectStageId ||
+        !contactData.userId ||
+        !contactData.projectOwnerId ||
+        !contactData.notifyUserId
+      ) {
         return res
-        .status(400)
-        .send("All fields marked with an asterisk (*) are mandatory.");
+          .status(400)
+          .send("All fields marked with an asterisk (*) are mandatory.");
       }
     }
 
@@ -560,8 +554,6 @@ exports.createContact = async (req, res) => {
     });
 
     const savedContact = await newContact.save();
-
-    //console.log("Contact created successfully:", savedContact);
 
     // ✅ Check required fields for project creation
     const projectRequiredFields = [
@@ -576,13 +568,9 @@ exports.createContact = async (req, res) => {
     const canCreateProject = projectRequiredFields.every((field) => !!field);
 
     if (!canCreateProject) {
-      // console.log(
-      //   `Skipping project creation for contact ${savedContact._id} — missing required project fields.`
-      // );
       return res.json({
         success: true,
-        message:
-          "Contact created successfully.",
+        message: "Contact created successfully.",
         result: savedContact,
       });
     }
@@ -719,15 +707,13 @@ exports.createContact = async (req, res) => {
 exports.updateContact = async (req, res) => {
   try {
     const updatedContact = req.body;
-    console.log(updatedContact, "updatedContact");
-    console.log(req.body.id, "req.body._id ");
+
     const result = await Contact.findOneAndUpdate(
       { _id: req.body.id },
       updatedContact,
       { new: true }
     );
-    console.log(result, "resultsssss");
-    // console.log(_id, "_id")
+
     if (!result) {
       return res
         .status(404)
@@ -735,7 +721,7 @@ exports.updateContact = async (req, res) => {
     }
     cacheManager.clearCachedData("contactData");
     logInfo(result, "updateContact result");
-    console.log(result, "resulysssssss");
+
     res.json({
       success: true,
       message: `Successfully updated!`,
@@ -748,7 +734,6 @@ exports.updateContact = async (req, res) => {
 };
 
 exports.deleteContact = async (req, res) => {
-  console.log("Deleting this contact...");
   try {
     const contactId = req.params.id;
 

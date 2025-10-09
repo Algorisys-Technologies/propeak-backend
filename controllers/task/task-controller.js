@@ -207,7 +207,7 @@ exports.createTask = (req, res) => {
           taskId,
           uploadFolder,
           createdBy,
-          task.status,
+          task.status
         );
       }
 
@@ -975,7 +975,8 @@ exports.getTasksTable = async (req, res) => {
 
     // Apply search filter if provided
     if (searchFilter) {
-      const regex = new RegExp(searchFilter, "i");
+      //const regex = new RegExp(searchFilter, "i");
+      const regex = new RegExp(searchFilter);
       condition.title = { $regex: regex };
     }
 
@@ -2377,7 +2378,7 @@ exports.getDashboardDatabyCompanyId = async (req, res) => {
     const limit = DEFAULT_LIMIT;
     const page = parseInt(req.query.page) || DEFAULT_PAGE;
     const today = NOW;
-    // console.log(today, "from today")
+
     // today.setHours(0, 0, 0, 0);
     const startOfToday = new Date(NOW.setUTCHours(0, 0, 0));
     const endOfToday = new Date(NOW.setUTCHours(23, 59, 59));
@@ -2729,7 +2730,7 @@ exports.getTasksStagesByProjectId = async (req, res) => {
         },
       ])
     )[0];
-    // console.log(project, "from project")
+
     const taskStagesTitles = project.taskStages;
     // const taskStages = await TaskStage.find({
     //   title: { $in: taskStagesTitles },
@@ -2760,7 +2761,6 @@ exports.getTasksStagesByProjectId = async (req, res) => {
 };
 
 exports.updateStage = async (req, res) => {
-  // console.log("request coming from body", req.body);
   try {
     const { taskId, newStageId, status, userId } = req.body;
 
@@ -2789,7 +2789,7 @@ exports.updateStage = async (req, res) => {
     task.status = status;
     task.modifiedOn = NOW;
     task.modifiedBy = userId;
-    // console.log(newStageId, "from new Stage")
+
     await task.save();
     const eventType = "STAGE_CHANGED";
 
@@ -2828,8 +2828,6 @@ exports.updateStage = async (req, res) => {
             Thanks, <br/>
             The proPeak Team
           `;
-
-        // console.log(emailText, "from mailOptions")
 
         if (email !== "XX") {
           var mailOptions = {
@@ -2915,7 +2913,8 @@ exports.getKanbanTasks = async (req, res) => {
     };
 
     if (searchFilter) {
-      const regex = new RegExp(searchFilter, "i");
+      //const regex = new RegExp(searchFilter, "i");
+      const regex = new RegExp(searchFilter);
       whereCondition.$or = [
         { title: { $regex: regex } },
         { description: { $regex: regex } },

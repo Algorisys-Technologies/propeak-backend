@@ -17,6 +17,7 @@ const {
 } = require("../../utils/address-similarity");
 const { getTaskStagesTitles } = require("../../utils/task-stage-helper");
 const { DEFAULT_TASK_STAGES } = require("../../utils/constants");
+const { encrypt, decrypt } = require("../../utils/crypto.server");
 
 // Create a new Project Setting
 exports.createProjectSetting = async (req, res) => {
@@ -146,6 +147,10 @@ exports.createGroupSetting = async (req, res) => {
       taskStagesArr: Array.isArray(taskStagesArr) ? taskStagesArr : [],
     };
 
+    if (req.body.authKey) {
+      normalizedData.authKey = encrypt(req.body.authKey, req.body.companyId);
+    }
+
     // Create a new GroupSetting
     //const groupSetting = new GroupSetting(req.body);
     const groupSetting = new GroupSetting(normalizedData);
@@ -177,7 +182,20 @@ exports.getAllGroupSetting = async (req, res) => {
       });
     }
 
-    res.status(200).json({ success: true, data: groupSettings });
+    // Decrypt authKey before sending
+    const decryptedSettings = groupSettings.map((setting) => {
+      const obj = setting.toObject ? setting.toObject() : setting;
+      if (obj.authKey && obj.companyId) {
+        try {
+          obj.authKey = decrypt(obj.authKey, obj.companyId);
+        } catch (err) {
+          console.warn("Decryption failed for authKey:", err.message);
+        }
+      }
+      return obj;
+    });
+
+    res.status(200).json({ success: true, data: decryptedSettings });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -197,7 +215,17 @@ exports.getGroupSettingById = async (req, res) => {
         .json({ success: false, message: "Group Setting not found." });
     }
 
-    res.status(200).json({ success: true, data: groupSetting });
+    // Decrypt authKey
+    const decryptedSetting = groupSetting.toObject();
+    if (obj.authKey && obj.companyId) {
+      try {
+        obj.authKey = decrypt(obj.authKey, obj.companyId);
+      } catch (err) {
+        console.warn("Decryption failed for authKey:", err.message);
+      }
+    }
+
+    res.status(200).json({ success: true, data: decryptedSetting });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -206,6 +234,11 @@ exports.getGroupSettingById = async (req, res) => {
 // Update a Group Setting
 exports.updateGroupSetting = async (req, res) => {
   try {
+    // Encrypt authKey if updated
+    if (req.body.authKey && req.body.companyId) {
+      req.body.authKey = encrypt(req.body.authKey, req.body.companyId);
+    }
+
     const groupSetting = await GroupSetting.findByIdAndUpdate(
       req.body.id,
       req.body,
@@ -488,6 +521,15 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     });
   }
 
+  let decryptedAuthKey = authKey;
+  if (authKey && companyId) {
+    try {
+      decryptedAuthKey = decrypt(authKey, companyId);
+    } catch (err) {
+      console.warn("Failed to decrypt authKey:", err.message);
+    }
+  }
+
   const now = moment();
   const defaultStartDate = now.startOf("day").format("DD-MMM-YYYYHH:mm:ss");
   const defaultEndDate = now.endOf("day").format("DD-MMM-YYYYHH:mm:ss");
@@ -499,7 +541,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
     ? moment(endDate).format("DD-MMM-YYYYHH:mm:ss")
     : defaultEndDate;
 
-  const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
+  const url = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${decryptedAuthKey}&start_time=${formattedStartDate}&end_time=${formattedEndDate}`;
 
   const groupSetting = await GroupSetting.findOne({ groupId });
   //console.log(groupSetting, "projectSetting.....................");
