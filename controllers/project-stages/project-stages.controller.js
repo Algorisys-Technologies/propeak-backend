@@ -4,7 +4,8 @@ const GroupProjectStage = require("../../models/project-stages/group-project-sta
 const Project = require("../../models/project/project-model");
 const Task = require("../../models/task/task-model");
 const audit = require("../audit-log/audit-log-controller");
-const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, NOW } = require("../../utils/defaultValues");
+const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, NOW, toObjectId } = require("../../utils/defaultValues");
+const { logError } = require("../../common/logger");
 
 exports.create_project_stage = async (req, res) => {
   try {
@@ -451,15 +452,17 @@ exports.get_project_stages_by_group = async (req, res) => {
 
     const stages = await GroupProjectStage.find({
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
-      groupId: new mongoose.Types.ObjectId(groupId),
-      companyId: new mongoose.Types.ObjectId(companyId),
+      groupId: toObjectId(groupId),
+      companyId: toObjectId(companyId),
       isDeleted: { $ne: true },
-    }).skip(page * limit).limit(limit);
+    }).select("_id title displayName show sequence")
+    .sort({ sequence: 1 })
+    .skip(page * limit).limit(limit);
 
     const totalCount = await GroupProjectStage.countDocuments({
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
-      groupId: new mongoose.Types.ObjectId(groupId),
-      companyId: new mongoose.Types.ObjectId(companyId),
+      groupId: toObjectId(groupId),
+      companyId: toObjectId(companyId),
       isDeleted: { $ne: true },
     })
 
@@ -468,8 +471,8 @@ exports.get_project_stages_by_group = async (req, res) => {
     const stagesWithProjectAndTaskCount = await GroupProjectStage.aggregate([
       {
         $match: {
-          groupId: new mongoose.Types.ObjectId(groupId),
-          companyId: new mongoose.Types.ObjectId(companyId),
+          groupId: toObjectId(groupId),
+          companyId: toObjectId(companyId),
           isDeleted: { $ne: true },
         },
       },
@@ -599,21 +602,34 @@ exports.reorder_group_project_stages = async (req, res) => {
         .json({ success: false, error: "Invalid request body." });
     }
 
-    const bulkOps = stages.map((stage, index) => ({
-      updateOne: {
-        filter: { _id: stage._id },
-        update: { $set: { sequence: index + 1, modifiedOn: new Date() } },
-      },
-    }));
+    await Promise.all(
+      stages.map((stage) => {
+        return GroupProjectStage.findByIdAndUpdate(
+          { _id: stage._id, groupId, companyId},
+          { sequence: stage.sequence, modifiedOn: NOW },
+          { new: true }
+        );
+      })
+    );
 
-    await GroupProjectStage.bulkWrite(bulkOps);
+    // const bulkOps = stages.map((stage, index) => ({
+    //   updateOne: {
+    //     filter: { _id: stage._id, groupId, companyId },
+    //     update: { $set: { sequence: index + 1, modifiedOn: new Date() } },
+    //   },
+    // }));
+
+    // await GroupProjectStage.bulkWrite(bulkOps);
 
     return res.status(200).json({
       success: true,
       message: "Stages reordered successfully.",
     });
   } catch (error) {
-    console.error("Error reordering stages:", error);
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "reorder_group_project_stages");
     return res.status(500).json({
       success: false,
       error: "Failed to reorder project stages.",
