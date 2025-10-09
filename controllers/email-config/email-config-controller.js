@@ -9,6 +9,10 @@ const errors = {
 };
 const { fetchEmail } = require("../../fetch-email.js");
 const { encrypt, decrypt } = require("../../utils/crypto.server");
+const {
+  decryptEmailConfigs,
+  decryptSingleEmailConfig,
+} = require("../../utils/email-config-decrypt.js");
 
 // exports.getAllEmailConfigs = async (req, res) => {
 //   try {
@@ -68,15 +72,16 @@ exports.getAllEmailConfigs = async (req, res) => {
       });
     }
 
-    // Decrypt passwords
-    const decryptedConfigs = emailConfigs.map((config) => {
-      const obj = config.toObject ? config.toObject() : config;
-      obj.authentication = obj.authentication.map((auth) => ({
-        username: auth.username,
-        password: decrypt(auth.password, companyId),
-      }));
-      return obj;
-    });
+    // // Decrypt passwords
+    // const decryptedConfigs = emailConfigs.map((config) => {
+    //   const obj = config.toObject ? config.toObject() : config;
+    //   obj.authentication = obj.authentication.map((auth) => ({
+    //     username: auth.username,
+    //     password: decrypt(auth.password, companyId),
+    //   }));
+    //   return obj;
+    // });
+    const decryptedConfigs = decryptEmailConfigs(emailConfigs, companyId);
 
     res.json({
       success: true,
@@ -132,12 +137,13 @@ exports.getEmailConfigById = async (req, res) => {
       });
     }
 
-    // Decrypt password
-    const obj = emailConfig.toObject ? emailConfig.toObject() : emailConfig;
-    obj.authentication = obj.authentication.map((auth) => ({
-      username: auth.username,
-      password: decrypt(auth.password, userCompanyId),
-    }));
+    // // Decrypt password
+    // const obj = emailConfig.toObject ? emailConfig.toObject() : emailConfig;
+    // obj.authentication = obj.authentication.map((auth) => ({
+    //   username: auth.username,
+    //   password: decrypt(auth.password, userCompanyId),
+    // }));
+    const obj = decryptSingleEmailConfig(emailConfig, userCompanyId);
 
     res.json({ data: obj });
   } catch (err) {

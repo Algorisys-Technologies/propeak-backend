@@ -17,7 +17,6 @@
     "bcrypt-nodejs": "^0.0.3",
     "body-parser": "^1.20.2",
     "cors": "^2.8.4",
-    "crypto": "^1.0.1",
     "csv-writer": "^1.6.0",
     "date-fns": "^3.6.0",
     "dotenv": "^16.4.5",
