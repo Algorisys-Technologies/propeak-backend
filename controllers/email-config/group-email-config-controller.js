@@ -4,7 +4,7 @@ const {
   decryptEmailConfigs,
   decryptSingleEmailConfig,
 } = require("../../utils/email-config-decrypt.js");
-// const { fetchEmail } = require("../../fetch-email.js");
+const { fetchEmailGroup } = require("../../fetch-email.js");
 
 // ------------------- GET ALL GROUP EMAIL CONFIGS -------------------
 exports.getAllGroupEmailConfigs = async (req, res) => {
@@ -128,7 +128,6 @@ exports.createGroupEmailConfig = async (req, res) => {
 exports.updateGroupEmailConfig = async (req, res) => {
   try {
     const {
-      id,
       companyId,
       groupId,
       projectStageId,
@@ -142,6 +141,7 @@ exports.updateGroupEmailConfig = async (req, res) => {
       tls,
       emailPatterns,
     } = req.body;
+    const id = req.params.id; // 👈 Fetch ID from URL param
 
     if (!companyId || !id) {
       return res.status(400).json({
@@ -212,40 +212,40 @@ exports.deleteGroupEmailConfig = async (req, res) => {
   }
 };
 
-// // ------------------- FETCH NOW GROUP EMAIL CONFIG -------------------
-// exports.fetchNowGroupEmailConfig = async (req, res) => {
-//   try {
-//     const { id } = req.body;
-//     const config = await GroupEmailConfig.findOne({
-//       _id: id,
-//       isDeleted: false,
-//     });
+// ------------------- FETCH NOW GROUP EMAIL CONFIG -------------------
+exports.fetchNowGroupEmailConfig = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const config = await GroupEmailConfig.findOne({
+      _id: id,
+      isDeleted: false,
+    });
 
-//     if (!config)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Group email config not found." });
+    if (!config)
+      return res
+        .status(404)
+        .json({ success: false, message: "Group email config not found." });
 
-//     const emailAccounts = config.authentication.map((auth) => ({
-//       user: auth.username,
-//       password: decrypt(auth.password, config.companyId),
-//       host: config.smtpSettings.host,
-//       port: config.smtpSettings.port,
-//       tls: config.smtpSettings.tls,
-//     }));
+    const emailAccounts = config.authentication.map((auth) => ({
+      user: auth.username,
+      password: decrypt(auth.password, config.companyId),
+      host: config.smtpSettings.host,
+      port: config.smtpSettings.port,
+      tls: config.smtpSettings.tls,
+    }));
 
-//     await fetchEmail({
-//       emailTaskConfig: config,
-//       projectId: null,
-//       taskStageId: config.projectStageId,
-//       companyId: config.companyId,
-//       userId: config.userId,
-//       emailAccounts,
-//     });
+    const emails = await fetchEmailGroup({
+      emailProjectConfig: config,
+      groupId: config.groupId,
+      projectStageId: config.projectStageId,
+      companyId: config.companyId,
+      userId: config.userId,
+      emailAccounts,
+    });
 
-//     res.json({ success: true, message: "Successfully fetched emails." });
-//   } catch (err) {
-//     console.error("Error fetching emails:", err);
-//     res.status(500).json({ success: false, message: "Error fetching emails." });
-//   }
-// };
+    res.json({ success: true, message: "Successfully fetched emails." });
+  } catch (err) {
+    console.error("Error fetching emails:", err);
+    res.status(500).json({ success: false, message: "Error fetching emails." });
+  }
+};

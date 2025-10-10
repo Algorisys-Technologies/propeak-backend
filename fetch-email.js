@@ -8,8 +8,9 @@ dotenv.config();
 
 const { FetchEmail } = require("./models/fetch-email/fetch-email-model");
 const Task = require("./models/task/task-model");
-
 const TaskStage = require("./models/task-stages/task-stages-model");
+const Project = require("./models/project/project-model");
+const ProjectStage = require("./models/project-stages/project-stages-model");
 
 class MailAttachmentFetcher {
   constructor({
@@ -77,7 +78,12 @@ class MailAttachmentFetcher {
       ["BEFORE", this.targetEndDate.toISOString()],
     ];
 
-    // console.log(this.emailPatterns)
+    console.log(
+      "emailPatterns...",
+      this.emailPatterns,
+      "searchCriteria...",
+      searchCriteria
+    );
 
     // Dynamically add "FROM" conditions for all patterns
     const fromPatterns = this.emailPatterns
@@ -247,6 +253,7 @@ exports.fetchEmail = async ({
   emailAccounts,
 }) => {
   console.log("Running fetchEmail...");
+  console.log("emailTaskConfig...", emailTaskConfig);
 
   // Local folder to save attachments
   const localFolderPath = "./attachments";
@@ -265,7 +272,13 @@ exports.fetchEmail = async ({
       // debug: console.log,
     };
 
-    const mailFetcher = new MailAttachmentFetcher({ emailConfig, localFolderPath, targetDate: emailTaskConfig.lastFetched, targetEndDate: emailTaskConfig.lastToFetched, emailPatterns: emailTaskConfig.emailPatterns });
+    const mailFetcher = new MailAttachmentFetcher({
+      emailConfig,
+      localFolderPath,
+      targetDate: emailTaskConfig.lastFetched,
+      targetEndDate: emailTaskConfig.lastToFetched,
+      emailPatterns: emailTaskConfig.emailPatterns,
+    });
     return new Promise((resolve) => {
       mailFetcher.start();
 
@@ -280,7 +293,7 @@ exports.fetchEmail = async ({
   // Wait for all fetchers to complete
   await Promise.all(fetchers);
 
-  // console.log("All emails fetched:", allEmails);
+  console.log("All emails fetched:", allEmails);
 
   // Now create tasks for each email
 
@@ -329,6 +342,131 @@ exports.fetchEmail = async ({
     }
   } catch (error) {
     console.error("Error creating tasks:", error);
+  }
+
+  return allEmails;
+};
+
+const formatImapDate = (date) => {
+  if (!date) return null;
+  const d = new Date(date);
+  return d
+    .toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+    .replace(/ /g, "-"); // e.g. "09-Oct-2025"
+};
+
+exports.fetchEmailGroup = async ({
+  emailProjectConfig,
+  groupId,
+  projectStageId,
+  companyId,
+  userId,
+  emailAccounts,
+}) => {
+  console.log("Running fetchEmailGroup...");
+  console.log("GroupId...", emailProjectConfig);
+
+  // Local folder to save attachments
+  const localFolderPath = "./attachments";
+
+  const allEmails = []; // Array to store all fetched emails across accounts
+  const fetchers = emailAccounts.map((account) => {
+    console.log(`Starting fetch for account: ${account.user}`);
+    const emailConfig = {
+      user: account.user,
+      password: account.password,
+      host: account.host,
+      port: account.port,
+      tls: account.tls,
+      tlsOptions: { minVersion: "TLSv1.2", rejectUnauthorized: false },
+      authTimeout: 30000,
+      // debug: console.log,
+    };
+
+    // ✅ Format dates here before passing
+    const formattedSince = formatImapDate(emailProjectConfig.lastFetched);
+    const formattedBefore = formatImapDate(emailProjectConfig.lastToFetched);
+
+    console.log(`Using date range: ${formattedSince} → ${formattedBefore}`);
+
+    const mailFetcher = new MailAttachmentFetcher({
+      emailConfig,
+      localFolderPath,
+      targetDate: emailProjectConfig.lastFetched,
+      targetEndDate: emailProjectConfig.lastToFetched,
+      emailPatterns: emailProjectConfig.emailPatterns,
+    });
+    return new Promise((resolve) => {
+      mailFetcher.start();
+
+      mailFetcher.imap.once("end", () => {
+        // Collect emails after IMAP connection ends
+        allEmails.push(...mailFetcher.getEmails());
+        resolve();
+      });
+    });
+  });
+
+  await Promise.all(fetchers);
+
+  console.log("allEmails...", allEmails);
+
+  // Now create projects for each email fetched
+  try {
+    for (const email of allEmails) {
+      const existingProject = await Project.findOne({
+        title: email.subject,
+        description: email.bodyText,
+        startdate: new Date(email.date).toISOString(),
+        companyId,
+        isDeleted: false,
+      });
+
+      if (existingProject) {
+        console.log(
+          `Project already exists: ${email.subject} — Skipping creation.`
+        );
+        continue;
+      }
+
+      // Fetch project stage title
+      const projectStageTitle =
+        (await ProjectStage.findOne({ _id: projectStageId }))?.title || "todo";
+
+      const newProject = new Project({
+        title: email.subject || "Untitled Project",
+        description: email.bodyText || "No description provided.",
+        startdate: new Date(email.date),
+        enddate: new Date(),
+        projectStageId,
+        status: projectStageTitle,
+        taskStages: ["todo", "inprogress"],
+        notifyUsers: [userId],
+        projectUsers: [userId],
+        userid: userId,
+        group: groupId,
+        companyId,
+        userGroups: [],
+        sendnotification: false,
+        createdBy: userId,
+        createdOn: new Date(),
+        modifiedBy: userId,
+        modifiedOn: new Date(),
+        isDeleted: false,
+        projectType: "AUTO",
+        creation_mode: "AUTO",
+        lead_source: "EMAIL",
+      });
+
+      await newProject.save();
+      console.log(`New project created from email: ${newProject.title}`);
+    }
+  } catch (error) {
+    console.error("Error creating projects from emails:", error);
   }
 
   return allEmails;
