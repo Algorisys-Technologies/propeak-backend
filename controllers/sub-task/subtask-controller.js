@@ -58,7 +58,8 @@ exports.getAllsubTasks = async(req, res) => {
     const data = await SubTask.find({
       taskId,
       isDeleted: false,
-    }).populate("userId", "name");
+    }).populate("userId", "name")
+    .populate("status", "displayName");
     const totalSubTask = await SubTask.countDocuments({
       taskId,
       isDeleted: false,
@@ -79,10 +80,11 @@ exports.createSubTask = async (req, res) => {
       taskId: req.body.taskId,
       title: req.body.title,
       completed: false,
-      dateOfCompletion: "", 
+      dateOfCompletion: req.body.dueDate, 
       isDeleted: false,
       storyPoint: "",
       sequence: "",
+      status: req.body.stageId,
     };
 
     if (req.body.userId) {
@@ -185,10 +187,11 @@ exports.updateSubTask = async (req, res) => {
       subTaskId,
       title,
       completed = false,
-      dateOfCompletion = "",
+      dateOfCompletion = req.body.dueDate,
       isDeleted = false,
       storyPoint = "",
       sequence = "",
+      status = req.body.stageId,
       userId,
     } = req.body;
 
@@ -221,6 +224,7 @@ exports.updateSubTask = async (req, res) => {
         storyPoint,
         sequence,
         userId,
+        status,
         isDeleted,
       },
       { new: true }

@@ -32,9 +32,10 @@ const SubTaskSchema = new mongoose.Schema(
     // priority: {
     //   type: String
     // },
-    // status: {
-    //   type: String
-    // },
+    status: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "taskStage"
+    },
   },
   { versionKey: false }
 );
