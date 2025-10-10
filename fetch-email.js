@@ -347,18 +347,6 @@ exports.fetchEmail = async ({
   return allEmails;
 };
 
-const formatImapDate = (date) => {
-  if (!date) return null;
-  const d = new Date(date);
-  return d
-    .toLocaleDateString("en-US", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })
-    .replace(/ /g, "-"); // e.g. "09-Oct-2025"
-};
-
 exports.fetchEmailGroup = async ({
   emailProjectConfig,
   groupId,
@@ -387,12 +375,6 @@ exports.fetchEmailGroup = async ({
       // debug: console.log,
     };
 
-    // ✅ Format dates here before passing
-    const formattedSince = formatImapDate(emailProjectConfig.lastFetched);
-    const formattedBefore = formatImapDate(emailProjectConfig.lastToFetched);
-
-    console.log(`Using date range: ${formattedSince} → ${formattedBefore}`);
-
     const mailFetcher = new MailAttachmentFetcher({
       emailConfig,
       localFolderPath,
@@ -415,58 +397,63 @@ exports.fetchEmailGroup = async ({
 
   console.log("allEmails...", allEmails);
 
-  // Now create projects for each email fetched
-  try {
-    for (const email of allEmails) {
+  for (const email of allEmails) {
+    try {
+      const subject = (email.subject || "").trim();
+      const bodyText = (email.bodyText || "").trim();
+
+      // Less strict duplicate check
       const existingProject = await Project.findOne({
-        title: email.subject,
-        description: email.bodyText,
-        startdate: new Date(email.date).toISOString(),
-        companyId,
+        title: subject,
+        companyId: new mongoose.Types.ObjectId(companyId),
         isDeleted: false,
       });
 
       if (existingProject) {
-        console.log(
-          `Project already exists: ${email.subject} — Skipping creation.`
-        );
+        console.log(`⏩ Project already exists: ${subject}`);
         continue;
       }
 
-      // Fetch project stage title
-      const projectStageTitle =
-        (await ProjectStage.findOne({ _id: projectStageId }))?.title || "todo";
+      const projectStage = await ProjectStage.findById(projectStageId);
+      const stageTitle = projectStage?.title || "todo";
 
       const newProject = new Project({
-        title: email.subject || "Untitled Project",
-        description: email.bodyText || "No description provided.",
-        startdate: new Date(email.date),
+        title: subject || "Untitled Project",
+        description: bodyText || "No description provided.",
+        startdate: new Date(email.date || Date.now()),
         enddate: new Date(),
-        projectStageId,
-        status: projectStageTitle,
-        taskStages: ["todo", "inprogress"],
-        notifyUsers: [userId],
-        projectUsers: [userId],
-        userid: userId,
-        group: groupId,
-        companyId,
+        projectStageId: new mongoose.Types.ObjectId(projectStageId),
+        status: stageTitle,
+        taskStages: ["todo", "inprogress", "completed"], // keep consistent
+        notifyUsers: [new mongoose.Types.ObjectId(userId)],
+        projectUsers: [new mongoose.Types.ObjectId(userId)],
+        userid: new mongoose.Types.ObjectId(userId),
+        group: new mongoose.Types.ObjectId(groupId),
+        companyId: new mongoose.Types.ObjectId(companyId),
         userGroups: [],
         sendnotification: false,
-        createdBy: userId,
+        createdBy: new mongoose.Types.ObjectId(userId),
         createdOn: new Date(),
-        modifiedBy: userId,
+        modifiedBy: new mongoose.Types.ObjectId(userId),
         modifiedOn: new Date(),
         isDeleted: false,
         projectType: "AUTO",
         creation_mode: "AUTO",
         lead_source: "EMAIL",
+        projectTypeId: new mongoose.Types.ObjectId("673202c115c8e180c21e9ac7"),
+        miscellaneous: false,
+        archive: false,
+        customFieldValues: {},
+        referenceGroupIds: [],
+        references: [],
+        tag: [],
       });
 
       await newProject.save();
-      console.log(`New project created from email: ${newProject.title}`);
+      console.log(`✅ Project created from email: ${newProject.title}`);
+    } catch (error) {
+      console.error("❌ Error creating project from email:", error.message);
     }
-  } catch (error) {
-    console.error("Error creating projects from emails:", error);
   }
 
   return allEmails;
