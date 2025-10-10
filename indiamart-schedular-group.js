@@ -14,6 +14,7 @@ const { getTaskStagesTitles } = require("./utils/task-stage-helper");
 const { parseAddressWithGroq } = require("./utils/address-groq");
 const { findSimilarProjectByAddress } = require("./utils/address-similarity");
 const { DEFAULT_TASK_STAGES } = require("./utils/constants");
+const { decrypt } = require("./utils/crypto.server");
 
 dotenv.config();
 
@@ -81,8 +82,17 @@ schedule.scheduleJob(fetchEmailScheduleEvery10Min, async () => {
           newEndDate = moment(endDate).format("DD-MMM-YYYYHH:mm:ss");
         }
 
+        let decryptedAuthKey = authKey;
+        if (authKey && companyId) {
+          try {
+            decryptedAuthKey = decrypt(authKey, companyId);
+          } catch (err) {
+            console.warn("Failed to decrypt authKey:", err.message);
+          }
+        }
+
         // API URL for fetching IndiaMART leads
-        const apiUrl = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${authKey}&start_time=${newStartDate}&end_time=${newEndDate}`;
+        const apiUrl = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${decryptedAuthKey}&start_time=${newStartDate}&end_time=${newEndDate}`;
 
         try {
           // Fetch leads from IndiaMART API
