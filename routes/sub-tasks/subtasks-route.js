@@ -8,6 +8,9 @@ router.post("/getAllSubTask", subTaskController.getAllsubTasks);
 
 // CREATE
 router.post("/create", subTaskController.createSubTask);
+router.post("/create-subTask", subTaskController.createSubSubTask);
+router.post("/update-subTask", subTaskController.updateSubSubTask);
+router.post("/delete-subTask", subTaskController.deleteSubSubTask);
 
 // UPDATE
 router.post("/update", subTaskController.updateSubTask);

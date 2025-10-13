@@ -51,20 +51,33 @@ exports.getAllsubTasks = async(req, res) => {
 
 
   try{
-    const {taskId} = req.body;
+    const {taskId, page = 1} = req.body;
+    const limit = 2;
     if(!taskId){
       return res.json({success: true, message: "Task Id required!"});
     }
-    const data = await SubTask.find({
+    let data = await SubTask.find({
       taskId,
       isDeleted: false,
-    }).populate("userId", "name")
-    .populate("status", "displayName");
+    }).populate({
+      path: "subTasks",                  
+      populate: [
+        { path: "userId", select: "name" },       
+        { path: "status", select: "displayName" } 
+      ]
+    }).skip(limit * page).limit(limit);
     const totalSubTask = await SubTask.countDocuments({
       taskId,
       isDeleted: false,
     })
-    return res.json({subtask: data, totalSubtask: totalSubTask})
+    data = data.map(sub => {
+      return {
+        ...sub.toObject(),
+        subTasks: sub.subTasks.filter(ss => !ss.isDeleted),
+      };
+    });
+    const totalPages = Math.ceil(totalSubTask / limit);
+    return res.json({subtask: data, totalSubtask: totalSubTask, totalPages, currentPage: page,})
   }catch(err){
     logError({
       message: err.message,
@@ -79,18 +92,17 @@ exports.createSubTask = async (req, res) => {
     let newSubTask = {
       taskId: req.body.taskId,
       title: req.body.title,
-      completed: false,
-      dateOfCompletion: req.body.dueDate, 
+      // completed: false,
+      // dateOfCompletion: req.body.dueDate, 
       isDeleted: false,
-      storyPoint: "",
-      sequence: "",
-      status: req.body.stageId,
+      // storyPoint: "",
+      // sequence: "",
+      // status: req.body.stageId,
     };
 
     if (req.body.userId) {
       newSubTask.userId = req.body.userId;
     }
-
 
     const result = await SubTask.create(newSubTask);
     await Task.findOneAndUpdate(
@@ -183,15 +195,9 @@ exports.updateSubTask = async (req, res) => {
 
   try {
     const {
-      taskId,
       subTaskId,
       title,
-      completed = false,
-      dateOfCompletion = req.body.dueDate,
       isDeleted = false,
-      storyPoint = "",
-      sequence = "",
-      status = req.body.stageId,
       userId,
     } = req.body;
 
@@ -219,12 +225,7 @@ exports.updateSubTask = async (req, res) => {
       { _id: subTaskId },
       {
         title,
-        completed,
-        dateOfCompletion,
-        storyPoint,
-        sequence,
         userId,
-        status,
         isDeleted,
       },
       { new: true }
@@ -441,26 +442,136 @@ exports.toggleSubTask = async (req, res) => {
 
 exports.deleteSubTask = async (req, res) => {
   try {
-    const result = await SubTask.findOneAndDelete(
-      { _id: req.body.subTaskId },
+    const { taskId, subTaskId } = req.body;
+
+    if (!taskId || !subTaskId) {
+      return res.status(400).json({ success: false, message: "taskId and subTaskId are required" });
+    }
+
+    // Step 1: Soft delete the subtask
+    const result = await SubTask.findByIdAndUpdate(
+      subTaskId,
       { $set: { isDeleted: true } },
-      { new: true } 
+      { new: true }
     );
 
-    await Task.findOneAndUpdate(
-      { _id: req.body.taskId },
-      { $pull: { subtasks: req.body.subTaskId } }
-    );
+    if (!result) {
+      return res.status(404).json({ success: false, message: "Subtask not found" });
+    }
+
+    // Step 2: Soft delete all sub-subtasks inside this subtask
+    if (result.subTasks && result.subTasks.length > 0) {
+      await SubTask.updateOne(
+        { _id: subTaskId },
+        { $set: { "subTasks.$[].isDeleted": true } } // mark all nested sub-subtasks deleted
+      );
+    }
+
+    // Step 3: Optionally remove from the Task reference
+    await Task.findByIdAndUpdate(taskId, { $pull: { subtasks: subTaskId } });
+
     return res.json({
       success: true,
-      msg: `Successfully Deleted!`,
-      result: result,
+      message: "Subtask and its sub-subtasks deleted successfully!",
+      result,
     });
   } catch (e) {
-    logError({
-      message: e.message,
-      stack: e.stack
-    }, "deleteSubTask");
-    return res.json({ success: false, message: "Failed to delete subtask" });
+    logError({ message: e.message, stack: e.stack }, "deleteSubTask");
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete subtask",
+    });
+  }
+};
+
+exports.createSubSubTask = async (req, res) => {
+  try {
+    const { id, title, userId, dueDate, stageId } = req.body;
+
+    if (!id || !title) {
+      return res.status(400).json({ success: false, message: "subTaskId and title are required" });
+    }
+
+    // Build the new sub-subtask
+    const newSubSubTask = {
+      title,
+      userId: userId || null,
+      dateOfCompletion: dueDate || null,
+      status: stageId || null,
+      isDeleted: false,
+    };
+
+    // Push the sub-subtask into the subTasks array
+    const updatedSubTask = await SubTask.findByIdAndUpdate(
+      { _id: id},
+      { $push: { subTasks: newSubSubTask } },
+      { new: true } // return the updated document
+    );
+
+    return res.json({ success: true, subTask: updatedSubTask });
+  } catch (error) {
+    console.error("createSubSubTask error:", error);
+    return res.status(500).json({ success: false, message: "Failed to create sub-subtask" });
+  }
+};
+
+exports.updateSubSubTask = async (req, res) => {
+  try {
+    const { id, title, subTaskId, userId, dueDate, stageId } = req.body;
+
+    if (!subTaskId || !id || !title) {
+      return res.status(400).json({ success: false, message: "subTaskId, Task ID, and title are required" });
+    }
+    const updatedSubTask = await SubTask.findOneAndUpdate(
+      { _id: subTaskId, "subTasks._id": id },
+      {
+        $set: {
+          "subTasks.$.title": title,
+          "subTasks.$.userId": userId || null,
+          "subTasks.$.dateOfCompletion": dueDate || null,
+          "subTasks.$.status": stageId || null,
+          "subTasks.$.isDeleted": false
+        }
+      },
+      { new: true } // Return the updated document
+    )
+
+    if (!updatedSubTask) {
+      return res.status(404).json({ success: false, message: "Subtask not found" });
+    }
+
+    return res.json({ success: true, subTask: updatedSubTask });
+  } catch (error) {
+    console.error("updateSubSubTask error:", error);
+    return res.status(500).json({ success: false, message: "Failed to update sub-subtask" });
+  }
+};
+
+exports.deleteSubSubTask = async (req, res) => {
+  try {
+    const { taskId, subTaskId, subsubTaskId } = req.body;
+
+    if (!taskId || !subTaskId || !subsubTaskId) {
+      return res.status(400).json({ success: false, message: "taskId, subTaskId, and subsubTaskId are required" });
+    }
+
+    // Mark the sub-subtask as deleted
+    const updatedSubTask = await SubTask.findOneAndUpdate(
+      { _id: subTaskId, "subTasks._id": subsubTaskId },
+      { $set: { "subTasks.$.isDeleted": true } },
+      { new: true }
+    )
+    if (!updatedSubTask) {
+      return res.status(404).json({ success: false, message: "Sub-subtask not found" });
+    }
+
+    return res.json({
+      success: true,
+      msg: "Sub-subtask deleted successfully",
+      result: updatedSubTask,
+    });
+  } catch (error) {
+    console.error("deleteSubSubTask error:", error);
+    return res.status(500).json({ success: false, message: "Failed to delete sub-subtask" });
   }
 };

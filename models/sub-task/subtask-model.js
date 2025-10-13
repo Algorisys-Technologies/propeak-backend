@@ -1,5 +1,17 @@
 const mongoose = require("mongoose");
 
+
+const SubSubTaskSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+    dateOfCompletion: { type: Date },
+    status: { type: mongoose.Schema.Types.ObjectId, ref: "taskStage" },
+    isDeleted: { type: Boolean, default: false },
+  },
+  { timestamps: true } 
+);
+
 const SubTaskSchema = new mongoose.Schema(
   {
     taskId: {
@@ -36,6 +48,7 @@ const SubTaskSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "taskStage"
     },
+    subTasks: [SubSubTaskSchema],
   },
   { versionKey: false }
 );
