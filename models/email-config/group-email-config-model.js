@@ -17,6 +17,11 @@ const GroupEmailConfigSchema = new mongoose.Schema(
       ref: "projectStage",
       required: true,
     },
+    projectTypeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "projectType",
+      required: true,
+    },
     authentication: [
       {
         username: { type: String, required: true },

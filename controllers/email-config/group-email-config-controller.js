@@ -79,6 +79,7 @@ exports.createGroupEmailConfig = async (req, res) => {
       companyId,
       groupId,
       projectStageId,
+      projectTypeId,
       userId,
       lastFetched,
       lastToFetched,
@@ -90,10 +91,10 @@ exports.createGroupEmailConfig = async (req, res) => {
       emailPatterns,
     } = req.body;
 
-    if (!companyId || !groupId || !projectStageId) {
+    if (!companyId || !groupId || !projectStageId || !projectTypeId) {
       return res.status(400).json({
         success: false,
-        msg: "Company ID, Group ID, and Project Stage ID are required.",
+        msg: "Company ID, Group ID,Project Type ID and Project Stage ID are required.",
       });
     }
 
@@ -101,6 +102,7 @@ exports.createGroupEmailConfig = async (req, res) => {
       companyId,
       groupId,
       projectStageId,
+      projectTypeId,
       userId,
       lastFetched,
       lastToFetched,
@@ -131,6 +133,7 @@ exports.updateGroupEmailConfig = async (req, res) => {
       companyId,
       groupId,
       projectStageId,
+      projectTypeId,
       userId,
       lastFetched,
       lastToFetched,
@@ -155,6 +158,7 @@ exports.updateGroupEmailConfig = async (req, res) => {
       {
         groupId,
         projectStageId,
+        projectTypeId,
         userId,
         lastFetched,
         lastToFetched,
@@ -238,6 +242,7 @@ exports.fetchNowGroupEmailConfig = async (req, res) => {
       emailProjectConfig: config,
       groupId: config.groupId,
       projectStageId: config.projectStageId,
+      projectTypeId: config.projectTypeId,
       companyId: config.companyId,
       userId: config.userId,
       emailAccounts,
