@@ -24,16 +24,19 @@ const EmailConfigSchema = new mongoose.Schema({
     port: { type: Number },
     tls: { type: Boolean },
   },
-  emailPatterns: [{
-    pattern_name: { type: String },
-    subject: { type: String },
-    body_contains: { type: String },
-    from : {type: String},
-    priority: {
-      type: String,
-      enum: ["low", "medium", "high"],
+  emailPatterns: [
+    {
+      pattern_name: { type: String },
+      subject: { type: String },
+      body_contains: { type: String },
+      from: { type: String },
+      priority: {
+        type: String,
+        enum: ["low", "medium", "high"],
+      },
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
     },
-  }],
+  ],
 
   // schedule: {
   //   frequency: {
@@ -54,19 +57,17 @@ const EmailConfigSchema = new mongoose.Schema({
   //     enum: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
   //   },
   // },
-  userId :{
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "user",
   },
-  lastFetched:{
-    type: Date
+  lastFetched: {
+    type: Date,
   },
-  lastToFetched:{
-    type: Date
+  lastToFetched: {
+    type: Date,
   },
   isDeleted: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model("emailconfig", EmailConfigSchema);
-
-

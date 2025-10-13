@@ -299,6 +299,23 @@ exports.fetchEmail = async ({
 
   try {
     for (const email of allEmails) {
+      const matchedPattern = emailTaskConfig.emailPatterns.find((pattern) => {
+        const subjectMatch =
+          !pattern.subject ||
+          email.subject.toLowerCase().includes(pattern.subject.toLowerCase());
+        const fromMatch =
+          !pattern.from ||
+          email.from.toLowerCase().includes(pattern.from.toLowerCase());
+        const bodyMatch =
+          !pattern.body_contains ||
+          email.bodyText
+            .toLowerCase()
+            .includes(pattern.body_contains.toLowerCase());
+        return subjectMatch && fromMatch && bodyMatch;
+      });
+
+      if (!matchedPattern) continue;
+
       // Check if a task already exists with the same title, description, and start date
       const existingTask = await Task.findOne({
         title: email.subject,
@@ -313,6 +330,8 @@ exports.fetchEmail = async ({
         );
         continue; // Skip creating a task if it already exists
       }
+
+      const assigneeUserId = matchedPattern.userId || userId;
 
       let taskStageTitle =
         (await TaskStage.findOne({ _id: taskStageId }))?.title || "todo";
@@ -331,7 +350,7 @@ exports.fetchEmail = async ({
         projectId: projectId,
         companyId: companyId,
         taskStageId: taskStageId,
-        userId,
+        userId: assigneeUserId,
         creation_mode: "AUTO",
         lead_source: "EMAIL",
       });
