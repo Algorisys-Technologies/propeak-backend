@@ -166,9 +166,10 @@ exports.selectUsersLocation = async (req, res) => {
 
 exports.getUsers = async (req, res) => {
   try {
-    const { companyId, page = DEFAULT_PAGE } = req.body;
+    const { companyId, page = DEFAULT_PAGE, pageSize, sortOrder } = req.body;
     const { q = DEFAULT_QUERY } = req.query;
-    const limit = DEFAULT_LIMIT;
+    const limit = pageSize || DEFAULT_LIMIT;
+    const sortDirection = sortOrder === "asc" ? 1 : -1;
 
     const orConditions = [];
 
@@ -197,7 +198,8 @@ exports.getUsers = async (req, res) => {
 
     const result = await User.find(query)
       .skip(limit * page)
-      .limit(limit);
+      .limit(limit)
+      .sort({name : sortDirection})
 
     const totalCount = await User.countDocuments(query);
     const totalPages = Math.ceil(totalCount / limit);
@@ -209,10 +211,13 @@ exports.getUsers = async (req, res) => {
       totalPages,
     });
   } catch (err) {
-    console.error("Error fetching users:", err);
-    return res.status(500).json({
+    logError({
+      message: err.message,
+      stack: err.stack
+    }, "getUsers");
+    return res.json({
       success: false,
-      msg: `Something went wrong. ${err.message}`,
+      msg: "Failed to get users!.",
     });
   }
 };
