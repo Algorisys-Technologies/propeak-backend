@@ -59,13 +59,23 @@ exports.getAllsubTasks = async(req, res) => {
     let data = await SubTask.find({
       taskId,
       isDeleted: false,
-    }).populate({
+    }).populate([
+      { path: "userId", select: "name" },       
+      { path: "status", select: "displayName" } 
+    ])
+    .populate({
       path: "subTasks",                  
       populate: [
         { path: "userId", select: "name" },       
         { path: "status", select: "displayName" } 
       ]
     }).skip(limit * page).limit(limit);
+    const totalCompletedSubTask = await SubTask.find({
+      taskId,
+      isDeleted: false,
+    }).populate([      
+      { path: "status", select: "displayName" } 
+    ]).select("status")
     const totalSubTask = await SubTask.countDocuments({
       taskId,
       isDeleted: false,
@@ -77,7 +87,7 @@ exports.getAllsubTasks = async(req, res) => {
       };
     });
     const totalPages = Math.ceil(totalSubTask / limit);
-    return res.json({subtask: data, totalSubtask: totalSubTask, totalPages, currentPage: page,})
+    return res.json({subtask: data, totalSubtask: totalSubTask, totalPages, currentPage: page, totalCompletedSubTask})
   }catch(err){
     logError({
       message: err.message,
@@ -92,12 +102,12 @@ exports.createSubTask = async (req, res) => {
     let newSubTask = {
       taskId: req.body.taskId,
       title: req.body.title,
-      // completed: false,
-      // dateOfCompletion: req.body.dueDate, 
+      completed: false,
+      dateOfCompletion: req.body.dueDate, 
       isDeleted: false,
-      // storyPoint: "",
-      // sequence: "",
-      // status: req.body.stageId,
+      storyPoint: "",
+      sequence: "",
+      status: req.body.stageId,
     };
 
     if (req.body.userId) {
@@ -195,10 +205,16 @@ exports.updateSubTask = async (req, res) => {
 
   try {
     const {
+      taskId,
       subTaskId,
       title,
+      completed = false,
+      dueDate,
       isDeleted = false,
+      storyPoint = "",
+      sequence = "",
       userId,
+      stageId,
     } = req.body;
 
     // Validate subTaskId
@@ -225,7 +241,12 @@ exports.updateSubTask = async (req, res) => {
       { _id: subTaskId },
       {
         title,
+        completed,
+        dateOfCompletion: dueDate,
+        storyPoint,
+        sequence,
         userId,
+        status: stageId,
         isDeleted,
       },
       { new: true }
