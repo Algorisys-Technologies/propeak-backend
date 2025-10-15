@@ -1,16 +1,16 @@
 const mongoose = require("mongoose");
 
 
-const SubSubTaskSchema = new mongoose.Schema(
-  {
-    title: { type: String, required: true },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
-    dateOfCompletion: { type: Date },
-    status: { type: mongoose.Schema.Types.ObjectId, ref: "taskStage" },
-    isDeleted: { type: Boolean, default: false },
-  },
-  { timestamps: true } 
-);
+// const SubSubTaskSchema = new mongoose.Schema(
+//   {
+//     title: { type: String, required: true },
+//     userId: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+//     dateOfCompletion: { type: Date },
+//     status: { type: mongoose.Schema.Types.ObjectId, ref: "taskStage" },
+//     isDeleted: { type: Boolean, default: false },
+//   },
+//   { timestamps: true } 
+// );
 
 const SubTaskSchema = new mongoose.Schema(
   {
@@ -48,10 +48,18 @@ const SubTaskSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "taskStage"
     },
-    subTasks: [SubSubTaskSchema],
+    subTasks: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "subTask"
+    }],
+    // subTasks : [SubSubTaskSchema]
   },
   { versionKey: false }
 );
+
+// SubTaskSchema.add({
+//   subTasks: [SubTaskSchema]
+// });
 
 //   // Use the unique validator plugin
 //   SubTaskSchema.plugin(unique, { message: 'That {PATH} is already taken.' });

@@ -11,6 +11,7 @@ const User = require("../../models/user/user-model");
 const config = require("../../config/config");
 const rabbitMQ = require("../../rabbitmq");
 const { addMyNotification } = require("../../common/add-my-notifications");
+const { toObjectId, DEFAULT_LIMIT, DEFAULT_PAGE } = require("../../utils/defaultValues");
 
 const errors = {
   SUBTASK_DOESNT_EXIST: "SubTask does not exist",
@@ -51,11 +52,13 @@ exports.getAllsubTasks = async(req, res) => {
 
 
   try{
-    const {taskId, page = 1} = req.body;
-    const limit = 2;
+    const {taskId, page = 1 || DEFAULT_PAGE} = req.body;
+    const limit = 2 || DEFAULT_LIMIT;
+
     if(!taskId){
       return res.json({success: true, message: "Task Id required!"});
     }
+
     let data = await SubTask.find({
       taskId,
       isDeleted: false,
@@ -70,22 +73,18 @@ exports.getAllsubTasks = async(req, res) => {
         { path: "status", select: "displayName" } 
       ]
     }).skip(limit * page).limit(limit);
+
     const totalCompletedSubTask = await SubTask.find({
       taskId,
       isDeleted: false,
     }).populate([      
       { path: "status", select: "displayName" } 
     ]).select("status")
+
     const totalSubTask = await SubTask.countDocuments({
       taskId,
       isDeleted: false,
     })
-    data = data.map(sub => {
-      return {
-        ...sub.toObject(),
-        subTasks: sub.subTasks.filter(ss => !ss.isDeleted),
-      };
-    });
     const totalPages = Math.ceil(totalSubTask / limit);
     return res.json({subtask: data, totalSubtask: totalSubTask, totalPages, currentPage: page, totalCompletedSubTask})
   }catch(err){
@@ -99,24 +98,41 @@ exports.getAllsubTasks = async(req, res) => {
 exports.createSubTask = async (req, res) => {
   logInfo(req.body, "createSubTask req.body");
   try {
-    let newSubTask = {
-      taskId: req.body.taskId,
-      title: req.body.title,
+    const {
+      taskId,
+      title,
+      dueDate,
+      userId,
+      stageId
+    } = req.body;
+
+    if (!taskId || !title) {
+      return res.json({ success: false, message: "taskId and title are required" });
+    }
+
+    const newSubTask = {
+      taskId,
+      title,
       completed: false,
-      dateOfCompletion: req.body.dueDate, 
+      dateOfCompletion: dueDate || null,
       isDeleted: false,
       storyPoint: "",
-      sequence: "",
-      status: req.body.stageId,
+      sequence: ""
     };
 
-    if (req.body.userId) {
-      newSubTask.userId = req.body.userId;
+    // Only set userId if it's a valid ObjectId
+    if (userId && toObjectId(userId)) {
+      newSubTask.userId = userId;
+    }
+
+    // Only set status (stageId) if it's a valid ObjectId
+    if (stageId && toObjectId(stageId)) {
+      newSubTask.status = stageId;
     }
 
     const result = await SubTask.create(newSubTask);
     await Task.findOneAndUpdate(
-      { _id: req.body.taskId },
+      { _id: taskId },
       { $push: { subtasks: result._id } }
     );
 
@@ -178,11 +194,11 @@ exports.createSubTask = async (req, res) => {
                 addMyNotification(taskArr);
               })
               .catch((err) => {
-                console.error("Failed to send email via RabbitMQ", err);
+                logError({ message: err.message, stack: err.stack }, "createSubTask send email via RabbitMQ");
               });
           }
         } catch (error) {
-          console.error("Error in sending email", error);
+          logError({ message: error.message, stack: error.stack }, "createSubTask send email");
         }
       };
 
@@ -195,8 +211,8 @@ exports.createSubTask = async (req, res) => {
       result: result,
     });
   } catch (e) {
-    console.log("err", e);
-    return res.json({ success: false, message: e });
+    logError({ message: e.message, stack: e.stack }, "createSubTask");
+    return res.json({ success: false, message: "Failed to create task!" });
   }
 };
 
@@ -225,37 +241,46 @@ exports.updateSubTask = async (req, res) => {
     }
 
     // Validate that subTaskId is a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(subTaskId)) {
+    if (!toObjectId(subTaskId)) {
       // Change here to match the request body
       return res
         .json({ success: false, msg: "Invalid Subtask ID format" });
     }
 
+     // Build update object dynamically
+     const updateData = {
+      title,
+      completed,
+      dateOfCompletion: dueDate || null,
+      storyPoint,
+      sequence,
+      isDeleted,
+    };
+
+    if (userId && toObjectId(userId)) {
+      updateData.userId = userId;
+    }
+
+    if (stageId && toObjectId(stageId)) {
+      updateData.status = stageId;
+    }
+
     const subtaskToUpdate = await SubTask.findById(subTaskId);
     if (!subtaskToUpdate) {
-      return res.status(404).json({ success: false, msg: "Subtask not found" });
+      return res.json({ success: false, message: "Subtask not found" });
     }
 
     // Update the subtask
     const updatedSubTask = await SubTask.findOneAndUpdate(
       { _id: subTaskId },
-      {
-        title,
-        completed,
-        dateOfCompletion: dueDate,
-        storyPoint,
-        sequence,
-        userId,
-        status: stageId,
-        isDeleted,
-      },
+      updateData,
       { new: true }
     );
 
     // Check if the update was successful
     if (!updatedSubTask) {
       return res
-        .json({ success: false, msg: "Subtask not found or no changes made" });
+        .json({ success: false, message: "Subtask not found or no changes made" });
     }
 
     if (req.body.userId) {
@@ -316,11 +341,11 @@ exports.updateSubTask = async (req, res) => {
                 addMyNotification(taskArr);
               })
               .catch((err) => {
-                console.error("Failed to send email via RabbitMQ", err);
+                logError({ message: err.message, stack: err.stack }, "updateSubTask send email via RabbitMQ");
               });
           }
         } catch (error) {
-          console.error("Error in sending email", error);
+          logError({ message: error.message, stack: error.stack }, "updateSubTask send email");
         }
       };
 
@@ -333,8 +358,8 @@ exports.updateSubTask = async (req, res) => {
       result: updatedSubTask,
     });
   } catch (e) {
-    console.log("Error caught in updateSubTask:", e);
-    return res.json({ success: false, message: e.message || e });
+    logError({ message: e.message, stack: e.stack }, "updateSubTask");
+    return res.json({ success: false, message: "Failed to update subtask!" });
   }
 };
 
@@ -466,7 +491,7 @@ exports.deleteSubTask = async (req, res) => {
     const { taskId, subTaskId } = req.body;
 
     if (!taskId || !subTaskId) {
-      return res.status(400).json({ success: false, message: "taskId and subTaskId are required" });
+      return res.json({ success: false, message: "taskId and subTaskId are required" });
     }
 
     // Step 1: Soft delete the subtask
@@ -477,7 +502,7 @@ exports.deleteSubTask = async (req, res) => {
     );
 
     if (!result) {
-      return res.status(404).json({ success: false, message: "Subtask not found" });
+      return res.json({ success: false, message: "Subtask not found" });
     }
 
     // Step 2: Soft delete all sub-subtasks inside this subtask
@@ -498,7 +523,7 @@ exports.deleteSubTask = async (req, res) => {
     });
   } catch (e) {
     logError({ message: e.message, stack: e.stack }, "deleteSubTask");
-    return res.status(500).json({
+    return res.json({
       success: false,
       message: "Failed to delete subtask",
     });
@@ -513,26 +538,29 @@ exports.createSubSubTask = async (req, res) => {
       return res.status(400).json({ success: false, message: "subTaskId and title are required" });
     }
 
-    // Build the new sub-subtask
-    const newSubSubTask = {
+    // Step 1: Create the new sub-subtask document
+    const newSubSubTask = await SubTask.create({
       title,
       userId: userId || null,
       dateOfCompletion: dueDate || null,
       status: stageId || null,
       isDeleted: false,
-    };
+    });
 
-    // Push the sub-subtask into the subTasks array
+    // Step 2: Push the created subtask's _id into the parent subTask
     const updatedSubTask = await SubTask.findByIdAndUpdate(
-      { _id: id},
-      { $push: { subTasks: newSubSubTask } },
-      { new: true } // return the updated document
-    );
+      id,
+      { $push: { subTasks: newSubSubTask._id } },
+      { new: true }
+    ).populate('subTasks'); // optional: populate to view nested data
 
     return res.json({ success: true, subTask: updatedSubTask });
   } catch (error) {
-    console.error("createSubSubTask error:", error);
-    return res.status(500).json({ success: false, message: "Failed to create sub-subtask" });
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "createSubSubTask");
+    return res.json({ success: false, message: "Failed to create sub-subtask" });
   }
 };
 
@@ -541,58 +569,73 @@ exports.updateSubSubTask = async (req, res) => {
     const { id, title, subTaskId, userId, dueDate, stageId } = req.body;
 
     if (!subTaskId || !id || !title) {
-      return res.status(400).json({ success: false, message: "subTaskId, Task ID, and title are required" });
+      return res.json({
+        success: false,
+        message: "subTaskId, sub-subTaskId, and title are required",
+      });
     }
-    const updatedSubTask = await SubTask.findOneAndUpdate(
-      { _id: subTaskId, "subTasks._id": id },
+
+    // Step 1: Update the referenced sub-subtask document directly
+    const updatedSubSubTask = await SubTask.findByIdAndUpdate(
+      id,
       {
-        $set: {
-          "subTasks.$.title": title,
-          "subTasks.$.userId": userId || null,
-          "subTasks.$.dateOfCompletion": dueDate || null,
-          "subTasks.$.status": stageId || null,
-          "subTasks.$.isDeleted": false
-        }
+        title,
+        userId: userId || null,
+        dateOfCompletion: dueDate || null,
+        status: stageId || null,
+        isDeleted: false,
       },
-      { new: true } // Return the updated document
-    )
+      { new: true }
+    );
 
-    if (!updatedSubTask) {
-      return res.status(404).json({ success: false, message: "Subtask not found" });
+    if (!updatedSubSubTask) {
+      return res
+        .json({ success: false, message: "Sub-subtask not found" });
     }
 
-    return res.json({ success: true, subTask: updatedSubTask });
+    // Step 2: Optionally get the parent subTask to return the latest populated structure
+    const updatedParentSubTask = await SubTask.findById(subTaskId).populate(
+      "subTasks"
+    );
+
+    return res.json({
+      success: true,
+      subTask: updatedParentSubTask,
+      updatedSubSubTask,
+    });
   } catch (error) {
-    console.error("updateSubSubTask error:", error);
-    return res.status(500).json({ success: false, message: "Failed to update sub-subtask" });
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "updateSubSubTask");
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to update sub-subtask" });
   }
 };
 
 exports.deleteSubSubTask = async (req, res) => {
   try {
-    const { taskId, subTaskId, subsubTaskId } = req.body;
+    const { subTaskId, subsubTaskId } = req.body;
 
-    if (!taskId || !subTaskId || !subsubTaskId) {
-      return res.status(400).json({ success: false, message: "taskId, subTaskId, and subsubTaskId are required" });
+    if (!subTaskId || !subsubTaskId) {
+      return res.json({ success: false, message: "subTaskId and subsubTaskId are required" });
     }
 
-    // Mark the sub-subtask as deleted
-    const updatedSubTask = await SubTask.findOneAndUpdate(
-      { _id: subTaskId, "subTasks._id": subsubTaskId },
-      { $set: { "subTasks.$.isDeleted": true } },
-      { new: true }
-    )
-    if (!updatedSubTask) {
-      return res.status(404).json({ success: false, message: "Sub-subtask not found" });
-    }
-
-    return res.json({
-      success: true,
-      msg: "Sub-subtask deleted successfully",
-      result: updatedSubTask,
+    // Remove reference from parent
+    await SubTask.findByIdAndUpdate(subTaskId, {
+      $pull: { subTasks: subsubTaskId }
     });
+
+    // Optionally delete the subtask document itself
+    await SubTask.findByIdAndDelete(subsubTaskId);
+
+    return res.json({ success: true, message: "Sub-subtask deleted successfully" });
   } catch (error) {
-    console.error("deleteSubSubTask error:", error);
-    return res.status(500).json({ success: false, message: "Failed to delete sub-subtask" });
+    logError({
+      message: error.message,
+      stack: error.stack
+    }, "deleteSubSubTask");
+    return res.json({ success: false, message: "Failed to delete sub-subtask" });
   }
 };
