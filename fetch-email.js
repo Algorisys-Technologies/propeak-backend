@@ -428,6 +428,7 @@ class MailAttachmentFetcherProject {
     if (err) return console.error("Error opening INBOX:", err);
 
     const searchCriteria = [
+      "ALL",
       ["SINCE", this.targetDate.toISOString()],
       ["BEFORE", this.targetEndDate.toISOString()],
     ];
@@ -558,6 +559,8 @@ exports.fetchEmailGroup = async ({
 
   await Promise.all(fetchers);
 
+  //console.log("allEmails..", allEmails);
+
   // Loop through fetched emails
   for (const email of allEmails) {
     try {
@@ -609,7 +612,39 @@ exports.fetchEmailGroup = async ({
       await newProject.save();
 
       // ✅ Save attachments properly via helper
+      // for (const attachment of email.attachments) {
+      //   console.log("attachment...", attachment);
+      //   const fileName = attachment.filename || `attachment_${Date.now()}`;
+      //   await saveAttachmentFile({
+      //     companyId,
+      //     projectId: newProject._id,
+      //     fileName,
+      //     fileContent: attachment.content,
+      //     createdBy: userId,
+      //   });
+      // }
+
       for (const attachment of email.attachments) {
+        console.log("attachment...", attachment);
+
+        // Check if attachment is a real file
+        const isFile =
+          attachment.contentType ===
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || // Excel
+          attachment.contentType === "application/vnd.ms-excel" || // Older Excel
+          attachment.contentType.startsWith("application/") || // Other binary files like PDF, docx
+          attachment.contentType.startsWith("image/"); // Images
+
+        if (!isFile) {
+          console.log(
+            `⚠️ Skipping attachment "${
+              attachment.filename || "unknown"
+            }": not a downloadable file. Use Google Drive API to download the file programmatically (requires OAuth and permission).`
+          );
+          continue; // skip this attachment
+        }
+
+        // Save real file
         const fileName = attachment.filename || `attachment_${Date.now()}`;
         await saveAttachmentFile({
           companyId,
