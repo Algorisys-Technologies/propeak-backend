@@ -28,6 +28,12 @@ const TaskStageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    bgColor: {
+      type: String,
+    },
+    textColor: {
+      type: String,
+    }
   },
   { versionKey: false }
 );

@@ -9,7 +9,7 @@ const { logError } = require("../../common/logger");
 
 exports.create_project_stage = async (req, res) => {
   try {
-    const { sequence, title, displayName, show, companyId, createdBy } =
+    const { sequence, title, displayName, show, companyId, createdBy, textColor, bgColor } =
       req.body;
 
       const validation = await validateStages({ companyId, title, displayName, check : "create"});
@@ -30,6 +30,8 @@ exports.create_project_stage = async (req, res) => {
       createdOn: NOW,
       modifiedBy: createdBy,
       modifiedOn: NOW,
+      textColor,
+      bgColor,
     });
 
     const result = await newStage.save();
@@ -103,7 +105,7 @@ exports.get_project_stages_by_company = async (req, res) => {
       $or: [{ title: { $regex: regex } }, { displayName: { $regex: regex } }],
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
-    }).select("_id title displayName show sequence")
+    }).select("_id title displayName show sequence textColor bgColor")
     .sort({ sequence: 1 })
     .skip(page * limit).limit(limit);
 
@@ -351,6 +353,8 @@ exports.create_group_project_stage = async (req, res) => {
       companyId,
       groupId,
       createdBy,
+      textColor,
+      bgColor,
     } = req.body;
 
     const validation = await validateStages({ companyId, title, displayName, check : "group-create", groupId});
@@ -372,6 +376,8 @@ exports.create_group_project_stage = async (req, res) => {
       createdOn: new Date(),
       modifiedBy: createdBy,
       modifiedOn: new Date(),
+      textColor,
+      bgColor,
     });
 
     const result = await newStage.save();
@@ -455,7 +461,7 @@ exports.get_project_stages_by_group = async (req, res) => {
       groupId: toObjectId(groupId),
       companyId: toObjectId(companyId),
       isDeleted: { $ne: true },
-    }).select("_id title displayName show sequence")
+    }).select("_id title displayName show sequence textColor bgColor")
     .sort({ sequence: 1 })
     .skip(page * limit).limit(limit);
 
@@ -532,7 +538,7 @@ exports.get_project_stages_by_group = async (req, res) => {
 exports.update_group_project_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { sequence, title, displayName, show, groupId, modifiedBy, companyId } =
+    const { sequence, title, displayName, show, groupId, modifiedBy, companyId, textColor, bgColor } =
       req.body;
 
       const validation = await validateStages({ companyId, title, displayName, check : "group-update", id, groupId});
@@ -553,6 +559,8 @@ exports.update_group_project_stage = async (req, res) => {
         groupId,
         modifiedBy,
         modifiedOn: new Date(),
+        textColor,
+        bgColor,
       },
       { new: true }
     );
