@@ -29,6 +29,12 @@ const GroupTaskStageSchema = new mongoose.Schema(
       ref: "GroupMaster",
       required: true,
     },
+    bgColor: {
+      type: String,
+    },
+    textColor: {
+      type: String,
+    },
     isDeleted: {
       type: Boolean,
       default: false,

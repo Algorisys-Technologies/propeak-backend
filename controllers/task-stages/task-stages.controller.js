@@ -9,7 +9,7 @@ const { DEFAULT_PAGE, DEFAULT_QUERY, DEFAULT_LIMIT, toObjectId, NOW } = require(
 // Create a new task stage
 exports.create_task_stage = async (req, res) => {
   try {
-    const { sequence, title, displayName, show, companyId, createdBy } =
+    const { sequence, title, displayName, show, companyId, createdBy, textColor, bgColor } =
       req.body;
 
       const validation = await validateStages({ companyId, title, displayName, check : "create"});
@@ -30,6 +30,8 @@ exports.create_task_stage = async (req, res) => {
       createdOn: new Date(),
       modifiedBy: createdBy,
       modifiedOn: new Date(),
+      textColor,
+      bgColor,
     });
 
     const result = await newStage.save();
@@ -196,7 +198,7 @@ exports.get_task_stages_by_company = async (req, res) => {
       companyId: toObjectId(companyId),
       isDeleted: { $ne: true },
     }).sort({ sequence: 1 }) 
-    .select("_id title displayName show sequence")
+    .select("_id title displayName show sequence textColor bgColor")
     .skip(page * limit).limit(limit);
 
     const totalCount = await TaskStage.countDocuments({
@@ -461,7 +463,7 @@ exports.get_task_stages_by_group = async (req, res) => {
       companyId: new mongoose.Types.ObjectId(companyId),
       isDeleted: { $ne: true },
     }).sort({ sequence: 1 }) 
-    .select("_id title displayName show sequence")
+    .select("_id title displayName show sequence textColor bgColor")
     .skip(page*limit).limit(limit);
 
     const totalCount = await GroupTaskStage.countDocuments({
@@ -537,6 +539,8 @@ exports.create_group_task_stage = async (req, res) => {
       companyId,
       groupId,
       createdBy,
+      textColor,
+      bgColor,
     } = req.body;
 
     const validation = await validateStages({ companyId, title, displayName, check : "group-create", groupId});
@@ -565,6 +569,8 @@ exports.create_group_task_stage = async (req, res) => {
       createdOn: new Date(),
       modifiedBy: createdBy,
       modifiedOn: new Date(),
+      textColor,
+      bgColor,
     });
 
     const result = await newStage.save();
@@ -607,7 +613,7 @@ exports.create_group_task_stage = async (req, res) => {
 exports.update_group_task_stage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { sequence, title, displayName, show, groupId, modifiedBy, companyId } =
+    const { sequence, title, displayName, show, groupId, modifiedBy, companyId, textColor, bgColor } =
       req.body;
 
       const validation = await validateStages({ companyId, title, displayName, check : "group-update", id, groupId});
@@ -626,6 +632,8 @@ exports.update_group_task_stage = async (req, res) => {
       groupId,
       modifiedBy,
       modifiedOn: new Date(),
+      textColor,
+      bgColor,
     };
 
     const updatedStage = await GroupTaskStage.findByIdAndUpdate(

@@ -28,6 +28,12 @@ const ProjectStageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "GroupMaster",
     },
+    bgColor: {
+      type: String,
+    },
+    textColor: {
+      type: String,
+    }
   },
   { versionKey: false }
 );
