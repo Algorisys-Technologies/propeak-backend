@@ -625,7 +625,7 @@ exports.fetchEmailGroup = async ({
       // }
 
       for (const attachment of email.attachments) {
-        console.log("attachment...", attachment);
+        //console.log("attachment...", attachment);
 
         // Check if attachment is a real file
         const isFile =
@@ -655,7 +655,7 @@ exports.fetchEmailGroup = async ({
         });
       }
 
-      console.log(`✅ Project created with attachments: ${subject}`);
+      //console.log(`✅ Project created with attachments: ${subject}`);
     } catch (err) {
       console.error("❌ Error creating project with attachments:", err.message);
     }
