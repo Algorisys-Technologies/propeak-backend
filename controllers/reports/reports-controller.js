@@ -473,6 +473,11 @@ exports.getMonthlyGlobalTaskReport = async ({
       .populate({ path: "interested_products.product_id" })
       .lean();
 
+      const tasksPlainText = tasks.map((task) => ({
+        ...task,
+        description: htmlToPlainText(task.description),
+      }));
+
     let maxTask = null;
     let maxKeys = 0;
 
@@ -499,8 +504,8 @@ exports.getMonthlyGlobalTaskReport = async ({
 
     return {
       success: true,
-      data: tasks,
-      totalCount: tasks.length,
+      data: tasksPlainText,
+      totalCount: tasksPlainText.length,
       customFields: keyValuePairs,
     };
   } catch (error) {
@@ -630,6 +635,10 @@ exports.getMonthlyGlobalUserReport = async ({
     //   "Fetched user-specific tasks without pagination:",
     //   tasks.length
     // );
+    const tasksPlainText = tasks.map((task) => ({
+      ...task,
+      description: htmlToPlainText(task.description),
+    }));
 
     // Find task with max custom fields
     let maxTask = null;
@@ -657,8 +666,8 @@ exports.getMonthlyGlobalUserReport = async ({
 
     return {
       success: true,
-      data: tasks,
-      totalCount: tasks.length,
+      data: tasksPlainText,
+      totalCount: tasksPlainText.length,
       customFields,
     };
   } catch (error) {
@@ -763,6 +772,10 @@ exports.getMonthlyProjectTaskReport = async ({
       .lean();
 
     //console.log("Fetched project tasks:", tasks.length);
+    const tasksPlainText = tasks.map((task) => ({
+      ...task,
+      description: htmlToPlainText(task.description),
+    }));
 
     // Determine max custom field count task
     let maxTask = null;
@@ -790,8 +803,8 @@ exports.getMonthlyProjectTaskReport = async ({
 
     return {
       success: true,
-      data: tasks,
-      totalCount: tasks.length,
+      data: tasksPlainText,
+      totalCount: tasksPlainText.length,
       customFields,
     };
   } catch (error) {
@@ -899,6 +912,10 @@ exports.getMonthlyProjectUserReport = async ({
       .lean();
 
     //console.log("Fetched user-specific tasks for project:", tasks.length);
+    const tasksPlainText = tasks.map((task) => ({
+      ...task,
+      description: htmlToPlainText(task.description),
+    }));
 
     // Get task with max custom fields
     let maxTask = null;
@@ -923,8 +940,8 @@ exports.getMonthlyProjectUserReport = async ({
 
     return {
       success: true,
-      data: tasks,
-      totalCount: tasks.length,
+      data: tasksPlainText,
+      totalCount: tasksPlainText.length,
       customFields,
     };
   } catch (error) {
@@ -2583,3 +2600,8 @@ exports.sendNotificationAndEmailForLocation = async (req, res) => {
     return res.status(500).json({ error: "Failed to send notification/email" });
   }
 };
+
+function htmlToPlainText(html) {
+  if (!html) return "";
+  return html.replace(/<[^>]+>/g, "").trim(); // removes all HTML tags
+}
