@@ -85,8 +85,8 @@ const errors = {
 exports.getAllAccounts = async (req, res) => {
   const { companyId, page, query } = req.body;
 
-  //const regex = new RegExp(query, "i");
-  const regex = new RegExp(query);
+  const regex = new RegExp(query, "i");
+  //const regex = new RegExp(query);
   let limit;
 
   if (page >= 0) {

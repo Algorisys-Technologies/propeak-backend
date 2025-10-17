@@ -975,8 +975,8 @@ exports.getTasksTable = async (req, res) => {
 
     // Apply search filter if provided
     if (searchFilter) {
-      //const regex = new RegExp(searchFilter, "i");
-      const regex = new RegExp(searchFilter);
+      const regex = new RegExp(searchFilter, "i");
+      // const regex = new RegExp(searchFilter);
       condition.title = { $regex: regex };
     }
 
@@ -2913,8 +2913,8 @@ exports.getKanbanTasks = async (req, res) => {
     };
 
     if (searchFilter) {
-      //const regex = new RegExp(searchFilter, "i");
-      const regex = new RegExp(searchFilter);
+      const regex = new RegExp(searchFilter, "i");
+      // const regex = new RegExp(searchFilter);
       whereCondition.$or = [
         { title: { $regex: regex } },
         { description: { $regex: regex } },
@@ -3000,14 +3000,12 @@ exports.getKanbanTasks = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .populate("userId")
-      .populate({ path: "createdBy", select: "_id name email"})
+      .populate({ path: "createdBy", select: "_id name email" })
       .populate({
         path: "subtasks",
-        populate: { path: "userId", select: "name" }
+        populate: { path: "userId", select: "name" },
       })
       .lean();
-      
-
 
     const totalPages = Math.ceil(
       (await Task.countDocuments({

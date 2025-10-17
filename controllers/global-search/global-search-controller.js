@@ -21,8 +21,8 @@ exports.searchByTasksAndProjects = async (req, res) => {
 
     const limit = DEFAULT_LIMIT;
 
-    //const searchQuery = new RegExp(searchText, "i");
-    const searchQuery = new RegExp(searchText);
+    const searchQuery = new RegExp(searchText, "i");
+    //const searchQuery = new RegExp(searchText);
 
     // Build task query
     const taskQuery = {
