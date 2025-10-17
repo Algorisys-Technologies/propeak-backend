@@ -18,6 +18,50 @@ const Project = require("./models/project/project-model");
 const ProjectStage = require("./models/project-stages/project-stages-model");
 const { UploadFile } = require("./models/upload-file/upload-file-model");
 
+async function saveTaskAttachments({
+  attachments,
+  newTask,
+  companyId,
+  projectId,
+  createdBy,
+  taskStageTitle,
+}) {
+  for (const attachment of attachments) {
+    const fileName =
+      attachment.filename ||
+      `attachment_${newTask._id}_${attachments.indexOf(attachment) + 1}.bin`;
+
+    const tempPath = path.join(__dirname, "../../temp_uploads", fileName);
+    await fs.promises.mkdir(path.dirname(tempPath), { recursive: true });
+    await fs.promises.writeFile(tempPath, attachment.content);
+
+    const fakeReq = {
+      files: {
+        uploadFiles: [
+          {
+            name: fileName,
+            mimetype: attachment.contentType,
+            size: attachment.size,
+            mv: async (targetPath) => {
+              await fs.promises.rename(tempPath, targetPath);
+            },
+          },
+        ],
+      },
+    };
+
+    await validateAndSaveFiles(
+      fakeReq,
+      companyId,
+      projectId,
+      newTask._id,
+      uploadFolder,
+      createdBy,
+      taskStageTitle || "todo"
+    );
+  }
+}
+
 class MailAttachmentFetcher {
   constructor({
     emailConfig,
@@ -145,12 +189,14 @@ class MailAttachmentFetcher {
             if (emailDate < this.targetDate || emailDate > this.targetEndDate)
               return;
 
+            const currentDate = new Date();
+
             try {
               const emailData = {
                 from: parsed.from.text || "Unknown",
                 to: parsed.to.text || "Unknown",
                 subject: parsed.subject || "No Subject",
-                date: parsed.date || new Date(),
+                date: parsed.date || currentDate,
                 bodyText: parsed.text || "",
                 status: isSeen ? "seen" : "unseen",
                 attachments: parsed.attachments || [],
@@ -193,9 +239,9 @@ class MailAttachmentFetcher {
                 completed: false,
                 status: taskStageTitle || "todo",
                 startDate: new Date(emailData.date),
-                endDate: new Date(),
-                createdOn: new Date(),
-                modifiedOn: new Date(),
+                endDate: currentDate,
+                createdOn: currentDate,
+                modifiedOn: currentDate,
                 createdBy: this.createdBy,
                 isDeleted: false,
                 projectId: this.projectId,
@@ -210,48 +256,56 @@ class MailAttachmentFetcher {
 
               // ✅ Step 2: Save attachments
               if (emailData.attachments.length > 0) {
-                for (const attachment of emailData.attachments) {
-                  const fileName =
-                    attachment.filename ||
-                    `attachment_${newTask._id}_${
-                      emailData.attachments.indexOf(attachment) + 1
-                    }.bin`;
+                await saveTaskAttachments({
+                  attachments: emailData.attachments,
+                  newTask,
+                  companyId: this.companyId,
+                  projectId: this.projectId,
+                  createdBy: this.createdBy,
+                  taskStageTitle,
+                });
+                // for (const attachment of emailData.attachments) {
+                //   const fileName =
+                //     attachment.filename ||
+                //     `attachment_${newTask._id}_${
+                //       emailData.attachments.indexOf(attachment) + 1
+                //     }.bin`;
 
-                  const tempPath = path.join(
-                    __dirname,
-                    "../../temp_uploads",
-                    fileName
-                  );
-                  await fs.promises.mkdir(path.dirname(tempPath), {
-                    recursive: true,
-                  });
-                  await fs.promises.writeFile(tempPath, attachment.content);
+                //   const tempPath = path.join(
+                //     __dirname,
+                //     "../../temp_uploads",
+                //     fileName
+                //   );
+                //   await fs.promises.mkdir(path.dirname(tempPath), {
+                //     recursive: true,
+                //   });
+                //   await fs.promises.writeFile(tempPath, attachment.content);
 
-                  const fakeReq = {
-                    files: {
-                      uploadFiles: [
-                        {
-                          name: fileName,
-                          mimetype: attachment.contentType,
-                          size: attachment.size,
-                          mv: async (targetPath) => {
-                            await fs.promises.rename(tempPath, targetPath);
-                          },
-                        },
-                      ],
-                    },
-                  };
+                //   const fakeReq = {
+                //     files: {
+                //       uploadFiles: [
+                //         {
+                //           name: fileName,
+                //           mimetype: attachment.contentType,
+                //           size: attachment.size,
+                //           mv: async (targetPath) => {
+                //             await fs.promises.rename(tempPath, targetPath);
+                //           },
+                //         },
+                //       ],
+                //     },
+                //   };
 
-                  await validateAndSaveFiles(
-                    fakeReq,
-                    this.companyId,
-                    this.projectId,
-                    newTask._id,
-                    uploadFolder,
-                    this.createdBy,
-                    taskStageTitle || "todo"
-                  );
-                }
+                //   await validateAndSaveFiles(
+                //     fakeReq,
+                //     this.companyId,
+                //     this.projectId,
+                //     newTask._id,
+                //     uploadFolder,
+                //     this.createdBy,
+                //     taskStageTitle || "todo"
+                //   );
+                // }
               }
             } catch (error) {
               console.error("Error processing email:", error);
@@ -561,6 +615,12 @@ exports.fetchEmailGroup = async ({
 
   //console.log("allEmails..", allEmails);
 
+  const userObjId = new mongoose.Types.ObjectId(userId);
+  const companyObjId = new mongoose.Types.ObjectId(companyId);
+  const groupObjId = new mongoose.Types.ObjectId(groupId);
+  const projectStageObjId = new mongoose.Types.ObjectId(projectStageId);
+  const projectTypeObjId = new mongoose.Types.ObjectId(projectTypeId);
+
   // Loop through fetched emails
   for (const email of allEmails) {
     try {
@@ -582,25 +642,25 @@ exports.fetchEmailGroup = async ({
         description: bodyText || "No description provided.",
         startdate: new Date(email.date || Date.now()),
         enddate: new Date(),
-        projectStageId: new mongoose.Types.ObjectId(projectStageId),
+        projectStageId: projectStageObjId,
         status: stageTitle,
         taskStages: ["todo", "inprogress", "completed"],
-        notifyUsers: [new mongoose.Types.ObjectId(userId)],
-        projectUsers: [new mongoose.Types.ObjectId(userId)],
-        userid: new mongoose.Types.ObjectId(userId),
-        group: new mongoose.Types.ObjectId(groupId),
-        companyId: new mongoose.Types.ObjectId(companyId),
+        notifyUsers: [userObjId],
+        projectUsers: [userObjId],
+        userid: userObjId,
+        group: groupObjId,
+        companyId: companyObjId,
         userGroups: [],
         sendnotification: false,
-        createdBy: new mongoose.Types.ObjectId(userId),
+        createdBy: userObjId,
         createdOn: new Date(),
-        modifiedBy: new mongoose.Types.ObjectId(userId),
+        modifiedBy: userObjId,
         modifiedOn: new Date(),
         isDeleted: false,
         projectType: "AUTO",
         creation_mode: "AUTO",
         lead_source: "EMAIL",
-        projectTypeId: new mongoose.Types.ObjectId(projectTypeId),
+        projectTypeId: projectTypeObjId,
         miscellaneous: false,
         archive: false,
         customFieldValues: {},
@@ -610,19 +670,6 @@ exports.fetchEmailGroup = async ({
       });
 
       await newProject.save();
-
-      // ✅ Save attachments properly via helper
-      // for (const attachment of email.attachments) {
-      //   console.log("attachment...", attachment);
-      //   const fileName = attachment.filename || `attachment_${Date.now()}`;
-      //   await saveAttachmentFile({
-      //     companyId,
-      //     projectId: newProject._id,
-      //     fileName,
-      //     fileContent: attachment.content,
-      //     createdBy: userId,
-      //   });
-      // }
 
       for (const attachment of email.attachments) {
         //console.log("attachment...", attachment);
