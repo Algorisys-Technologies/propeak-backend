@@ -76,8 +76,8 @@ exports.getAllContact = async (req, res) => {
     // Build OR conditions only if q exists
     const orConditions = [];
     if (q) {
-      //const regex = new RegExp(q, "i");
-      const regex = new RegExp(q);
+      const regex = new RegExp(q, "i");
+      //const regex = new RegExp(q);
       if (/^\d+$/.test(q)) {
         // Input is only numbers → search phone
         orConditions.push({ phone: { $regex: regex } });

@@ -13,8 +13,8 @@ exports.list = async function (req, res) {
   try {
     const page = req.query.page ? req.query.page : DEFAULT_PAGE;
     const q = req.query.q || DEFAULT_QUERY;
-    //const regex = new RegExp(q, "i");
-    const regex = new RegExp(q);
+    const regex = new RegExp(q, "i");
+    //const regex = new RegExp(q);
 
     const limit = DEFAULT_LIMIT;
     const products = await Product.find({

@@ -2357,8 +2357,8 @@ exports.getKanbanProjectsData = async (req, res) => {
     };
 
     if (searchFilter) {
-      //const regex = new RegExp(searchFilter, "i");
-      const regex = new RegExp(searchFilter);
+      const regex = new RegExp(searchFilter, "i");
+      //const regex = new RegExp(searchFilter);
       projectWhereCondition.$and = [
         { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
         {
@@ -3416,8 +3416,8 @@ exports.getKanbanProjectsByGroup = async (req, res) => {
 
     // merge search filter instead of overwriting
     if (searchFilter) {
-      //const regex = new RegExp(searchFilter, "i");
-      const regex = new RegExp(searchFilter);
+      const regex = new RegExp(searchFilter, "i");
+      //const regex = new RegExp(searchFilter);
       projectWhereCondition.$and.push({
         $or: [
           { title: { $regex: regex } },
