@@ -721,6 +721,7 @@ exports.fetchIndiaMartSettingsGroup = async (req, res) => {
               leads_details: `${lead.QUERY_PRODUCT_NAME},${lead.QUERY_MESSAGE},${lead.QUERY_MCAT_NAME}`,
             },
             isDeleted: false,
+            priority: "low",
           });
 
           await newTask.save();

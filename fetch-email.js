@@ -250,6 +250,7 @@ class MailAttachmentFetcher {
                 userId: assigneeUserId,
                 creation_mode: "AUTO",
                 lead_source: "EMAIL",
+                priority: "low",
               });
 
               await newTask.save();
