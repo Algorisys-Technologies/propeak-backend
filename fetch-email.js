@@ -16,6 +16,7 @@ const Task = require("./models/task/task-model");
 const TaskStage = require("./models/task-stages/task-stages-model");
 const Project = require("./models/project/project-model");
 const ProjectStage = require("./models/project-stages/project-stages-model");
+const GroupProjectStage = require("./models/project-stages/group-project-stages-model");
 const { UploadFile } = require("./models/upload-file/upload-file-model");
 
 async function saveTaskAttachments({
@@ -614,7 +615,7 @@ exports.fetchEmailGroup = async ({
 
   await Promise.all(fetchers);
 
-  //console.log("allEmails..", allEmails);
+  console.log("allEmails..", allEmails);
 
   const userObjId = new mongoose.Types.ObjectId(userId);
   const companyObjId = new mongoose.Types.ObjectId(companyId);
@@ -635,7 +636,14 @@ exports.fetchEmailGroup = async ({
       });
       if (existingProject) continue;
 
-      const projectStage = await ProjectStage.findById(projectStageId);
+      // const projectStage = await ProjectStage.findById(projectStageId);
+      // const stageTitle = projectStage?.title || "todo";
+
+      // Fetch stage either from ProjectStage or fallback to GroupProjectStage
+      let projectStage = await ProjectStage.findById(projectStageId);
+      if (!projectStage) {
+        projectStage = await GroupProjectStage.findById(projectStageId);
+      }
       const stageTitle = projectStage?.title || "todo";
 
       const newProject = new Project({
